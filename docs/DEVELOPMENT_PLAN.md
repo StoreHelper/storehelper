@@ -9,7 +9,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 2: Strict multi-application configuration.
 - [x] Task 3: Secure Huawei Service Account credentials.
 - [x] Task 4: APK/AAB validation and logical file naming.
-- [ ] Task 5: PS256 authentication and Huawei error mapping.
+- [x] Task 5: PS256 authentication and Huawei error mapping.
 - [ ] Task 6: Sanitized Huawei upload and binding client.
 - [ ] Task 7: Compile polling, release notes, submission, and status.
 - [ ] Task 8: Atomic redacted run receipts.
@@ -48,7 +48,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Milestone 3: Huawei publishing adapter
 
-- [ ] Generate and normalize Huawei PS256 Service Account JWTs.
+- [x] Generate and normalize Huawei PS256 Service Account JWTs.
 - [ ] Validate credentials against a read-only Huawei endpoint.
 - [x] Validate APK/AAB files and generate safe logical file names.
 - [ ] Request a Huawei upload URL and stream the package upload.
@@ -57,7 +57,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [ ] Update only the selected language's release notes.
 - [ ] Submit the package for Huawei review.
 - [ ] Query the current Huawei review state.
-- [ ] Translate Huawei errors into safe, actionable StoreHelper errors.
+- [x] Translate Huawei errors into safe, actionable StoreHelper errors.
 
 ## Milestone 4: Orchestration and recovery
 
