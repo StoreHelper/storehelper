@@ -122,8 +122,7 @@ class Publisher:
                 stage=PublishStage.COMPLETED,
                 run_id=receipt.run_id,
                 message=(
-                    "Configuration and package validation succeeded; "
-                    "no network calls were made."
+                    "Configuration and package validation succeeded; no network calls were made."
                 ),
             )
         return await self._continue(
@@ -233,7 +232,28 @@ class Publisher:
                 receipt = self._transition(receipt, RunState.METADATA_UPDATED)
 
             if receipt.state is RunState.METADATA_UPDATED:
-                await self._adapter.submit(app_id=receipt.app_id)
+                try:
+                    await self._adapter.submit(app_id=receipt.app_id)
+                except HuaweiVendorError as error:
+                    if error.code != "HUAWEI_PACKAGE_COMPILING":
+                        raise
+                    receipt = self._transition(receipt, RunState.PACKAGE_COMPILING)
+                    ready = await self._wait_until_ready(
+                        receipt,
+                        poll_interval=poll_interval,
+                        wait_timeout=wait_timeout,
+                    )
+                    if not ready:
+                        receipt = self._transition(receipt, RunState.TIMED_OUT)
+                        return OperationResult.failure(
+                            stage=PublishStage.TIMED_OUT,
+                            run_id=receipt.run_id,
+                            message=error.message,
+                            resumable=True,
+                            vendor_code=error.vendor_code,
+                        )
+                    receipt = self._transition(receipt, RunState.METADATA_UPDATED)
+                    await self._adapter.submit(app_id=receipt.app_id)
                 receipt = self._transition(receipt, RunState.SUBMITTED)
 
             if receipt.state is RunState.SUBMITTED:

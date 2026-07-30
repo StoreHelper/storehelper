@@ -59,9 +59,11 @@ class HuaweiClient:
         **kwargs: Any,
     ) -> httpx.Response:
         url = f"{self._api_base}/{path.lstrip('/')}"
-        for attempt in range(2):
+        auth_refreshed = False
+        transient_attempts = 0
+        while True:
             headers = dict(kwargs.pop("headers", {}))
-            headers.update(self._auth.headers(force_refresh=attempt == 1))
+            headers.update(self._auth.headers(force_refresh=auth_refreshed))
             try:
                 response = await self._http.request(
                     method,
@@ -72,9 +74,15 @@ class HuaweiClient:
                 )
             except httpx.HTTPError:
                 raise self._network_error("Could not reach the Huawei Publishing API.") from None
-            if response.status_code not in (401, 403) or attempt == 1:
-                return response
-        raise AssertionError("unreachable")
+            if response.status_code in (401, 403) and not auth_refreshed:
+                auth_refreshed = True
+                continue
+            if (
+                response.status_code == 429 or response.status_code >= 500
+            ) and transient_attempts < 2:
+                transient_attempts += 1
+                continue
+            return response
 
     async def request_json(
         self,
@@ -85,6 +93,10 @@ class HuaweiClient:
         response = await self._send_authenticated(method, path, **kwargs)
         if response.is_redirect:
             raise self._network_error("Huawei returned an unexpected redirect.")
+        if response.status_code == 429 or response.status_code >= 500:
+            raise self._network_error(
+                f"Huawei Publishing API returned HTTP {response.status_code} after retries."
+            )
         data = self._decode_json(response)
         status = parse_huawei_response(data)
         if not status.success:

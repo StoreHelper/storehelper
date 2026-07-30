@@ -125,6 +125,26 @@ async def test_authenticated_request_retries_once_after_unauthorized(
 
 
 @pytest.mark.asyncio
+async def test_authenticated_request_retries_transient_server_failures(
+    rsa_private_key: str,
+) -> None:
+    attempts = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            return httpx.Response(503, json={"ret": {"code": 503}})
+        return httpx.Response(200, json={"ret": {"code": 0}, "appids": [{"appId": "1"}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = HuaweiClient(auth=_auth(rsa_private_key), http=http)
+        await client.verify_app(app_id="1", package_name="com.example.app")
+
+    assert attempts == 3
+
+
+@pytest.mark.asyncio
 async def test_missing_upload_auth_code_is_safe(
     rsa_private_key: str,
 ) -> None:

@@ -6,11 +6,13 @@ from pathlib import Path
 import pytest
 
 from storehelper.config.models import ApplicationConfig
+from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import PublishRequest, PublishStage
 from storehelper.publishing.service import Publisher
 from storehelper.runs.models import RunState
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.huawei.adapter import CompileState, CompileStatus, ReviewStatus
+from storehelper.stores.huawei.errors import HuaweiVendorError
 from storehelper.stores.huawei.models import BoundPackage, HuaweiApp
 from storehelper.stores.huawei.package import PackageInfo
 
@@ -19,6 +21,7 @@ class FakeAdapter:
     def __init__(self, compile_states: list[CompileState] | None = None) -> None:
         self.compile_states = compile_states or [CompileState.READY]
         self.calls: list[str] = []
+        self.submit_compiling_once = False
 
     async def verify(self, *, app_id: str, package_name: str) -> HuaweiApp:
         self.calls.append("verify")
@@ -48,6 +51,15 @@ class FakeAdapter:
 
     async def submit(self, *, app_id: str) -> str:
         self.calls.append("submit")
+        if self.submit_compiling_once:
+            self.submit_compiling_once = False
+            raise HuaweiVendorError(
+                "HUAWEI_PACKAGE_COMPILING",
+                "Package is still compiling.",
+                ExitCode.RESUMABLE_TIMEOUT,
+                resumable=True,
+                vendor_code="204144727",
+            )
         return app_id
 
     async def review_status(self, *, app_id: str) -> ReviewStatus:
@@ -227,3 +239,27 @@ async def test_status_uses_normalized_adapter_result(tmp_path: Path) -> None:
 
     assert result.ok is True
     assert result.message.endswith("in_review")
+
+
+@pytest.mark.asyncio
+async def test_submit_compiling_rechecks_compile_state_then_retries(tmp_path: Path) -> None:
+    adapter = FakeAdapter([CompileState.READY])
+    adapter.submit_compiling_once = True
+    publisher = Publisher(
+        adapter=adapter,
+        repository=RunRepository(tmp_path / "runs"),
+        application=_application(),
+    )
+
+    result = await publisher.publish(_request(_package(tmp_path)))
+
+    assert result.ok is True
+    assert adapter.calls == [
+        "verify",
+        "upload",
+        "compile",
+        "notes",
+        "submit",
+        "compile",
+        "submit",
+    ]

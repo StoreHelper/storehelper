@@ -15,7 +15,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 8: Atomic redacted run receipts.
 - [x] Task 9: Publishing orchestration and recovery.
 - [x] Task 10: Output renderers and foundational CLI commands.
-- [ ] Task 11: Publish, resume, status, and run commands.
+- [x] Task 11: Publish, resume, status, and run commands.
 - [ ] Task 12: CI, documentation, build, and installed CLI verification.
 
 ## Milestone 0: Product and architecture
@@ -64,16 +64,16 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Implement `publish`, `--dry-run`, `--no-submit`, and `--yes`.
 - [x] Persist redacted run receipts atomically in platform-specific state directories.
 - [x] Detect an unfinished run for the same app and package SHA-256.
-- [ ] Implement `resume`, `status`, and `runs` commands.
+- [x] Implement `resume`, `status`, and `runs` commands.
 - [x] Handle timeout and interruption as resumable outcomes.
 - [x] Keep machine JSON on stdout and progress or diagnostics on stderr.
 - [x] Implement stable result schema version 1 and documented exit codes.
 
 ## Milestone 5: Quality and security verification
 
-- [ ] Cover configuration, credentials, JWT, package, state, and renderer behavior with unit tests.
-- [ ] Cover the Huawei HTTP contract with mocked integration tests based on complete documented responses.
-- [ ] Cover full publish, timeout, resume, no-submit, dry-run, and JSON CLI flows.
+- [x] Cover configuration, credentials, JWT, package, state, and renderer behavior with unit tests.
+- [x] Cover the Huawei HTTP contract with mocked integration tests based on complete documented responses.
+- [x] Cover full publish, timeout, resume, no-submit, dry-run, and JSON CLI flows.
 - [ ] Verify secrets and temporary upload values are redacted from logs, receipts, and JSON.
 - [ ] Pass formatting, linting, static typing, tests, coverage, package build, and CLI smoke tests.
 
