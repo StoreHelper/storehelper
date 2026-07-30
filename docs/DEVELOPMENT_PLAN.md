@@ -6,7 +6,7 @@ Checkboxes are updated only after the related implementation and verification su
 ## Implementation task status
 
 - [x] Task 1: Package foundation and domain contract.
-- [ ] Task 2: Strict multi-application configuration.
+- [x] Task 2: Strict multi-application configuration.
 - [ ] Task 3: Secure Huawei Service Account credentials.
 - [ ] Task 4: APK/AAB validation and logical file naming.
 - [ ] Task 5: PS256 authentication and Huawei error mapping.
@@ -38,8 +38,8 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Milestone 2: Configuration and credentials
 
-- [ ] Implement strict `storehelper.yaml` parsing and validation.
-- [ ] Implement multi-application selection.
+- [x] Implement strict `storehelper.yaml` parsing and validation.
+- [x] Implement multi-application selection.
 - [ ] Implement `storehelper init` and `storehelper config validate`.
 - [ ] Import Huawei Service Account JSON into the operating-system keyring.
 - [ ] Load credentials from CI environment variables or a CI secret file.
