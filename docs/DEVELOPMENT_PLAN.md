@@ -13,7 +13,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 6: Sanitized Huawei upload and binding client.
 - [x] Task 7: Compile polling, release notes, submission, and status.
 - [x] Task 8: Atomic redacted run receipts.
-- [ ] Task 9: Publishing orchestration and recovery.
+- [x] Task 9: Publishing orchestration and recovery.
 - [ ] Task 10: Output renderers and foundational CLI commands.
 - [ ] Task 11: Publish, resume, status, and run commands.
 - [ ] Task 12: CI, documentation, build, and installed CLI verification.
@@ -61,13 +61,13 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Milestone 4: Orchestration and recovery
 
-- [ ] Implement `publish`, `--dry-run`, `--no-submit`, and `--yes`.
+- [x] Implement `publish`, `--dry-run`, `--no-submit`, and `--yes`.
 - [x] Persist redacted run receipts atomically in platform-specific state directories.
 - [x] Detect an unfinished run for the same app and package SHA-256.
 - [ ] Implement `resume`, `status`, and `runs` commands.
-- [ ] Handle timeout and interruption as resumable outcomes.
+- [x] Handle timeout and interruption as resumable outcomes.
 - [ ] Keep machine JSON on stdout and progress or diagnostics on stderr.
-- [ ] Implement stable result schema version 1 and documented exit codes.
+- [x] Implement stable result schema version 1 and documented exit codes.
 
 ## Milestone 5: Quality and security verification
 

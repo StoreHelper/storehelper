@@ -2,9 +2,12 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+from storehelper.domain.models import OperationResult, PublishRequest
+from storehelper.publishing.service import Publisher
+
 try:
     __version__ = version("storehelper")
 except PackageNotFoundError:
     __version__ = "0.1.0"
 
-__all__ = ["__version__"]
+__all__ = ["OperationResult", "PublishRequest", "Publisher", "__version__"]
