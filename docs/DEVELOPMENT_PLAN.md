@@ -8,7 +8,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 1: Package foundation and domain contract.
 - [x] Task 2: Strict multi-application configuration.
 - [x] Task 3: Secure Huawei Service Account credentials.
-- [ ] Task 4: APK/AAB validation and logical file naming.
+- [x] Task 4: APK/AAB validation and logical file naming.
 - [ ] Task 5: PS256 authentication and Huawei error mapping.
 - [ ] Task 6: Sanitized Huawei upload and binding client.
 - [ ] Task 7: Compile polling, release notes, submission, and status.
@@ -50,7 +50,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 - [ ] Generate and normalize Huawei PS256 Service Account JWTs.
 - [ ] Validate credentials against a read-only Huawei endpoint.
-- [ ] Validate APK/AAB files and generate safe logical file names.
+- [x] Validate APK/AAB files and generate safe logical file names.
 - [ ] Request a Huawei upload URL and stream the package upload.
 - [ ] Bind the uploaded package and capture `pkgVersion`.
 - [ ] Poll package compilation with documented status mapping.
