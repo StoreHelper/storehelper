@@ -14,7 +14,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 7: Compile polling, release notes, submission, and status.
 - [x] Task 8: Atomic redacted run receipts.
 - [x] Task 9: Publishing orchestration and recovery.
-- [ ] Task 10: Output renderers and foundational CLI commands.
+- [x] Task 10: Output renderers and foundational CLI commands.
 - [ ] Task 11: Publish, resume, status, and run commands.
 - [ ] Task 12: CI, documentation, build, and installed CLI verification.
 
@@ -31,7 +31,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Milestone 1: Project foundation
 
-- [ ] Create the Python package and `storehelper` console entry point.
+- [x] Create the Python package and `storehelper` console entry point.
 - [x] Configure Ruff, mypy, pytest, coverage, and build tooling.
 - [ ] Add GitHub Actions for Python 3.11-3.14.
 - [ ] Add contributor development commands and repository metadata.
@@ -40,7 +40,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 - [x] Implement strict `storehelper.yaml` parsing and validation.
 - [x] Implement multi-application selection.
-- [ ] Implement `storehelper init` and `storehelper config validate`.
+- [x] Implement `storehelper init` and `storehelper config validate`.
 - [x] Import Huawei Service Account JSON into the operating-system keyring.
 - [x] Load credentials from CI environment variables or a CI secret file.
 - [x] Fall back to secure interactive input only in an interactive terminal.
@@ -66,7 +66,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Detect an unfinished run for the same app and package SHA-256.
 - [ ] Implement `resume`, `status`, and `runs` commands.
 - [x] Handle timeout and interruption as resumable outcomes.
-- [ ] Keep machine JSON on stdout and progress or diagnostics on stderr.
+- [x] Keep machine JSON on stdout and progress or diagnostics on stderr.
 - [x] Implement stable result schema version 1 and documented exit codes.
 
 ## Milestone 5: Quality and security verification
