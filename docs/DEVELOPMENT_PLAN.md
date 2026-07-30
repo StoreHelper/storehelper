@@ -12,7 +12,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Define the local-first credential, configuration, output, and recovery policies.
 - [x] Define the publishing state machine and polling behavior.
 - [x] Write the implementation-ready design specification.
-- [ ] Write and self-review the task-level implementation plan.
+- [x] Write and self-review the task-level implementation plan.
 
 ## Milestone 1: Project foundation
 
@@ -79,4 +79,3 @@ Checkboxes are updated only after the related implementation and verification su
 - [ ] Additional Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.
-
