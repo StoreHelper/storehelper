@@ -76,7 +76,7 @@ class HuaweiClient:
                 return response
         raise AssertionError("unreachable")
 
-    async def _authenticated_json(
+    async def request_json(
         self,
         method: str,
         path: str,
@@ -105,7 +105,7 @@ class HuaweiClient:
         return value
 
     async def verify_app(self, *, app_id: str, package_name: str) -> HuaweiApp:
-        data = await self._authenticated_json(
+        data = await self.request_json(
             "GET",
             "appid-list",
             params={"packageName": package_name, "packageTypes": "1"},
@@ -129,7 +129,7 @@ class HuaweiClient:
         return HuaweiApp(app_id=app_id, package_name=package_name)
 
     async def request_upload(self, *, app_id: str, suffix: str) -> UploadTicket:
-        data = await self._authenticated_json(
+        data = await self.request_json(
             "GET",
             "upload-url",
             params={"appId": app_id, "suffix": suffix.lstrip(".")},
@@ -210,7 +210,7 @@ class HuaweiClient:
         package: PackageInfo,
         destination: str,
     ) -> BoundPackage:
-        data = await self._authenticated_json(
+        data = await self.request_json(
             "PUT",
             "app-file-info",
             params={"appId": app_id, "releaseType": "1"},

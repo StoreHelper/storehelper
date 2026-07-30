@@ -11,7 +11,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 4: APK/AAB validation and logical file naming.
 - [x] Task 5: PS256 authentication and Huawei error mapping.
 - [x] Task 6: Sanitized Huawei upload and binding client.
-- [ ] Task 7: Compile polling, release notes, submission, and status.
+- [x] Task 7: Compile polling, release notes, submission, and status.
 - [ ] Task 8: Atomic redacted run receipts.
 - [ ] Task 9: Publishing orchestration and recovery.
 - [ ] Task 10: Output renderers and foundational CLI commands.
@@ -53,10 +53,10 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Validate APK/AAB files and generate safe logical file names.
 - [x] Request a Huawei upload URL and stream the package upload.
 - [x] Bind the uploaded package and capture `pkgVersion`.
-- [ ] Poll package compilation with documented status mapping.
-- [ ] Update only the selected language's release notes.
-- [ ] Submit the package for Huawei review.
-- [ ] Query the current Huawei review state.
+- [x] Poll package compilation with documented status mapping.
+- [x] Update only the selected language's release notes.
+- [x] Submit the package for Huawei review.
+- [x] Query the current Huawei review state.
 - [x] Translate Huawei errors into safe, actionable StoreHelper errors.
 
 ## Milestone 4: Orchestration and recovery
