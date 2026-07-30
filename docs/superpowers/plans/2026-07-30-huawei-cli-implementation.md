@@ -90,6 +90,7 @@ def test_operation_result_serializes_stable_schema():
         "next_action": None,
     }
 
+
 def test_redact_removes_pem_jwt_and_authorization():
     value = "Authorization: Bearer aaa.bbb.ccc\\n-----BEGIN PRIVATE KEY-----\\nsecret\\n-----END PRIVATE KEY-----"
     redacted = redact(value)
@@ -155,6 +156,7 @@ apps:
     assert alias == "wallet"
     assert app.stores.huawei.language == "zh-CN"
 
+
 @pytest.mark.parametrize("secret_key", ["private_key", "client_secret", "access_token", "password"])
 def test_rejects_secret_fields_anywhere(tmp_path, secret_key):
     path = write_config(tmp_path, extra=f"        {secret_key}: leaked")
@@ -212,6 +214,7 @@ def test_environment_credentials_win_over_keyring(monkeypatch, fake_keyring):
     resolved = CredentialProvider(fake_keyring).resolve("company", interactive=False)
     assert resolved.key_id == "env-kid"
 
+
 def test_service_account_repr_never_contains_private_key():
     account = valid_account(private_key="super-secret-private-key")
     assert "super-secret-private-key" not in repr(account)
@@ -263,12 +266,16 @@ git commit -m "feat: secure Huawei service account credentials"
 - [ ] **Step 1: Write failing table-driven filename and package tests**
 
 ```python
-@pytest.mark.parametrize(("source", "expected"), [
-    ("1785240000000-12ab34cd-app-release.apk", "app-release.apk"),
-    ("../../bad\\x00name.aab", "badname.aab"),
-])
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("1785240000000-12ab34cd-app-release.apk", "app-release.apk"),
+        ("../../bad\\x00name.aab", "badname.aab"),
+    ],
+)
 def test_logical_package_name(source, expected):
     assert logical_package_name(source) == expected
+
 
 def test_aab_requires_bundle_and_base_manifest(tmp_path):
     path = make_zip(tmp_path / "app.aab", ["BundleConfig.pb"])
@@ -438,13 +445,19 @@ git commit -m "feat: upload and bind Huawei packages"
 - [ ] **Step 1: Write failing compile-state table tests**
 
 ```python
-@pytest.mark.parametrize(("success_status", "expected"), [
-    (0, CompileState.READY),
-    (1, CompileState.PROCESSING),
-    (2, CompileState.FAILED),
-])
+@pytest.mark.parametrize(
+    ("success_status", "expected"),
+    [
+        (0, CompileState.READY),
+        (1, CompileState.PROCESSING),
+        (2, CompileState.FAILED),
+    ],
+)
 def test_maps_documented_compile_status(success_status, expected):
-    payload = {"ret": {"code": 0}, "pkgStateList": [{"pkgId": "42", "successStatus": success_status}]}
+    payload = {
+        "ret": {"code": 0},
+        "pkgStateList": [{"pkgId": "42", "successStatus": success_status}],
+    }
     assert parse_compile_status(payload, "42").state is expected
 ```
 
@@ -500,6 +513,7 @@ def test_receipt_round_trip_and_duplicate_lookup(tmp_path):
     repo.save(receipt)
     assert repo.get(receipt.run_id) == receipt
     assert repo.find_resumable("huawei", "123", "abc").run_id == receipt.run_id
+
 
 def test_receipt_rejects_secret_fields():
     with pytest.raises(ValidationError):
@@ -661,9 +675,12 @@ git commit -m "feat: add secure CLI foundations"
 
 ```python
 def test_noninteractive_submit_requires_yes(cli_runner, app):
-    result = cli_runner.invoke(app, ["publish", "--app", "wallet", "--store", "huawei", "--file", "app.aab"])
+    result = cli_runner.invoke(
+        app, ["publish", "--app", "wallet", "--store", "huawei", "--file", "app.aab"]
+    )
     assert result.exit_code == 2
     assert "--yes" in result.stderr
+
 
 def test_json_publish_stdout_is_parseable(cli_runner, app, fake_publisher):
     result = cli_runner.invoke(app, publish_args("--yes", "--output", "json"))

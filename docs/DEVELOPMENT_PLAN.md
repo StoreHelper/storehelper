@@ -3,6 +3,21 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## Implementation task status
+
+- [x] Task 1: Package foundation and domain contract.
+- [ ] Task 2: Strict multi-application configuration.
+- [ ] Task 3: Secure Huawei Service Account credentials.
+- [ ] Task 4: APK/AAB validation and logical file naming.
+- [ ] Task 5: PS256 authentication and Huawei error mapping.
+- [ ] Task 6: Sanitized Huawei upload and binding client.
+- [ ] Task 7: Compile polling, release notes, submission, and status.
+- [ ] Task 8: Atomic redacted run receipts.
+- [ ] Task 9: Publishing orchestration and recovery.
+- [ ] Task 10: Output renderers and foundational CLI commands.
+- [ ] Task 11: Publish, resume, status, and run commands.
+- [ ] Task 12: CI, documentation, build, and installed CLI verification.
+
 ## Milestone 0: Product and architecture
 
 - [x] Select Python 3.11+ as the implementation language.
@@ -17,7 +32,7 @@ Checkboxes are updated only after the related implementation and verification su
 ## Milestone 1: Project foundation
 
 - [ ] Create the Python package and `storehelper` console entry point.
-- [ ] Configure Ruff, mypy, pytest, coverage, and build tooling.
+- [x] Configure Ruff, mypy, pytest, coverage, and build tooling.
 - [ ] Add GitHub Actions for Python 3.11-3.14.
 - [ ] Add contributor development commands and repository metadata.
 

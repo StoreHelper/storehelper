@@ -206,6 +206,12 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# StoreHelper local development
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+
 # PyPI configuration file
 .pypirc
 
