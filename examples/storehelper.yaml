@@ -1,0 +1,10 @@
+version: 1
+
+apps:
+  my-android-app:
+    package_name: com.example.app
+    stores:
+      huawei:
+        app_id: "123456789"
+        credential_profile: default
+        language: zh-CN

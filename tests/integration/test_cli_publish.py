@@ -5,9 +5,13 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
+import pytest
 from typer.testing import CliRunner
 
 import storehelper.cli as cli_module
+from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.credentials.providers import MemoryKeyring
 from storehelper.domain.models import OperationResult, PublishStage
 from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
@@ -188,10 +192,291 @@ def test_runs_list_show_and_delete(tmp_path: Path, monkeypatch) -> None:
     repo.save(receipt)
 
     listed = runner.invoke(cli_module.app, ["runs", "list", "--output", "json"])
+    listed_text = runner.invoke(cli_module.app, ["runs", "list"])
     shown = runner.invoke(cli_module.app, ["runs", "show", "run-1", "--output", "json"])
-    deleted = runner.invoke(cli_module.app, ["runs", "delete", "run-1", "--yes"])
+    shown_text = runner.invoke(cli_module.app, ["runs", "show", "run-1"])
+    deleted = runner.invoke(
+        cli_module.app,
+        ["runs", "delete", "run-1", "--yes", "--output", "json"],
+    )
 
     assert json.loads(listed.stdout)["runs"][0]["run_id"] == "run-1"
+    assert "run-1  wallet  package_compiling" in listed_text.stdout
     assert json.loads(shown.stdout)["pkg_version"] == "42"
+    assert "Package: wallet.apk" in shown_text.stdout
     assert deleted.exit_code == 0
+    assert json.loads(deleted.stdout)["deleted"] is True
     assert repo.list() == []
+
+
+def test_status_and_credential_verify_commands(monkeypatch) -> None:
+    async def fake_status(**kwargs) -> OperationResult:
+        return OperationResult.success(
+            stage=PublishStage.COMPLETED,
+            run_id=None,
+            message="Huawei review status: in_review",
+        )
+
+    async def fake_verify(**kwargs) -> OperationResult:
+        assert kwargs["profile"] == "work"
+        return OperationResult.success(
+            stage=PublishStage.APP_VERIFIED,
+            run_id=None,
+            message="Verified",
+        )
+
+    monkeypatch.setattr(cli_module, "_status_operation", fake_status)
+    monkeypatch.setattr(cli_module, "_verify_credentials_operation", fake_verify)
+
+    status = runner.invoke(cli_module.app, ["status", "--app", "wallet"])
+    verified = runner.invoke(
+        cli_module.app,
+        ["credentials", "verify", "--app", "wallet", "--profile", "work"],
+    )
+
+    assert status.exit_code == 0
+    assert "in_review" in status.stdout
+    assert verified.exit_code == 0
+    assert "Verified" in verified.stdout
+
+
+def test_publish_rejects_unsupported_store_and_conflicting_notes(tmp_path: Path) -> None:
+    config, package = _project(tmp_path)
+    notes = tmp_path / "notes.md"
+    notes.write_text("Fixes", encoding="utf-8")
+
+    unsupported = runner.invoke(
+        cli_module.app,
+        ["publish", "--file", str(package), "--store", "apple", "--dry-run"],
+    )
+    conflict = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--file",
+            str(package),
+            "--release-notes",
+            "Fixes",
+            "--release-notes-file",
+            str(notes),
+            "--yes",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert unsupported.exit_code == 2
+    assert "STORE_UNSUPPORTED" in unsupported.stderr
+    assert conflict.exit_code == 2
+    assert "RELEASE_NOTES_CONFLICT" in conflict.stderr
+
+
+def test_noninteractive_submit_requires_release_notes_even_with_yes(tmp_path: Path) -> None:
+    config, package = _project(tmp_path)
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--file",
+            str(package),
+            "--yes",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "RELEASE_NOTES_MISSING" in result.stderr
+
+
+def test_publish_reads_release_notes_file_and_validates_durations(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config, package = _project(tmp_path)
+    notes = tmp_path / "notes.md"
+    notes.write_text("From file", encoding="utf-8")
+
+    async def fake_publish(**kwargs) -> OperationResult:
+        assert kwargs["request"].release_notes == "From file"
+        return OperationResult.success(stage=PublishStage.SUBMITTED, run_id="run-3")
+
+    monkeypatch.setattr(cli_module, "_publish_operation", fake_publish)
+    published = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--file",
+            str(package),
+            "--release-notes-file",
+            str(notes),
+            "--yes",
+            "--poll-interval",
+            "1m",
+            "--wait-timeout",
+            "1h",
+            "--config",
+            str(config),
+        ],
+    )
+    invalid = runner.invoke(
+        cli_module.app,
+        ["publish", "--file", str(package), "--dry-run", "--poll-interval", "bad"],
+    )
+
+    assert published.exit_code == 0
+    assert invalid.exit_code == 2
+
+
+def test_publish_result_vendor_failure_uses_exit_5(tmp_path: Path, monkeypatch) -> None:
+    config, package = _project(tmp_path)
+
+    async def fake_publish(**kwargs) -> OperationResult:
+        return OperationResult.failure(
+            stage=PublishStage.FAILED,
+            run_id="run-4",
+            message="Rejected",
+        )
+
+    monkeypatch.setattr(cli_module, "_publish_operation", fake_publish)
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--file",
+            str(package),
+            "--release-notes",
+            "Fixes",
+            "--yes",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 5
+
+
+def test_empty_runs_and_missing_delete(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+
+    listed = runner.invoke(cli_module.app, ["runs", "list"])
+    deleted = runner.invoke(cli_module.app, ["runs", "delete", "missing", "--yes"])
+
+    assert listed.stdout.strip() == "No publishing runs."
+    assert deleted.exit_code == 0
+    assert "already absent" in deleted.stdout
+
+
+@pytest.mark.asyncio
+async def test_real_cli_operation_factories_use_huawei_adapter(
+    tmp_path: Path,
+    rsa_private_key: str,
+    monkeypatch,
+) -> None:
+    config, package = _project(tmp_path)
+    account = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    keyring = MemoryKeyring()
+    keyring.set("default", account.to_storage_json())
+    monkeypatch.setattr(cli_module, "KEYRING", keyring)
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+    real_async_client = httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/appid-list"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "appids": [{"appId": "123"}]},
+            )
+        if path.endswith("/upload-url"):
+            return httpx.Response(
+                200,
+                json={
+                    "ret": {"code": 0},
+                    "result": {
+                        "uploadUrl": "https://upload.example/file",
+                        "authCode": "temporary-secret",
+                    },
+                },
+            )
+        if request.url.host == "upload.example":
+            return httpx.Response(
+                200,
+                json={
+                    "result": {
+                        "UploadFileRsp": {
+                            "ifSuccess": 1,
+                            "fileInfoList": [{"fileDestUrl": "https://destination.example/object"}],
+                        }
+                    }
+                },
+            )
+        if path.endswith("/app-file-info"):
+            return httpx.Response(200, json={"ret": {"code": 0}, "pkgVersion": ["42"]})
+        if path.endswith("/package/compile/status"):
+            return httpx.Response(
+                200,
+                json={
+                    "ret": {"code": 0},
+                    "pkgStateList": [{"pkgId": "42", "successStatus": 0}],
+                },
+            )
+        if path.endswith("/app-info"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "appInfo": {"releaseState": 4}},
+            )
+        return httpx.Response(200, json={"ret": {"code": 0}})
+
+    monkeypatch.setattr(
+        cli_module.httpx,
+        "AsyncClient",
+        lambda **kwargs: real_async_client(transport=httpx.MockTransport(handler)),
+    )
+    request = cli_module.PublishRequest(
+        app_alias="wallet",
+        file=package,
+        release_notes="Fixes",
+        confirmed=True,
+        poll_interval_seconds=5,
+        wait_timeout_seconds=5,
+    )
+
+    published = await cli_module._publish_operation(
+        request=request,
+        config_path=config,
+        app_alias="wallet",
+        interactive=False,
+    )
+    status = await cli_module._status_operation(
+        config_path=config,
+        app_alias="wallet",
+        interactive=False,
+    )
+    verified = await cli_module._verify_credentials_operation(
+        config_path=config,
+        app_alias="wallet",
+        profile=None,
+        interactive=False,
+    )
+
+    assert published.stage is PublishStage.SUBMITTED
+    assert status.message.endswith("in_review")
+    assert verified.stage is PublishStage.APP_VERIFIED
+
+
+@pytest.mark.asyncio
+async def test_dry_run_adapter_fails_fast_if_a_network_method_is_called() -> None:
+    adapter = cli_module._NoNetworkAdapter()
+
+    with pytest.raises(AssertionError):
+        await adapter.verify(app_id="1", package_name="com.example.app")
+    with pytest.raises(AssertionError):
+        await adapter.submit(app_id="1")
+    with pytest.raises(AssertionError):
+        await adapter.review_status(app_id="1")

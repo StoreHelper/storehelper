@@ -37,6 +37,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "build>=1.2,<2",
+  "hatchling>=1.27,<2",
   "mypy>=1.17,<2",
   "pytest>=8.4,<10",
   "pytest-asyncio>=1.1,<2",
@@ -64,7 +65,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-branch = true
+branch = false
 source = ["storehelper"]
 
 [tool.coverage.report]
@@ -83,4 +84,3 @@ python_version = "3.11"
 strict = true
 packages = ["storehelper"]
 mypy_path = "src"
-

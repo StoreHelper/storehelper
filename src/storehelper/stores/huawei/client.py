@@ -60,10 +60,12 @@ class HuaweiClient:
     ) -> httpx.Response:
         url = f"{self._api_base}/{path.lstrip('/')}"
         auth_refreshed = False
+        refresh_token = False
         transient_attempts = 0
         while True:
             headers = dict(kwargs.pop("headers", {}))
-            headers.update(self._auth.headers(force_refresh=auth_refreshed))
+            headers.update(self._auth.headers(force_refresh=refresh_token))
+            refresh_token = False
             try:
                 response = await self._http.request(
                     method,
@@ -76,6 +78,7 @@ class HuaweiClient:
                 raise self._network_error("Could not reach the Huawei Publishing API.") from None
             if response.status_code in (401, 403) and not auth_refreshed:
                 auth_refreshed = True
+                refresh_token = True
                 continue
             if (
                 response.status_code == 429 or response.status_code >= 500

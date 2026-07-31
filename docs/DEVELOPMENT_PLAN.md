@@ -16,7 +16,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 9: Publishing orchestration and recovery.
 - [x] Task 10: Output renderers and foundational CLI commands.
 - [x] Task 11: Publish, resume, status, and run commands.
-- [ ] Task 12: CI, documentation, build, and installed CLI verification.
+- [x] Task 12: CI, documentation, build, and installed CLI verification.
 
 ## Milestone 0: Product and architecture
 
@@ -33,8 +33,8 @@ Checkboxes are updated only after the related implementation and verification su
 
 - [x] Create the Python package and `storehelper` console entry point.
 - [x] Configure Ruff, mypy, pytest, coverage, and build tooling.
-- [ ] Add GitHub Actions for Python 3.11-3.14.
-- [ ] Add contributor development commands and repository metadata.
+- [x] Add GitHub Actions for Python 3.11-3.14.
+- [x] Add contributor development commands and repository metadata.
 
 ## Milestone 2: Configuration and credentials
 
@@ -74,18 +74,18 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Cover configuration, credentials, JWT, package, state, and renderer behavior with unit tests.
 - [x] Cover the Huawei HTTP contract with mocked integration tests based on complete documented responses.
 - [x] Cover full publish, timeout, resume, no-submit, dry-run, and JSON CLI flows.
-- [ ] Verify secrets and temporary upload values are redacted from logs, receipts, and JSON.
-- [ ] Pass formatting, linting, static typing, tests, coverage, package build, and CLI smoke tests.
+- [x] Verify secrets and temporary upload values are redacted from logs, receipts, and JSON.
+- [x] Pass formatting, linting, static typing, tests, coverage, package build, and CLI smoke tests.
 
 ## Milestone 6: Documentation and distribution
 
-- [ ] Replace the placeholder README with installation, configuration, security, and usage guides.
-- [ ] Add a redacted example configuration and release-notes example.
-- [ ] Document pipx installation and source installation.
-- [ ] Add an automated PyPI Trusted Publishing workflow.
-- [ ] Add GitHub Release artifacts and checksums.
-- [ ] Plan the separate `StoreHelper/homebrew-tap` repository after the first tagged release.
-- [ ] Prepare the `v0.1.0` release checklist.
+- [x] Replace the placeholder README with installation, configuration, security, and usage guides.
+- [x] Add a redacted example configuration and release-notes example.
+- [x] Document pipx installation and source installation.
+- [x] Add an automated PyPI Trusted Publishing workflow.
+- [x] Add GitHub Release artifacts and checksums.
+- [x] Plan the separate `StoreHelper/homebrew-tap` repository after the first tagged release.
+- [x] Prepare the `v0.1.0` release checklist.
 
 ## Later milestones
 
