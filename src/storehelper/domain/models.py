@@ -6,7 +6,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PublishStage(StrEnum):
@@ -109,3 +109,9 @@ class PublishRequest(BaseModel):
     confirmed: bool = False
     poll_interval_seconds: float = Field(default=15.0, ge=5.0)
     wait_timeout_seconds: float = Field(default=600.0, ge=5.0)
+
+    @model_validator(mode="after")
+    def validate_polling_window(self) -> PublishRequest:
+        if self.wait_timeout_seconds < self.poll_interval_seconds:
+            raise ValueError("wait timeout must be at least the poll interval")
+        return self

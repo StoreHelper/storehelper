@@ -1,6 +1,9 @@
+import pytest
+from pydantic import ValidationError
+
 from storehelper.domain.errors import StoreHelperError, redact
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.domain.models import OperationResult, PublishStage
+from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
 
 
 def test_operation_result_serializes_stable_schema() -> None:
@@ -64,3 +67,13 @@ def test_storehelper_error_redacts_message_and_maps_exit_code() -> None:
 
     assert "aaa.bbb.ccc" not in str(error)
     assert error.exit_code == ExitCode.AUTHENTICATION
+
+
+def test_publish_timeout_cannot_be_shorter_than_poll_interval() -> None:
+    with pytest.raises(ValidationError):
+        PublishRequest(
+            app_alias="demo",
+            file="release.apk",
+            poll_interval_seconds=30,
+            wait_timeout_seconds=10,
+        )

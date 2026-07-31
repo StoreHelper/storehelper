@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from storehelper.config.models import ApplicationConfig
+from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import PublishRequest, PublishStage
 from storehelper.publishing.service import Publisher
@@ -75,13 +76,13 @@ def _package(tmp_path: Path) -> Path:
     return path
 
 
-def _application() -> ApplicationConfig:
+def _application(app_id: str = "123") -> ApplicationConfig:
     return ApplicationConfig.model_validate(
         {
             "package_name": "com.example.app",
             "stores": {
                 "huawei": {
-                    "app_id": "123",
+                    "app_id": app_id,
                     "credential_profile": "default",
                     "language": "zh-CN",
                 }
@@ -142,6 +143,35 @@ async def test_dry_run_has_no_network_calls(tmp_path: Path) -> None:
     assert result.ok is True
     assert result.stage is PublishStage.COMPLETED
     assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_dry_run_is_not_blocked_by_existing_resumable_run(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path / "runs")
+    package = _package(tmp_path)
+    first_adapter = FakeAdapter([CompileState.PROCESSING])
+    ticks = iter([0.0, 0.0, 5.0])
+
+    async def sleeper(seconds: float) -> None:
+        return None
+
+    first = Publisher(
+        adapter=first_adapter,
+        repository=repo,
+        application=_application(),
+        clock=lambda: next(ticks),
+        sleeper=sleeper,
+    )
+    timed_out = await first.publish(_request(package, wait_timeout_seconds=5))
+    assert timed_out.resumable
+    dry_adapter = FakeAdapter()
+    dry = Publisher(adapter=dry_adapter, repository=repo, application=_application())
+
+    result = await dry.publish(_request(package, dry_run=True))
+
+    assert result.ok is True
+    assert result.stage is PublishStage.COMPLETED
+    assert dry_adapter.calls == []
 
 
 @pytest.mark.asyncio
@@ -224,6 +254,32 @@ async def test_resume_from_timeout_starts_at_compile(tmp_path: Path) -> None:
     assert resumed.ok is True
     assert resumed.stage is PublishStage.SUBMITTED
     assert adapter.calls == ["compile", "notes", "submit"]
+
+
+@pytest.mark.asyncio
+async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path / "runs")
+    receipt = repo.create(
+        app_alias="demo",
+        app_id="123",
+        package_name="com.example.app",
+        package_path="/build/release.apk",
+        package_sha256="abc",
+        logical_name="release.apk",
+        language="zh-CN",
+        release_notes="Fixes",
+        submit=True,
+    )
+    publisher = Publisher(
+        adapter=FakeAdapter(),
+        repository=repo,
+        application=_application(app_id="999"),
+    )
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+
+    assert raised.value.code == "RUN_APP_MISMATCH"
 
 
 @pytest.mark.asyncio

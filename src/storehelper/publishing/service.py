@@ -91,18 +91,19 @@ class Publisher:
                 )
 
         package = validate_package(request.file)
-        duplicate = self.repository.find_resumable(
-            "huawei",
-            self._huawei.app_id,
-            package.sha256,
-        )
-        if duplicate is not None:
-            return OperationResult.failure(
-                stage=_STAGES[duplicate.state],
-                run_id=duplicate.run_id,
-                message="An unfinished run already exists for this application and package.",
-                resumable=True,
+        if not request.dry_run:
+            duplicate = self.repository.find_resumable(
+                "huawei",
+                self._huawei.app_id,
+                package.sha256,
             )
+            if duplicate is not None:
+                return OperationResult.failure(
+                    stage=_STAGES[duplicate.state],
+                    run_id=duplicate.run_id,
+                    message="An unfinished run already exists for this application and package.",
+                    resumable=True,
+                )
 
         receipt = self.repository.create(
             app_alias=request.app_alias,
@@ -139,6 +140,15 @@ class Publisher:
         wait_timeout: float = 600.0,
     ) -> OperationResult:
         receipt = self.repository.get(run_id)
+        if (
+            receipt.app_id != self._huawei.app_id
+            or receipt.package_name != self._application.package_name
+        ):
+            raise PublishingError(
+                "RUN_APP_MISMATCH",
+                "The selected run does not belong to the configured application.",
+                ExitCode.LOCAL_STATE,
+            )
         if not receipt.resumable:
             raise PublishingError(
                 "RUN_NOT_RESUMABLE",
