@@ -144,15 +144,15 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: `OppoClient.ensure_token()`, `application_info(package_name)`, and safe response parser.
 - Produces: immutable public `OppoApplicationInfo` with only fields needed for validation/submission.
 
-- [ ] Write failing tests for the exact HTTPS origin, token request, redirect rejection, bounded
+- [x] Write failing tests for the exact HTTPS origin, token request, redirect rejection, bounded
   429/5xx read retries, forced token refresh once on auth failure, malformed JSON, safe known/unknown
   errno mapping, and complete redaction.
-- [ ] Write failing tests for exact package match, current numeric version, audit state, and every
+- [x] Write failing tests for exact package match, current numeric version, audit state, and every
   required existing listing field; reject missing/mismatched/incomplete applications.
-- [ ] Implement a fixed-host client that never logs query strings, bodies, headers, or responses.
-- [ ] Implement deterministic status/error parsing with only allowlisted public values.
-- [ ] Run OPPO query/error tests, Ruff, and mypy.
-- [ ] Commit: `feat: verify OPPO application access`.
+- [x] Implement a fixed-host client that never logs query strings, bodies, headers, or responses.
+- [x] Implement deterministic status/error parsing with only allowlisted public values.
+- [x] Run OPPO query/error tests, Ruff, and mypy.
+- [x] Commit: `feat: verify OPPO application access`.
 
 ### Task 6: Safe upload-host validation and streamed APK upload
 
