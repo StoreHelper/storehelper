@@ -24,13 +24,21 @@ class UploadedArtifact(BaseModel):
     artifact_id: str
     operation_id: str | None = None
 
+
 async def prepare_release(
-    *, target: StoreTarget, artifact_id: str, operation_id: str | None,
+    *,
+    target: StoreTarget,
+    artifact_id: str,
+    operation_id: str | None,
     release_notes: str | None,
 ) -> None: ...
 
+
 async def submit(
-    *, target: StoreTarget, artifact_id: str, operation_id: str | None,
+    *,
+    target: StoreTarget,
+    artifact_id: str,
+    operation_id: str | None,
 ) -> str: ...
 ```
 
@@ -215,14 +223,14 @@ no Google key, assertion, token, or raw error in output/receipt
 
 ### Task 12: Full verification and milestone closure
 
-- [ ] Run Ruff format/check and mypy.
-- [ ] Run all tests with coverage at least 90%.
-- [ ] Build sdist/wheel in a fresh temporary directory and run Twine checks.
-- [ ] Install the exact wheel in a fresh environment.
-- [ ] Run installed help/version, four-store config validation, and four offline dry-runs.
-- [ ] Run `git diff --check`, archive-content checks, and private-data/secret review.
-- [ ] Mark the Google Play milestone complete only after every fresh command exits zero.
-- [ ] Commit: `chore: complete Google Play milestone verification`.
+- [x] Run Ruff format/check and mypy.
+- [x] Run all tests with coverage at least 90%.
+- [x] Build sdist/wheel in a fresh temporary directory and run Twine checks.
+- [x] Install the exact wheel in a fresh environment.
+- [x] Run installed help/version, four-store config validation, and four offline dry-runs.
+- [x] Run `git diff --check`, archive-content checks, and private-data/secret review.
+- [x] Mark the Google Play milestone complete only after every fresh command exits zero.
+- [x] Commit: `chore: complete Google Play milestone verification`.
 
 ## Completion rule
 

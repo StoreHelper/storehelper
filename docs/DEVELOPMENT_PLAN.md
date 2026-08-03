@@ -16,7 +16,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 9: Registry, runtime, CLI, JSON output, and store-aware credential commands.
 - [x] Task 10: End-to-end interruption, recovery, migration, and security regression suite.
 - [x] Task 11: Google Play documentation, examples, and v0.4.0 versioning.
-- [ ] Task 12: Clean build, coverage, exact-wheel smoke tests, and final secret review.
+- [x] Task 12: Clean build, coverage, exact-wheel smoke tests, and final secret review.
 
 ## v0.3.0 Apple App Store task status
 
@@ -149,7 +149,7 @@ Checkboxes are updated only after the related implementation and verification su
 ## Later milestones
 
 - [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
-- [ ] Complete the Google Play v0.4.0 verification and distribution milestone.
+- [x] Complete the Google Play v0.4.0 verification and distribution milestone.
 - [ ] Add Xiaomi, OPPO, vivo, and Honor Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.
