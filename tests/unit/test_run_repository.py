@@ -146,7 +146,7 @@ def test_save_replaces_complete_json_not_partial_content(tmp_path: Path) -> None
     assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_loads_v1_receipt_and_rewrites_it_as_v4(tmp_path: Path) -> None:
+def test_loads_v1_receipt_and_rewrites_it_as_v5(tmp_path: Path) -> None:
     run_id = "20260730T100000Z-legacy01"
     path = tmp_path / f"{run_id}.json"
     path.write_text(
@@ -176,7 +176,7 @@ def test_loads_v1_receipt_and_rewrites_it_as_v4(tmp_path: Path) -> None:
 
     receipt = repo.get(run_id)
 
-    assert receipt.schema_version == 4
+    assert receipt.schema_version == 5
     assert receipt.artifact_id == "42"
     assert receipt.release_id is None
     assert receipt.submission_id is None
@@ -185,13 +185,13 @@ def test_loads_v1_receipt_and_rewrites_it_as_v4(tmp_path: Path) -> None:
     assert receipt.release_status is None
     repo.save(receipt)
     rewritten = json.loads(path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 4
+    assert rewritten["schema_version"] == 5
     assert rewritten["artifact_id"] == "42"
     assert "pkg_version" not in rewritten
 
 
 @pytest.mark.parametrize("schema_version", [2, 3])
-def test_loads_v2_v3_receipts_and_adds_v4_context(
+def test_loads_v2_v3_receipts_and_adds_v5_context(
     tmp_path: Path,
     schema_version: int,
 ) -> None:
@@ -210,7 +210,7 @@ def test_loads_v2_v3_receipts_and_adds_v4_context(
     repository = RunRepository(tmp_path)
     loaded = repository.get(receipt.run_id)
 
-    assert loaded.schema_version == 4
+    assert loaded.schema_version == 5
     assert loaded.operation_id is None
     assert loaded.track is None
     assert loaded.release_status is None
@@ -218,11 +218,48 @@ def test_loads_v2_v3_receipts_and_adds_v4_context(
     assert loaded.submission_id == (None if schema_version == 2 else "submission-8")
     repository.save(loaded)
     rewritten = json.loads(path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 4
+    assert rewritten["schema_version"] == 5
     assert rewritten["store"] == "google_play"
     assert rewritten["operation_id"] is None
     assert rewritten["track"] is None
     assert rewritten["release_status"] is None
+
+
+def test_loads_v4_receipt_and_rewrites_it_as_v5_without_losing_context(
+    tmp_path: Path,
+) -> None:
+    receipt = sample_receipt(store="google_play", app_id="com.example.app")
+    payload = receipt.model_dump(mode="json")
+    payload["schema_version"] = 4
+    path = tmp_path / f"{receipt.run_id}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    repository = RunRepository(tmp_path)
+
+    loaded = repository.get(receipt.run_id)
+
+    assert loaded.schema_version == 5
+    assert loaded.operation_id == "edit-6"
+    assert loaded.track == "internal"
+    assert loaded.release_status == "draft"
+    repository.save(loaded)
+    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 5
+
+
+@pytest.mark.parametrize(
+    "state",
+    [RunState.SUBMISSION_STARTED, RunState.SUBMISSION_UNCERTAIN],
+)
+def test_atomic_submission_states_are_nonresumable_and_discoverable(
+    tmp_path: Path,
+    state: RunState,
+) -> None:
+    repository = RunRepository(tmp_path)
+    receipt = sample_receipt(store="huawei", state=state)
+    repository.save(receipt)
+
+    assert receipt.resumable is False
+    assert repository.find_ambiguous("huawei", "123", "abc") == receipt
+    assert repository.find_resumable("huawei", "123", "abc") is None
 
 
 def test_rejects_unknown_future_receipt_version(tmp_path: Path) -> None:

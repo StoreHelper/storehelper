@@ -28,6 +28,8 @@ class StoreCapabilities(BaseModel):
     requires_processing_poll: bool
     requires_release_notes: bool
     supports_review_status: bool
+    atomic_submission: bool = False
+    supports_no_submit: bool = True
 
 
 class StoreTarget(BaseModel):

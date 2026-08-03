@@ -19,14 +19,14 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Modify: `tests/unit/test_run_repository.py`
 - Modify: existing capabilities tests
 
-- [ ] Add failing tests for atomic success, no-submit rejection before validation/network, start and
+- [x] Add failing tests for atomic success, no-submit rejection before validation/network, start and
   uncertain states, cancellation, hard-crash receipt behavior, duplicate blocking, no resume, and
   v1-v4 migration to v5.
-- [ ] Add default-compatible `atomic_submission`/`supports_no_submit` capabilities and the separate
+- [x] Add default-compatible `atomic_submission`/`supports_no_submit` capabilities and the separate
   `AtomicStoreAdapter` protocol.
-- [ ] Persist `submission_started` before mutation and never advertise uncertain runs as resumable.
-- [ ] Preserve every existing multi-step store flow unchanged.
-- [ ] Commit: `refactor: support atomic store submissions safely`.
+- [x] Persist `submission_started` before mutation and never advertise uncertain runs as resumable.
+- [x] Preserve every existing multi-step store flow unchanged.
+- [x] Commit: `refactor: support atomic store submissions safely`.
 
 ### Task 2: Strict Xiaomi target configuration and icon preflight
 

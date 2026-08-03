@@ -20,6 +20,8 @@ class RunState(StrEnum):
     PACKAGE_COMPILING = "package_compiling"
     PACKAGE_READY = "package_ready"
     METADATA_UPDATED = "metadata_updated"
+    SUBMISSION_STARTED = "submission_started"
+    SUBMISSION_UNCERTAIN = "submission_uncertain"
     SUBMITTED = "submitted"
     COMPLETED = "completed"
     TIMED_OUT = "timed_out"
@@ -47,7 +49,7 @@ class RunReceipt(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[4] = 4
+    schema_version: Literal[5] = 5
     run_id: str = Field(min_length=1)
     created_at: datetime
     updated_at: datetime
@@ -75,17 +77,17 @@ class RunReceipt(BaseModel):
 
 
 def migrate_receipt_payload(payload: object) -> Mapping[str, object]:
-    """Convert supported legacy receipt shapes to schema version 4."""
+    """Convert supported legacy receipt shapes to schema version 5."""
 
     if not isinstance(payload, Mapping):
         raise ValueError("receipt must be a JSON object")
     version = payload.get("schema_version")
-    if version == 4:
+    if version == 5:
         return payload
-    if version not in {1, 2, 3}:
+    if version not in {1, 2, 3, 4}:
         raise ValueError("unsupported receipt schema version")
     migrated = dict(payload)
-    migrated["schema_version"] = 4
+    migrated["schema_version"] = 5
     if version == 1:
         migrated["artifact_id"] = migrated.pop("pkg_version", None)
     if version in {1, 2}:

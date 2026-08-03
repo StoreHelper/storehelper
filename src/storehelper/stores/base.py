@@ -45,3 +45,15 @@ class StoreAdapter(Protocol):
     ) -> str: ...
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus: ...
+
+
+class AtomicStoreAdapter(StoreAdapter, Protocol):
+    """Adapter whose one mutation both uploads and submits for review."""
+
+    async def publish_atomic(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+        release_notes: str | None,
+    ) -> str: ...

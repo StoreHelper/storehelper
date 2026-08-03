@@ -3,7 +3,7 @@ from typing import get_type_hints
 
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.stores.base import StoreAdapter
+from storehelper.stores.base import AtomicStoreAdapter, StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.models import (
     CredentialKind,
@@ -80,6 +80,8 @@ def test_capabilities_describe_orchestration_without_vendor_fields() -> None:
         "requires_processing_poll": True,
         "requires_release_notes": True,
         "supports_review_status": True,
+        "atomic_submission": False,
+        "supports_no_submit": True,
     }
 
 
@@ -134,3 +136,9 @@ def test_adapter_protocol_uses_store_neutral_boundary_types() -> None:
     assert processing_hints["artifact_id"] is str
     assert processing_hints["operation_id"] == str | None
     assert processing_hints["return"] is ProcessingStatus
+
+    atomic_hints = get_type_hints(AtomicStoreAdapter.publish_atomic)
+    assert atomic_hints["target"] is StoreTarget
+    assert atomic_hints["artifact"] is ArtifactInfo
+    assert atomic_hints["release_notes"] == str | None
+    assert atomic_hints["return"] is str

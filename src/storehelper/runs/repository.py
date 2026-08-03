@@ -155,3 +155,19 @@ class RunRepository:
             ):
                 return receipt
         return None
+
+    def find_ambiguous(
+        self,
+        store: str,
+        app_id: str,
+        package_sha256: str,
+    ) -> RunReceipt | None:
+        for receipt in self.list():
+            if (
+                receipt.state in {RunState.SUBMISSION_STARTED, RunState.SUBMISSION_UNCERTAIN}
+                and receipt.store == store
+                and receipt.app_id == app_id
+                and receipt.package_sha256 == package_sha256
+            ):
+                return receipt
+        return None

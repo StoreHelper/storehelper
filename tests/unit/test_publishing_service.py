@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import zipfile
 from datetime import UTC, datetime
@@ -106,6 +107,27 @@ class FakeAdapter:
         return ReviewStatus.IN_REVIEW
 
 
+class AtomicFakeAdapter(FakeAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.atomic_failure: StoreHelperError | None = None
+        self.cancel_atomic = False
+
+    async def publish_atomic(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+        release_notes: str | None,
+    ) -> str:
+        self.calls.append(f"atomic:{artifact.sha256}:{release_notes}")
+        if self.cancel_atomic:
+            raise asyncio.CancelledError
+        if self.atomic_failure is not None:
+            raise self.atomic_failure
+        return target.package_name
+
+
 def _package(tmp_path: Path) -> Path:
     path = tmp_path / "release.apk"
     with zipfile.ZipFile(path, "w") as archive:
@@ -132,13 +154,20 @@ def _target(
     )
 
 
-def _capabilities(*, processing: bool = True) -> StoreCapabilities:
+def _capabilities(
+    *,
+    processing: bool = True,
+    atomic_submission: bool = False,
+    supports_no_submit: bool = True,
+) -> StoreCapabilities:
     return StoreCapabilities(
         credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
         artifact_suffixes=(".apk", ".aab"),
         requires_processing_poll=processing,
         requires_release_notes=True,
         supports_review_status=True,
+        atomic_submission=atomic_submission,
+        supports_no_submit=supports_no_submit,
     )
 
 
@@ -148,6 +177,8 @@ def _publisher(
     repository: RunRepository,
     app_id: str = "123",
     processing: bool = True,
+    atomic_submission: bool = False,
+    supports_no_submit: bool = True,
     track: str | None = None,
     release_status: str | None = None,
     **kwargs: object,
@@ -157,7 +188,11 @@ def _publisher(
         repository=repository,
         target=_target(app_id, track=track, release_status=release_status),
         validator=validate_package,
-        capabilities=_capabilities(processing=processing),
+        capabilities=_capabilities(
+            processing=processing,
+            atomic_submission=atomic_submission,
+            supports_no_submit=supports_no_submit,
+        ),
         **kwargs,
     )
 
@@ -503,7 +538,7 @@ async def test_resume_migrates_legacy_huawei_receipt_without_reupload(tmp_path: 
     assert result.stage is PublishStage.SUBMITTED
     assert adapter.calls == ["compile:None", "notes:None", "submit:None"]
     rewritten = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 4
+    assert rewritten["schema_version"] == 5
     assert rewritten["artifact_id"] == "42"
     assert "pkg_version" not in rewritten
 
@@ -565,3 +600,156 @@ async def test_submission_network_failure_preserves_metadata_stage_for_resume(
 
     assert resumed.stage is PublishStage.SUBMITTED
     assert adapter.calls == ["submit:operation-7"]
+
+
+@pytest.mark.asyncio
+async def test_atomic_store_persists_started_then_completes_without_multistep_calls(
+    tmp_path: Path,
+) -> None:
+    adapter = AtomicFakeAdapter()
+    publisher = _publisher(
+        adapter=adapter,
+        repository=RunRepository(tmp_path / "runs"),
+        processing=False,
+        atomic_submission=True,
+        supports_no_submit=False,
+    )
+    package = _package(tmp_path)
+    artifact = validate_package(package)
+
+    result = await publisher.publish(_request(package))
+
+    assert result.stage is PublishStage.SUBMITTED
+    assert adapter.calls == ["verify", f"atomic:{artifact.sha256}:Fixes"]
+    receipt = publisher.repository.get(result.run_id or "")
+    assert receipt.state is RunState.COMPLETED
+    assert receipt.artifact_id == artifact.sha256
+    assert receipt.submission_id == "com.example.app"
+
+
+@pytest.mark.asyncio
+async def test_atomic_no_submit_is_rejected_before_validation_or_network(tmp_path: Path) -> None:
+    adapter = AtomicFakeAdapter()
+    repository = RunRepository(tmp_path / "runs")
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        supports_no_submit=False,
+    )
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.publish(
+            _request(
+                tmp_path / "missing.apk",
+                submit=False,
+                confirmed=False,
+                release_notes=None,
+            )
+        )
+
+    assert raised.value.code == "NO_SUBMIT_UNSUPPORTED"
+    assert adapter.calls == []
+    assert repository.list() == []
+
+
+@pytest.mark.asyncio
+async def test_atomic_response_loss_is_uncertain_nonresumable_and_blocks_duplicate(
+    tmp_path: Path,
+) -> None:
+    adapter = AtomicFakeAdapter()
+    adapter.atomic_failure = StoreVendorError(
+        "ATOMIC_NETWORK_ERROR",
+        "The submission response was lost.",
+        ExitCode.NETWORK,
+        resumable=False,
+    )
+    repository = RunRepository(tmp_path / "runs")
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        supports_no_submit=False,
+    )
+    package = _package(tmp_path)
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.publish(_request(package))
+
+    assert raised.value.code == "ATOMIC_NETWORK_ERROR"
+    uncertain = repository.list()[0]
+    assert uncertain.state is RunState.SUBMISSION_UNCERTAIN
+    assert uncertain.resumable is False
+    adapter.calls.clear()
+
+    duplicate = await publisher.publish(_request(package))
+
+    assert duplicate.ok is False
+    assert duplicate.stage is PublishStage.INTERRUPTED
+    assert duplicate.resumable is False
+    assert duplicate.run_id == uncertain.run_id
+    assert duplicate.next_action is None
+    assert "inspect" in duplicate.message.lower()
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_atomic_cancellation_after_start_is_uncertain_not_resumable(
+    tmp_path: Path,
+) -> None:
+    adapter = AtomicFakeAdapter()
+    adapter.cancel_atomic = True
+    publisher = _publisher(
+        adapter=adapter,
+        repository=RunRepository(tmp_path / "runs"),
+        processing=False,
+        atomic_submission=True,
+        supports_no_submit=False,
+    )
+
+    result = await publisher.publish(_request(_package(tmp_path)))
+
+    assert result.stage is PublishStage.INTERRUPTED
+    assert result.resumable is False
+    receipt = publisher.repository.get(result.run_id or "")
+    assert receipt.state is RunState.SUBMISSION_UNCERTAIN
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+    assert raised.value.code == "ATOMIC_RUN_NOT_RESUMABLE"
+
+
+@pytest.mark.asyncio
+async def test_atomic_started_receipt_from_hard_crash_blocks_retry(tmp_path: Path) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    package = _package(tmp_path)
+    artifact = validate_package(package)
+    receipt = repository.create(
+        store="huawei",
+        app_alias="demo",
+        app_id="123",
+        package_name="com.example.app",
+        package_path=str(package),
+        package_sha256=artifact.sha256,
+        logical_name=artifact.logical_name,
+        language="zh-CN",
+        release_notes="Fixes",
+        submit=True,
+    ).model_copy(update={"state": RunState.SUBMISSION_STARTED})
+    repository.save(receipt)
+    adapter = AtomicFakeAdapter()
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        supports_no_submit=False,
+    )
+
+    blocked = await publisher.publish(_request(package))
+
+    assert blocked.ok is False
+    assert blocked.run_id == receipt.run_id
+    assert blocked.resumable is False
+    assert adapter.calls == []

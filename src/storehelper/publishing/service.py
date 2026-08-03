@@ -7,6 +7,7 @@ import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.errors import StoreHelperError
@@ -14,7 +15,7 @@ from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
 from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
-from storehelper.stores.base import StoreAdapter
+from storehelper.stores.base import AtomicStoreAdapter, StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.models import (
     ProcessingState,
@@ -35,6 +36,8 @@ _STAGES = {
     RunState.PACKAGE_COMPILING: PublishStage.PACKAGE_COMPILING,
     RunState.PACKAGE_READY: PublishStage.PACKAGE_READY,
     RunState.METADATA_UPDATED: PublishStage.METADATA_UPDATED,
+    RunState.SUBMISSION_STARTED: PublishStage.INTERRUPTED,
+    RunState.SUBMISSION_UNCERTAIN: PublishStage.INTERRUPTED,
     RunState.SUBMITTED: PublishStage.SUBMITTED,
     RunState.COMPLETED: PublishStage.COMPLETED,
     RunState.TIMED_OUT: PublishStage.TIMED_OUT,
@@ -86,6 +89,13 @@ class Publisher:
                 "The publish request does not match the resolved store target.",
                 ExitCode.USAGE,
             )
+        if not request.submit and not request.dry_run and not self._capabilities.supports_no_submit:
+            raise PublishingError(
+                "NO_SUBMIT_UNSUPPORTED",
+                f"{self._target.label} cannot upload without submitting for review; "
+                "use --dry-run for local validation.",
+                ExitCode.USAGE,
+            )
         if request.submit and not request.dry_run:
             if not request.confirmed:
                 raise PublishingError(
@@ -103,6 +113,23 @@ class Publisher:
 
         package = self._validator(request.file)
         if not request.dry_run:
+            if self._capabilities.atomic_submission:
+                ambiguous = self.repository.find_ambiguous(
+                    self._target.store.value,
+                    self._target.app_id,
+                    package.sha256,
+                )
+                if ambiguous is not None:
+                    return OperationResult.failure(
+                        store=self._target.store,
+                        stage=PublishStage.INTERRUPTED,
+                        run_id=ambiguous.run_id,
+                        message=(
+                            "A previous atomic submission may have reached the store; inspect "
+                            "the store console before deleting the local run or publishing again."
+                        ),
+                        resumable=False,
+                    )
             duplicate = self.repository.find_resumable(
                 self._target.store.value,
                 self._target.app_id,
@@ -157,6 +184,12 @@ class Publisher:
         wait_timeout: float = 600.0,
     ) -> OperationResult:
         receipt = self.repository.get(run_id)
+        if self._capabilities.atomic_submission:
+            raise PublishingError(
+                "ATOMIC_RUN_NOT_RESUMABLE",
+                "Atomic store submissions cannot be resumed safely; inspect the store console.",
+                ExitCode.LOCAL_STATE,
+            )
         if (
             receipt.store is not self._target.store
             or receipt.app_id != self._target.app_id
@@ -200,6 +233,28 @@ class Publisher:
             if receipt.state in {RunState.CREATED, RunState.VALIDATED}:
                 await self._adapter.verify(target=self._target)
                 receipt = self._transition(receipt, RunState.APP_VERIFIED)
+
+            if receipt.state is RunState.APP_VERIFIED and self._capabilities.atomic_submission:
+                package = self._validator(Path(receipt.package_path))
+                if package.sha256 != receipt.package_sha256:
+                    raise PublishingError(
+                        "PACKAGE_CHANGED",
+                        "The package changed after this publishing run was created.",
+                        ExitCode.PACKAGE_VALIDATION,
+                    )
+                receipt = self._transition(receipt, RunState.SUBMISSION_STARTED)
+                atomic_adapter = cast(AtomicStoreAdapter, self._adapter)
+                submission_id = await atomic_adapter.publish_atomic(
+                    target=self._target,
+                    artifact=package,
+                    release_notes=receipt.release_notes,
+                )
+                receipt = self._transition(
+                    receipt,
+                    RunState.SUBMITTED,
+                    artifact_id=package.sha256,
+                    submission_id=submission_id,
+                )
 
             if receipt.state is RunState.APP_VERIFIED:
                 package = self._validator(Path(receipt.package_path))
@@ -347,6 +402,23 @@ class Publisher:
                 ExitCode.LOCAL_STATE,
             )
         except asyncio.CancelledError:
+            if self._capabilities.atomic_submission:
+                uncertain_state = (
+                    RunState.SUBMISSION_UNCERTAIN
+                    if receipt.state is RunState.SUBMISSION_STARTED
+                    else RunState.FAILED
+                )
+                interrupted = self._transition(receipt, uncertain_state)
+                return OperationResult.failure(
+                    store=self._target.store,
+                    stage=PublishStage.INTERRUPTED,
+                    run_id=interrupted.run_id,
+                    message=(
+                        "Atomic publishing was interrupted; inspect the store console before "
+                        "publishing again."
+                    ),
+                    resumable=False,
+                )
             # Preserve the last completed stage. Retrying that stage is how each adapter
             # reconciles remote state after a response is lost (including uploads and submits).
             interrupted = self._transition(receipt, receipt.state)
@@ -358,6 +430,13 @@ class Publisher:
                 resumable=interrupted.resumable,
             )
         except StoreHelperError as error:
+            if (
+                self._capabilities.atomic_submission
+                and receipt.state is RunState.SUBMISSION_STARTED
+                and error.exit_code is ExitCode.NETWORK
+            ):
+                self._transition(receipt, RunState.SUBMISSION_UNCERTAIN)
+                raise
             if error.resumable and receipt.artifact_id:
                 # Once a processed build is attached or ready for submission, its artifact_id
                 # is a build ID rather than an upload ID. Preserve that completed stage so
