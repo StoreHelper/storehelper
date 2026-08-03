@@ -56,6 +56,12 @@ XIAOMI = """      xiaomi:
         language: zh-CN
 """
 
+OPPO = """      oppo:
+        credential_profile: oppo-wallet
+        version_code: 123
+        language: zh-CN
+"""
+
 
 def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, HARMONYOS))
@@ -78,6 +84,7 @@ def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) ->
         "app_name": None,
         "icon_path": None,
         "privacy_url": None,
+        "version_code": None,
     }
 
 
@@ -112,6 +119,7 @@ def test_loads_apple_only_application_and_resolves_release_target(tmp_path: Path
         "app_name": None,
         "icon_path": None,
         "privacy_url": None,
+        "version_code": None,
     }
 
 
@@ -142,6 +150,7 @@ def test_loads_google_play_target_from_android_package_name(tmp_path: Path) -> N
         "app_name": None,
         "icon_path": None,
         "privacy_url": None,
+        "version_code": None,
     }
 
 
@@ -164,7 +173,48 @@ def test_loads_xiaomi_update_target_and_resolves_relative_icon(tmp_path: Path) -
         "app_name": "Example Wallet",
         "icon_path": str((tmp_path / "assets/xiaomi-icon.png").resolve()),
         "privacy_url": "https://example.com/privacy",
+        "version_code": None,
     }
+
+
+def test_loads_oppo_update_target_from_android_package_name(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, OPPO)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.OPPO)
+
+    assert target.model_dump(mode="json") == {
+        "store": "oppo",
+        "label": "OPPO Software Store",
+        "app_id": "com.example.wallet",
+        "package_name": "com.example.wallet",
+        "credential_profile": "oppo-wallet",
+        "language": "zh-CN",
+        "release_id": None,
+        "platform": None,
+        "track": None,
+        "release_status": None,
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
+        "version_code": 123,
+    }
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        OPPO.replace("credential_profile: oppo-wallet", "credential_profile: ' '"),
+        OPPO.replace("version_code: 123", "version_code: 0"),
+        OPPO.replace("version_code: 123", "version_code: -1"),
+        OPPO.replace("version_code: 123", "version_code: '123'"),
+        OPPO.replace("version_code: 123", "version_code: true"),
+        OPPO.replace("language: zh-CN", "language: zh_CN"),
+        OPPO + "        unexpected: true\n",
+    ],
+)
+def test_oppo_configuration_is_strict(tmp_path: Path, invalid: str) -> None:
+    with pytest.raises(ConfigError, match="oppo"):
+        load_config(_write(tmp_path, invalid))
 
 
 @pytest.mark.parametrize(
@@ -218,6 +268,19 @@ def test_google_play_coexists_with_existing_store_targets(tmp_path: Path) -> Non
     assert resolve_store_target(application, StoreName.HARMONYOS).app_id == "100000002"
     assert resolve_store_target(application, StoreName.APPLE).app_id == "1234567890"
     assert resolve_store_target(application, StoreName.GOOGLE_PLAY).track == "internal"
+
+
+def test_oppo_coexists_with_every_existing_store_target(tmp_path: Path) -> None:
+    application = load_config(
+        _write(tmp_path, HUAWEI + HARMONYOS + APPLE + GOOGLE_PLAY + XIAOMI + OPPO)
+    ).apps["wallet"]
+
+    assert resolve_store_target(application, StoreName.HUAWEI).app_id == "100000001"
+    assert resolve_store_target(application, StoreName.HARMONYOS).app_id == "100000002"
+    assert resolve_store_target(application, StoreName.APPLE).app_id == "1234567890"
+    assert resolve_store_target(application, StoreName.GOOGLE_PLAY).track == "internal"
+    assert resolve_store_target(application, StoreName.XIAOMI).app_name == "Example Wallet"
+    assert resolve_store_target(application, StoreName.OPPO).version_code == 123
 
 
 @pytest.mark.parametrize(

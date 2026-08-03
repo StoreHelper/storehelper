@@ -45,6 +45,7 @@ def test_store_target_serializes_a_harmonyos_identity() -> None:
         "app_name": None,
         "icon_path": None,
         "privacy_url": None,
+        "version_code": None,
     }
 
 
@@ -69,6 +70,22 @@ def test_apple_contract_extensions_are_store_neutral() -> None:
     assert target.release_id == "version-resource-id"
     assert target.platform == "IOS"
     assert processing.artifact_id == "build-resource-id"
+
+
+def test_oppo_contract_extensions_are_store_neutral() -> None:
+    target = StoreTarget(
+        store=StoreName.OPPO,
+        label="OPPO Software Store",
+        app_id="com.example.wallet",
+        package_name="com.example.wallet",
+        credential_profile="oppo-wallet",
+        language="zh-CN",
+        version_code=123,
+    )
+
+    assert StoreName.OPPO.value == "oppo"
+    assert CredentialKind.OPPO_API.value == "oppo_api"
+    assert target.version_code == 123
 
 
 def test_capabilities_describe_orchestration_without_vendor_fields() -> None:

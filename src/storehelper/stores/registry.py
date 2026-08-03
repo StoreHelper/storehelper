@@ -39,6 +39,7 @@ from storehelper.stores.models import (
     StoreName,
     StoreTarget,
 )
+from storehelper.stores.oppo.package import validate_oppo_artifact
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 from storehelper.stores.xiaomi.auth import XiaomiAuth
 from storehelper.stores.xiaomi.client import XiaomiClient
@@ -194,6 +195,22 @@ _REGISTRATIONS = {
         validator=validate_xiaomi_artifact,
         factory=_xiaomi_factory,
         target_validator=validate_xiaomi_target,
+    ),
+    StoreName.OPPO: AdapterRegistration(
+        store=StoreName.OPPO,
+        label="OPPO Software Store",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.OPPO_API,
+            artifact_suffixes=(".apk",),
+            requires_processing_poll=False,
+            requires_release_notes=True,
+            supports_review_status=True,
+            atomic_submission=True,
+            staged_submission=True,
+            supports_no_submit=False,
+        ),
+        validator=validate_oppo_artifact,
+        factory=None,
     ),
 }
 

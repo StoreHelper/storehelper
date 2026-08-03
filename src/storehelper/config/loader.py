@@ -57,6 +57,10 @@ apps:
         icon: assets/xiaomi-icon.png
         privacy_url: https://example.com/privacy
         language: zh-CN
+      oppo:
+        credential_profile: oppo-release
+        version_code: 123
+        language: zh-CN
 """
 
 
@@ -214,22 +218,39 @@ def resolve_store_target(
             release_status=google_config.release_status,
         )
 
-    xiaomi_config = application.stores.xiaomi
-    if xiaomi_config is None:
+    if store is StoreName.XIAOMI:
+        xiaomi_config = application.stores.xiaomi
+        if xiaomi_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="Xiaomi App Store",
+            app_id=application.package_name,
+            package_name=application.package_name,
+            credential_profile=xiaomi_config.credential_profile,
+            language=xiaomi_config.language,
+            app_name=xiaomi_config.app_name,
+            icon_path=xiaomi_config.icon,
+            privacy_url=xiaomi_config.privacy_url,
+        )
+
+    oppo_config = application.stores.oppo
+    if oppo_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label="Xiaomi App Store",
+        label="OPPO Software Store",
         app_id=application.package_name,
         package_name=application.package_name,
-        credential_profile=xiaomi_config.credential_profile,
-        language=xiaomi_config.language,
-        app_name=xiaomi_config.app_name,
-        icon_path=xiaomi_config.icon,
-        privacy_url=xiaomi_config.privacy_url,
+        credential_profile=oppo_config.credential_profile,
+        language=oppo_config.language,
+        version_code=oppo_config.version_code,
     )
 
 

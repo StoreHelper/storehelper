@@ -110,3 +110,4 @@ def test_example_config_is_valid_and_secret_free(tmp_path: Path) -> None:
     assert "private_key" not in contents
     assert "client_secret" not in contents
     assert config.apps["my-app"].stores.google_play.release_status == "draft"
+    assert config.apps["my-app"].stores.oppo.version_code == 123

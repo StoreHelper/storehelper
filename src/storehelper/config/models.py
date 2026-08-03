@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 NonEmptyString = Annotated[str, Field(min_length=1)]
+StrictPositiveInt = Annotated[int, Field(strict=True, gt=0)]
 _APP_ALIAS = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
 _GOOGLE_TRACK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -122,6 +123,21 @@ class XiaomiStoreConfig(BaseModel):
         return value
 
 
+class OppoStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    credential_profile: NonEmptyString
+    version_code: StrictPositiveInt
+    language: NonEmptyString = "zh-CN"
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        if not _BCP47_LANGUAGE.fullmatch(value):
+            raise ValueError("must be a BCP-47 language tag")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -130,10 +146,13 @@ class StoreConfigs(BaseModel):
     apple: AppleStoreConfig | None = None
     google_play: GooglePlayStoreConfig | None = None
     xiaomi: XiaomiStoreConfig | None = None
+    oppo: OppoStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
-        if not any((self.huawei, self.harmonyos, self.apple, self.google_play, self.xiaomi)):
+        if not any(
+            (self.huawei, self.harmonyos, self.apple, self.google_play, self.xiaomi, self.oppo)
+        ):
             raise ValueError("at least one store must be configured")
         return self
 

@@ -14,6 +14,7 @@ class StoreName(StrEnum):
     APPLE = "apple"
     GOOGLE_PLAY = "google_play"
     XIAOMI = "xiaomi"
+    OPPO = "oppo"
 
 
 class CredentialKind(StrEnum):
@@ -21,6 +22,7 @@ class CredentialKind(StrEnum):
     APPLE_API_KEY = "apple_api_key"
     GOOGLE_SERVICE_ACCOUNT = "google_service_account"
     XIAOMI_API = "xiaomi_api"
+    OPPO_API = "oppo_api"
 
 
 class StoreCapabilities(BaseModel):
@@ -60,6 +62,7 @@ class StoreTarget(BaseModel):
     app_name: str | None = Field(default=None, min_length=1)
     icon_path: Path | None = None
     privacy_url: str | None = Field(default=None, min_length=1)
+    version_code: int | None = Field(default=None, gt=0)
 
 
 class VerifiedApplication(BaseModel):

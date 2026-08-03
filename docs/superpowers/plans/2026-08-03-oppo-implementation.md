@@ -62,24 +62,29 @@ Ruff, mypy, Hatchling/build, Twine.
 - Modify: `src/storehelper/config/models.py`
 - Modify: `src/storehelper/config/loader.py`
 - Modify: `src/storehelper/stores/models.py`
+- Modify: `src/storehelper/stores/registry.py`
+- Create: `src/storehelper/stores/oppo/__init__.py`
+- Create: `src/storehelper/stores/oppo/package.py`
 - Modify: `examples/storehelper.yaml`
 - Modify: `tests/unit/test_config.py`
 - Modify: `tests/unit/test_store_config.py`
 - Modify: `tests/unit/test_store_models.py`
+- Modify: `tests/unit/test_store_registry.py`
+- Create: `tests/unit/test_oppo_package.py`
 
 **Interfaces:**
 - Produces: `StoreName.OPPO`, `CredentialKind.OPPO_API`.
 - Produces: `OppoStoreConfig(credential_profile, version_code, language="zh-CN")`.
 - Produces: optional `StoreTarget.version_code: int | None`.
 
-- [ ] Write failing tests for valid OPPO config, positive integer version code, dotted package,
+- [x] Write failing tests for valid OPPO config, positive integer version code, dotted package,
   BCP-47 locale, unknown/secret field rejection, and all previous example configurations.
-- [ ] Write failing tests for APK-only, 2 GiB limit, required 1–500 character release notes,
+- [x] Write failing tests for APK-only, 2 GiB limit, required 1–500 character release notes,
   staged submission, no no-submit, and review-status capability.
-- [ ] Add strict models and loader mapping with package name as public OPPO `app_id`.
-- [ ] Reuse the hardened APK ZIP validator and add an OPPO 2 GiB wrapper.
-- [ ] Run the config, package, loader, model, and registry unit tests.
-- [ ] Commit: `feat: configure OPPO update targets`.
+- [x] Add strict models and loader mapping with package name as public OPPO `app_id`.
+- [x] Reuse the hardened APK ZIP validator and add an OPPO 2 GiB wrapper.
+- [x] Run the config, package, loader, model, and registry unit tests.
+- [x] Commit: `feat: configure OPPO update targets`.
 
 ### Task 3: Application-specific OPPO credentials
 

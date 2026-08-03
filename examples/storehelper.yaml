@@ -31,3 +31,7 @@ apps:
         icon: assets/xiaomi-icon.png
         privacy_url: https://example.com/privacy
         language: zh-CN
+      oppo:
+        credential_profile: oppo-release
+        version_code: 123
+        language: zh-CN

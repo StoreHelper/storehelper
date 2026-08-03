@@ -80,6 +80,21 @@ def test_xiaomi_registration_declares_atomic_update_capabilities() -> None:
     assert xiaomi.factory is not None
 
 
+def test_oppo_registration_declares_staged_update_capabilities() -> None:
+    oppo = get_registration(StoreName.OPPO)
+
+    assert oppo.label == "OPPO Software Store"
+    assert oppo.capabilities.credential_kind is CredentialKind.OPPO_API
+    assert oppo.capabilities.artifact_suffixes == (".apk",)
+    assert oppo.capabilities.requires_release_notes is True
+    assert oppo.capabilities.requires_processing_poll is False
+    assert oppo.capabilities.supports_review_status is True
+    assert oppo.capabilities.atomic_submission is True
+    assert oppo.capabilities.staged_submission is True
+    assert oppo.capabilities.supports_no_submit is False
+    assert oppo.factory is None
+
+
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,
