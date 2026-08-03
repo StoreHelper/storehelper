@@ -530,6 +530,120 @@ async def test_real_cli_operation_factories_use_huawei_adapter(
 
 
 @pytest.mark.asyncio
+async def test_real_cli_operation_factory_uses_harmonyos_adapter(
+    tmp_path: Path,
+    rsa_private_key: str,
+    monkeypatch,
+) -> None:
+    config, package = _harmony_project(tmp_path)
+    account = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    keyring = MemoryKeyring()
+    keyring.set("default", account.to_storage_json())
+    monkeypatch.setattr(cli_module, "KEYRING", keyring)
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+    real_async_client = httpx.AsyncClient
+    calls: list[tuple[str, str]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        calls.append((request.method, path))
+        if path.endswith("/appid-list"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "appids": [{"value": "100000002"}]},
+            )
+        if path.endswith("/upload-url/for-obs"):
+            return httpx.Response(
+                200,
+                json={
+                    "ret": {"code": 0},
+                    "urlInfo": {
+                        "objectId": "private-object-id",
+                        "url": "https://obs.example/wallet.app",
+                        "method": "PUT",
+                        "headers": {
+                            "Authorization": "AWS4 temporary-signature",
+                            "Content-Length": request.url.params["contentLength"],
+                        },
+                    },
+                },
+            )
+        if request.url.host == "obs.example":
+            await request.aread()
+            return httpx.Response(200)
+        if path.endswith("/api/publish/v3/app-package-info"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "packageId": "package-42"},
+            )
+        if path.endswith("/api/publish/v2/app-package-info"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "packageInfo": {"parseStatus": "ready"}},
+            )
+        if path.endswith("/app-info"):
+            return httpx.Response(
+                200,
+                json={"ret": {"code": 0}, "appInfo": {"releaseState": 4}},
+            )
+        return httpx.Response(200, json={"ret": {"code": 0}})
+
+    monkeypatch.setattr(
+        cli_module.httpx,
+        "AsyncClient",
+        lambda **kwargs: real_async_client(transport=httpx.MockTransport(handler)),
+    )
+    request = cli_module.PublishRequest(
+        store=cli_module.StoreName.HARMONYOS,
+        app_alias="wallet",
+        file=package,
+        release_notes="修复已知问题",
+        confirmed=True,
+        poll_interval_seconds=5,
+        wait_timeout_seconds=5,
+    )
+
+    published = await cli_module._publish_operation(
+        request=request,
+        config_path=config,
+        app_alias="wallet",
+        interactive=False,
+    )
+    status = await cli_module._status_operation(
+        config_path=config,
+        app_alias="wallet",
+        store=cli_module.StoreName.HARMONYOS,
+        interactive=False,
+    )
+    verified = await cli_module._verify_credentials_operation(
+        config_path=config,
+        app_alias="wallet",
+        profile=None,
+        store=cli_module.StoreName.HARMONYOS,
+        interactive=False,
+    )
+
+    assert published.store is cli_module.StoreName.HARMONYOS
+    assert published.stage is PublishStage.SUBMITTED
+    assert status.store is cli_module.StoreName.HARMONYOS
+    assert status.message.endswith("in_review")
+    assert verified.store is cli_module.StoreName.HARMONYOS
+    assert ("PUT", "/api/publish/v3/app-package-info") in calls
+
+
+def test_publish_help_lists_registered_store_choices() -> None:
+    result = runner.invoke(cli_module.app, ["publish", "--help"])
+
+    assert result.exit_code == 0
+    assert "huawei" in result.stdout
+    assert "harmonyos" in result.stdout
+
+
+@pytest.mark.asyncio
 async def test_dry_run_adapter_fails_fast_if_a_network_method_is_called() -> None:
     adapter = cli_module._NoNetworkAdapter()
 

@@ -512,7 +512,7 @@ def status(
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
-    """Query Huawei's current review state for an application."""
+    """Query the selected store's current review state for an application."""
 
     output_format = _output(output)
     _run_operation(

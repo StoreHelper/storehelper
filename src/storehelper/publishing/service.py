@@ -165,6 +165,13 @@ class Publisher:
                 "The selected publishing run is not resumable.",
                 ExitCode.LOCAL_STATE,
             )
+        package = self._validator(Path(receipt.package_path))
+        if package.sha256 != receipt.package_sha256:
+            raise PublishingError(
+                "PACKAGE_CHANGED",
+                "The package changed after this publishing run was created.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
         return await self._continue(
             receipt,
             poll_interval=poll_interval,

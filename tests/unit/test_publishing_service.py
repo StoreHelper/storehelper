@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -331,6 +333,81 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
         await publisher.resume(receipt.run_id)
 
     assert raised.value.code == "RUN_APP_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_resume_rejects_changed_local_package_before_network(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path / "runs")
+    package = _package(tmp_path)
+    artifact = validate_package(package)
+    receipt = repo.create(
+        store="huawei",
+        app_alias="demo",
+        app_id="123",
+        package_name="com.example.app",
+        package_path=str(package),
+        package_sha256=artifact.sha256,
+        logical_name=artifact.logical_name,
+        language="zh-CN",
+        release_notes="Fixes",
+        submit=True,
+    ).model_copy(update={"state": RunState.TIMED_OUT, "artifact_id": "42"})
+    repo.save(receipt)
+    with zipfile.ZipFile(package, "a") as archive:
+        archive.writestr("changed.txt", b"different artifact")
+    adapter = FakeAdapter()
+    publisher = _publisher(adapter=adapter, repository=repo)
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+
+    assert raised.value.code == "PACKAGE_CHANGED"
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_resume_migrates_legacy_huawei_receipt_without_reupload(tmp_path: Path) -> None:
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    package = _package(tmp_path)
+    artifact = validate_package(package)
+    run_id = "20260803T100000Z-legacy01"
+    now = datetime.now(UTC).isoformat()
+    receipt_path = runs / f"{run_id}.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_id,
+                "created_at": now,
+                "updated_at": now,
+                "store": "huawei",
+                "state": "package_compiling",
+                "app_alias": "demo",
+                "app_id": "123",
+                "package_name": "com.example.app",
+                "package_path": str(package),
+                "package_sha256": artifact.sha256,
+                "logical_name": artifact.logical_name,
+                "pkg_version": "42",
+                "language": "zh-CN",
+                "release_notes": "Fixes",
+                "submit": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    adapter = FakeAdapter()
+    publisher = _publisher(adapter=adapter, repository=RunRepository(runs))
+
+    result = await publisher.resume(run_id)
+
+    assert result.stage is PublishStage.SUBMITTED
+    assert adapter.calls == ["compile", "notes", "submit"]
+    rewritten = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert rewritten["schema_version"] == 2
+    assert rewritten["artifact_id"] == "42"
+    assert "pkg_version" not in rewritten
 
 
 @pytest.mark.asyncio

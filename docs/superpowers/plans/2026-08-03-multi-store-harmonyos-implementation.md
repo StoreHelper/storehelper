@@ -287,12 +287,12 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - legacy Huawei v1 receipt migration and resume;
 - secret scan of text, JSON, exceptions, and receipt files.
 
-- [ ] Write the failing scenarios using respx and injected clock/sleeper.
-- [ ] Run the new integration file and verify gaps.
-- [ ] Apply only the minimal production corrections needed by the scenarios.
-- [ ] Run `python -m pytest tests/integration tests/unit -q`.
-- [ ] Run a repository scan for known private reference values and temporary upload keys.
-- [ ] Commit: `test: cover HarmonyOS publishing recovery and security`.
+- [x] Write the failing scenarios using mocked HTTP and injected clock/sleeper.
+- [x] Run the new integration file and verify gaps.
+- [x] Apply only the minimal production corrections needed by the scenarios.
+- [x] Run `python -m pytest tests/integration tests/unit -q`.
+- [x] Run a repository scan for known private reference values and temporary upload keys; only explicit placeholder examples remain in historical design documents.
+- [x] Commit: `test: cover HarmonyOS publishing recovery and security`.
 
 ### Task 11: Documentation and public progress tracking
 
