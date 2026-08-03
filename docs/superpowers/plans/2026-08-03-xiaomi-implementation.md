@@ -162,13 +162,13 @@ reviewable commit. Automated tests never contact Xiaomi.
 
 ### Task 10: Full verification and milestone closure
 
-- [ ] Run Ruff format/check, mypy, and all tests with coverage at least 90%.
-- [ ] Build v0.5.0 sdist/wheel in a fresh temporary directory and run Twine checks.
-- [ ] Install the exact wheel in a fresh environment.
-- [ ] Run installed help/version, five-store config validation, and five offline dry-runs.
-- [ ] Inspect archive contents and complete private-data/secret review.
-- [ ] Mark the public Xiaomi milestone complete only after every command exits zero.
-- [ ] Commit: `chore: complete Xiaomi milestone verification`.
+- [x] Run Ruff format/check, mypy, and all tests with coverage at least 90%.
+- [x] Build v0.5.0 sdist/wheel in a fresh temporary directory and run Twine checks.
+- [x] Install the exact wheel in a fresh environment.
+- [x] Run installed help/version, five-store config validation, and five offline dry-runs.
+- [x] Inspect archive contents and complete private-data/secret review.
+- [x] Mark the public Xiaomi milestone complete only after every command exits zero.
+- [x] Commit: `chore: complete Xiaomi milestone verification`.
 
 ## Completion rule
 

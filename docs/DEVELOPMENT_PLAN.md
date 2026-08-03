@@ -14,7 +14,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 7: Registry, runtime, CLI, and store-aware credential commands.
 - [x] Task 8: Uncertain-result blocking, manual acknowledgement, and security regression suite.
 - [x] Task 9: Xiaomi documentation, examples, and v0.5.0 versioning.
-- [ ] Task 10: Clean build, coverage, exact-wheel five-store smoke tests, and final secret review.
+- [x] Task 10: Clean build, coverage, exact-wheel five-store smoke tests, and final secret review.
 
 ## v0.4.0 Google Play task status
 
