@@ -87,12 +87,12 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Create: `tests/unit/test_xiaomi_errors.py`
 - Create: `tests/integration/test_xiaomi_query.py`
 
-- [ ] Add failing tests for fixed HTTPS host, redirect rejection, multipart field names, exact query
+- [x] Add failing tests for fixed HTTPS host, redirect rejection, multipart field names, exact query
   JSON, signed request, 429/5xx bounds, malformed response, package mismatch, claim result `-7`,
   update readiness, and raw-error redaction.
-- [ ] Implement `/dev/query` and use it for credential/application verification.
-- [ ] Never use query as review-status evidence.
-- [ ] Commit: `feat: verify Xiaomi update access`.
+- [x] Implement `/dev/query` and use it for credential/application verification.
+- [x] Never use query as review-status evidence.
+- [x] Commit: `feat: verify Xiaomi update access`.
 
 ### Task 6: Streamed single-APK push
 
