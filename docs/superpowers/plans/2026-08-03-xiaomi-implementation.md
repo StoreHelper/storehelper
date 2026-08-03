@@ -152,13 +152,13 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Modify: `src/storehelper/__init__.py`
 - Modify: version tests
 
-- [ ] Document developer-site key generation, existing-app scope, public config, secure review
+- [x] Document developer-site key generation, existing-app scope, public config, secure review
   accounts, APK/icon/release-note inputs, no sandbox/status/no-submit, confirmation, uncertain-state
   manual reconciliation, and local receipt deletion.
-- [ ] Add a live checklist ordered config/dry-run → signed read-only query → separately approved push.
-- [ ] Verify all examples use fake identifiers and no secret-like values.
-- [ ] Bump version consistently to `0.5.0`.
-- [ ] Commit: `docs: document Xiaomi publishing`.
+- [x] Add a live checklist ordered config/dry-run → signed read-only query → separately approved push.
+- [x] Verify all examples use fake identifiers and no secret-like values.
+- [x] Bump version consistently to `0.5.0`.
+- [x] Commit: `docs: document Xiaomi publishing`.
 
 ### Task 10: Full verification and milestone closure
 

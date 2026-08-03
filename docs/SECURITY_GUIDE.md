@@ -34,11 +34,23 @@ Google Play uses a third, independent namespace and the same precedence rule:
 3. the Google keyring namespace selected by `credentials ... --store google_play`;
 4. the Google secure prompt in an interactive terminal.
 
+Xiaomi uses a fourth independent namespace:
+
+1. `STOREHELPER_XIAOMI_CREDENTIALS_FILE`;
+2. the complete set of `STOREHELPER_XIAOMI_USERNAME`,
+   `STOREHELPER_XIAOMI_API_SECRET`, and `STOREHELPER_XIAOMI_PUBLIC_KEY_CERTIFICATE`, plus optional
+   `STOREHELPER_XIAOMI_TEST_ACCOUNTS_JSON`;
+3. the Xiaomi keyring namespace selected by `credentials ... --store xiaomi`;
+4. a secure interactive prompt for the three base fields only.
+
 Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
 secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
 credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
 require an unencrypted P-256 private key. Google requires a standard `service_account` key with
-an unencrypted RSA private key and a valid service-account email.
+an unencrypted RSA private key and a valid service-account email. Xiaomi requires the generated
+automatic-publishing API secret and Xiaomi's X.509 RSA public certificate. Optional structured
+review accounts, passwords/codes, access codes, and audit notes are credentials too; keep them out
+of project YAML and source control.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
@@ -50,6 +62,9 @@ and individual environment variables.
 Apply the same mutually exclusive file-or-variable rule to Google Play. Use a dedicated service
 account with access only to the required Play Console apps and release operations. Rotate and
 replace JSON keys according to the organization's key-management policy.
+Apply the rule independently to Xiaomi. Prefer a CI secret file for the multiline certificate and
+nested review accounts. Resetting the Xiaomi API secret invalidates the old value; replace every
+keyring/CI copy together.
 
 ## Persisted data
 
@@ -58,8 +73,14 @@ artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs, Google `v
 public operation IDs such as a Google App Edit ID, configured release/track/status values, review
 submission IDs, release notes, and state timestamps. They never contain private keys,
 JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
-temporary object IDs, upload URLs, destination URLs, or raw vendor bodies. Receipt files are
-written atomically with owner-only permissions where the platform supports it.
+temporary object IDs, upload URLs, destination URLs, Xiaomi API secrets/certificates, `SIG`,
+review accounts, RequestData, or raw vendor bodies. Receipt files are written atomically with
+owner-only permissions where the platform supports it.
+
+Xiaomi receipts may contain `submission_started` or `submission_uncertain`. These states mean the
+atomic upload-and-review request may have reached Xiaomi and are intentionally non-resumable. The
+same app/artifact remains locally blocked until an operator checks Xiaomi's console and explicitly
+deletes the local receipt. Deletion never changes Xiaomi state.
 
 ## Network boundary
 
@@ -78,6 +99,13 @@ written atomically with owner-only permissions where the platform supports it.
   their durable Edit ID and `versionCode`.
 - Google commits explicitly use `ERROR_IF_IN_REVIEW` and
   `changesNotSentForReview=false`; StoreHelper never cancels an existing review implicitly.
+- Xiaomi requests use only `https://api.developer.xiaomi.com/devupload`; redirects are rejected.
+  The read-only query may retry transient failures twice. The `/dev/push` mutation streams one APK
+  and icon in one request and is never automatically replayed after any response loss.
+- Xiaomi requires MD5 inside its encrypted protocol signature. StoreHelper uses MD5 only for that
+  vendor field; durable artifact identity and duplicate detection continue to use SHA-256.
+- Xiaomi has no sandbox or automatic review-status API. `--no-submit`, `status`, and automatic
+  resume are rejected instead of simulating safety the vendor does not provide.
 - JWTs and temporary upload values remain inside their store client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
 

@@ -3,6 +3,19 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.5.0 Xiaomi task status
+
+- [x] Task 1: Atomic submission safety and receipt schema v5.
+- [x] Task 2: Strict existing-package configuration, relative PNG icon, and APK preflight.
+- [x] Task 3: Dedicated API credential sources, keyring namespace, and structured review accounts.
+- [x] Task 4: Protocol-required streamed MD5 and dynamic RSA PKCS#1 v1.5 encryption.
+- [x] Task 5: Fixed-host signed read-only package/access verification.
+- [x] Task 6: Single-APK streamed upload-and-review submission with zero mutation retries.
+- [x] Task 7: Registry, runtime, CLI, and store-aware credential commands.
+- [x] Task 8: Uncertain-result blocking, manual acknowledgement, and security regression suite.
+- [x] Task 9: Xiaomi documentation, examples, and v0.5.0 versioning.
+- [ ] Task 10: Clean build, coverage, exact-wheel five-store smoke tests, and final secret review.
+
 ## v0.4.0 Google Play task status
 
 - [x] Task 1: Durable App Edit operation context and receipt schema v4.
@@ -150,6 +163,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 - [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
 - [x] Complete the Google Play v0.4.0 verification and distribution milestone.
-- [ ] Add Xiaomi, OPPO, vivo, and Honor Android store adapters.
+- [x] Complete the Xiaomi v0.5.0 implementation and security milestone.
+- [ ] Add OPPO, vivo, and Honor Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

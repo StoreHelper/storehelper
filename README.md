@@ -2,9 +2,10 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.4.0` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.5.0` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
-App Store Connect 或 Google Play 应用，并提供状态查询和断点恢复。
+App Store Connect、Google Play 或小米应用商店应用，并提供安全的状态查询、断点恢复或
+原子提交保护。
 
 > Status: alpha. Store records and release versions must already exist. StoreHelper does not
 > build/sign artifacts or create apps, certificates, versions, pricing, privacy, or rollout policy.
@@ -12,7 +13,7 @@ App Store Connect 或 Google Play 应用，并提供状态查询和断点恢复�
 ## Why StoreHelper?
 
 - One command validates, uploads, prepares a release, and optionally submits it for review on
-  Huawei Android, HarmonyOS, Apple, or Google Play.
+  Huawei Android, HarmonyOS, Apple, Google Play, or Xiaomi.
 - Credentials live in the OS keyring or CI secret store—not in project YAML.
 - Every durable step has a redacted atomic receipt, so compilation timeouts can be resumed
   without uploading the package again.
@@ -28,6 +29,8 @@ App Store Connect 或 Google Play 应用，并提供状态查询和断点恢复�
 - Apple: a team or individual App Store Connect API key with its unencrypted P-256 `.p8` key
 - Google Play: a dedicated Google service account with app access in Play Console and its
   standard unencrypted RSA key JSON
+- Xiaomi: an existing package, automatic-publishing API secret, Xiaomi X.509 RSA public
+  certificate, a signed APK, and a PNG icon
 
 Install the isolated CLI with [pipx](https://pipx.pypa.io/):
 
@@ -56,12 +59,12 @@ Create a secret-free project configuration:
 storehelper init
 ```
 
-Edit `storehelper.yaml`. One logical app may configure any subset of the four stores. Android and
+Edit `storehelper.yaml`. One logical app may configure any subset of the five stores. Android and
 Google Play use the application-level package name; HarmonyOS and Apple have their own
 package/bundle identifiers.
 
-编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple 和 Google
-Play 中的任意组合；示例中的 ID、包名和配置名都是假的。
+编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple、Google
+Play 和小米应用商店中的任意组合；示例中的 ID、包名和配置名都是假的。
 
 ```yaml
 version: 1
@@ -91,6 +94,12 @@ apps:
         track: internal
         release_status: draft
         language: en-US
+      xiaomi:
+        credential_profile: xiaomi-release
+        app_name: Example App
+        icon: assets/xiaomi-icon.png
+        privacy_url: https://example.com/privacy
+        language: zh-CN
 ```
 
 Both adapters use the same Huawei Service Account credential format, so they may share one
@@ -134,6 +143,28 @@ storehelper credentials list --store google_play
 storehelper credentials verify --app my-android-app --store google_play
 ```
 
+Xiaomi also uses an independent keyring namespace. Obtain the automatic-publishing API secret
+and Xiaomi public certificate from the developer console. The API secret is not the interactive
+login password. Import a local JSON file that is never committed:
+
+```json
+{
+  "username": "developer@example.com",
+  "api_secret": "replace-with-the-generated-api-secret",
+  "public_key_certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
+}
+```
+
+Optional reviewer accounts belong in the same credential file under `test_accounts`; see the
+[Xiaomi live checklist](docs/XIAOMI_MANUAL_TEST.md) for the structured format and limits.
+
+```bash
+storehelper credentials import \
+  --store xiaomi --profile xiaomi-release --file ~/Downloads/xiaomi-api.json
+storehelper credentials list --store xiaomi
+storehelper credentials verify --app my-android-app --store xiaomi
+```
+
 Validate locally without credentials or network access:
 
 ```bash
@@ -141,6 +172,7 @@ storehelper publish --app my-android-app --file build/app-release.aab --dry-run
 storehelper publish --app my-android-app --store harmonyos --file build/wallet.app --dry-run
 storehelper publish --app my-android-app --store apple --file build/Wallet.ipa --dry-run
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --dry-run
+storehelper publish --app my-android-app --store xiaomi --file build/app-release.apk --dry-run
 ```
 
 Upload and wait for package readiness without changing metadata or submitting review:
@@ -151,6 +183,9 @@ storehelper publish --app my-android-app --store harmonyos --file build/wallet.h
 storehelper publish --app my-android-app --store apple --file build/Wallet.ipa --no-submit
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --no-submit
 ```
+
+Xiaomi does not support `--no-submit`: its `/dev/push` endpoint uploads the APK and submits review
+in the same request. Use `--dry-run` for zero-network validation.
 
 Publish end to end:
 
@@ -199,6 +234,21 @@ Google release notes are optional and limited to 500 characters when supplied. S
 refuses to overwrite an active staged or halted rollout and never edits unrelated tracks,
 country targeting, rollout fractions, or update priority.
 
+Publish an existing Xiaomi APK update. Release notes are required and become `updateDesc`; the
+configured icon is resolved relative to `storehelper.yaml` and uploaded with the APK:
+
+```bash
+storehelper publish \
+  --app my-android-app \
+  --store xiaomi \
+  --file build/app-release.apk \
+  --release-notes "修复已知问题"
+```
+
+Xiaomi has no sandbox, upload-only operation, or automatic review-status API. StoreHelper first
+uses the read-only query API to verify package ownership/update permission, then sends exactly one
+confirmed upload-and-submit request. It supports existing-app, single-APK phone updates only.
+
 Interactive text mode shows a confirmation. CI and JSON mode must supply `--yes`:
 
 ```bash
@@ -227,6 +277,13 @@ storehelper status --app my-android-app --store google_play
 
 `resume` derives the store from the receipt, verifies the current local artifact digest, starts
 from the earliest safe durable step, and does not re-upload a package that was already bound.
+
+Xiaomi is deliberately different. If cancellation, process failure, or network loss occurs after
+`submission_started`, the receipt remains `submission_started` or `submission_uncertain`; it is
+not resumable and the same app/artifact is blocked. Inspect the Xiaomi console first. Only after
+deciding whether another submission is safe should you acknowledge the result with
+`storehelper runs delete RUN_ID` and run a newly confirmed publish. `status --store xiaomi` is
+unsupported because Xiaomi does not expose that API.
 
 ## CI credentials
 
@@ -280,6 +337,24 @@ export STOREHELPER_GOOGLE_CLIENT_EMAIL="..."
 `STOREHELPER_GOOGLE_TOKEN_URI` is optional and normally remains the official Google OAuth token
 endpoint. Do not mix the Google file and individual variable forms.
 
+For Xiaomi, use either one secret JSON file:
+
+```bash
+export STOREHELPER_XIAOMI_CREDENTIALS_FILE="$RUNNER_TEMP/xiaomi-api.json"
+```
+
+or the complete base variable set, with optional structured reviewer JSON:
+
+```bash
+export STOREHELPER_XIAOMI_USERNAME="developer@example.com"
+export STOREHELPER_XIAOMI_API_SECRET="..."
+export STOREHELPER_XIAOMI_PUBLIC_KEY_CERTIFICATE="..."
+export STOREHELPER_XIAOMI_TEST_ACCOUNTS_JSON='{"zh_CN":{"accounts":[],"audit_notes":"Review instructions"}}'
+```
+
+Do not mix file and individual Xiaomi sources. Avoid putting secrets in shell history; a CI secret
+file is usually safer for the multiline certificate and nested reviewer values.
+
 Temporary upload URLs, signed headers, object IDs, JWTs, and raw vendor responses are never
 persisted. See [the security guide](docs/SECURITY_GUIDE.md).
 
@@ -291,7 +366,7 @@ persisted. See [the security guide](docs/SECURITY_GUIDE.md).
 | 2 | Invalid usage or configuration |
 | 3 | Credential or authentication failure |
 | 4 | Package validation failure |
-| 5 | Huawei/vendor rejection |
+| 5 | App store/vendor rejection |
 | 6 | Resumable compilation timeout |
 | 7 | Corrupt or unavailable local run state |
 | 8 | Network failure after bounded retries |
@@ -322,11 +397,20 @@ persisted. See [the security guide](docs/SECURITY_GUIDE.md).
   `--no-submit` Edit is intentionally temporary and cannot be treated as a permanent draft.
 - `GOOGLE_AUTHORIZATION_FAILED`: verify that the Android Publisher API is enabled, the service
   account has app access in Play Console, and the configured package/track are correct.
+- `XIAOMI_PACKAGE_CLAIM_REQUIRED`: the package belongs to another developer account; complete the
+  claim in Xiaomi's console before retrying.
+- `XIAOMI_UPDATE_NOT_ALLOWED`: Xiaomi's read-only query currently disallows a version update;
+  inspect package/review state in the console.
+- `XIAOMI_SIGNATURE_REJECTED` or `XIAOMI_AUTHENTICATION_FAILED`: verify the generated API secret,
+  current Xiaomi public certificate, developer email, and whether the secret was reset.
+- `submission_uncertain`: do not retry automatically. Inspect the Xiaomi console and delete only
+  the local receipt after a release owner makes a deliberate retry decision.
 
 For the deliberately opt-in production checklist, see
 [`docs/HARMONYOS_MANUAL_TEST.md`](docs/HARMONYOS_MANUAL_TEST.md) or
 [`docs/APPLE_MANUAL_TEST.md`](docs/APPLE_MANUAL_TEST.md), or
-[`docs/GOOGLE_PLAY_MANUAL_TEST.md`](docs/GOOGLE_PLAY_MANUAL_TEST.md). Start with local-only
+[`docs/GOOGLE_PLAY_MANUAL_TEST.md`](docs/GOOGLE_PLAY_MANUAL_TEST.md), or
+[`docs/XIAOMI_MANUAL_TEST.md`](docs/XIAOMI_MANUAL_TEST.md). Start with local-only
 `--dry-run` and read-only credential verification, then use `--no-submit`; only a separately
 confirmed command should commit or submit a review.
 
