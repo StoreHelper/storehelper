@@ -12,7 +12,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 5: Staged non-resumable uncertainty boundary and duplicate protection.
 - [x] Task 6: Registry, runtime, CLI, security regression suite, and seven-store compatibility.
 - [x] Task 7: vivo documentation, live checklist, examples, and v0.7.0 versioning.
-- [ ] Task 8: Clean build, coverage, exact-wheel seven-store smoke tests, and final secret review.
+- [x] Task 8: Clean build, coverage, exact-wheel seven-store smoke tests, and final secret review.
 
 ## v0.6.0 OPPO task status
 
@@ -189,6 +189,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Complete the Google Play v0.4.0 verification and distribution milestone.
 - [x] Complete the Xiaomi v0.5.0 implementation and security milestone.
 - [x] Complete the OPPO v0.6.0 implementation and security milestone.
-- [ ] Add vivo and Honor Android store adapters.
+- [x] Complete the vivo v0.7.0 implementation and security milestone.
+- [ ] Add the Honor Android store adapter.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

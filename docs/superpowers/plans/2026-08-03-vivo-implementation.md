@@ -103,14 +103,14 @@ upload, and one final update request protected by the existing uncertainty bound
 
 ### Task 8: Full verification and milestone closure
 
-- [ ] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
-- [ ] Build v0.7.0 sdist/wheel in a fresh temporary directory and run Twine checks.
-- [ ] Inspect archives for worktrees, caches, credentials, private data, and unexpected files.
-- [ ] Install the exact wheel into a fresh Python environment with TLS verification enabled.
-- [ ] Run installed help/version, seven-store config validation, and seven offline dry-runs.
-- [ ] Run final non-test secret scan and prove no automated test contacted vivo.
-- [ ] Mark the vivo milestone complete only after every gate exits zero.
-- [ ] Commit: `chore: complete vivo milestone verification`.
+- [x] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
+- [x] Build v0.7.0 sdist/wheel in a fresh temporary directory and run Twine checks.
+- [x] Inspect archives for worktrees, caches, credentials, private data, and unexpected files.
+- [x] Install the exact wheel into a fresh Python environment with TLS verification enabled.
+- [x] Run installed help/version, seven-store config validation, and seven offline dry-runs.
+- [x] Run final non-test secret scan and prove no automated test contacted vivo.
+- [x] Mark the vivo milestone complete only after every gate exits zero.
+- [x] Commit: `chore: complete vivo milestone verification`.
 
 ## Completion rule
 

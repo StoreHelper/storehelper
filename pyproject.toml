@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "StoreHelper Contributors" }]
-keywords = ["app-store", "appgallery", "cli", "mobile", "oppo", "publishing", "xiaomi"]
+keywords = ["app-store", "appgallery", "cli", "mobile", "oppo", "publishing", "vivo", "xiaomi"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
