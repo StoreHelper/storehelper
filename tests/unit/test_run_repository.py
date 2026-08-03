@@ -59,7 +59,19 @@ def test_receipt_round_trip_and_duplicate_lookup(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["access_token", "private_key", "jwt", "uploadOperations", "requestHeaders"],
+    [
+        "access_token",
+        "private_key",
+        "jwt",
+        "uploadOperations",
+        "requestHeaders",
+        "client_id",
+        "client_secret",
+        "api_sign",
+        "upload_url",
+        "file_url",
+        "listing_snapshot",
+    ],
 )
 def test_receipt_rejects_secret_fields(field: str) -> None:
     payload = sample_receipt().model_dump(mode="json")

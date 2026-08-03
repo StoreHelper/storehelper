@@ -10,6 +10,7 @@ from storehelper.credentials.models import (
     CredentialError,
     GoogleServiceAccount,
     HuaweiServiceAccount,
+    OppoApiCredential,
     XiaomiApiCredential,
 )
 from storehelper.stores.apple.adapter import AppleAdapter
@@ -17,6 +18,7 @@ from storehelper.stores.google_play.adapter import GooglePlayAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.models import CredentialKind, StoreName
+from storehelper.stores.oppo.adapter import OppoAdapter
 from storehelper.stores.registry import get_registration, registered_store_names
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 
@@ -28,6 +30,7 @@ def test_registry_exposes_only_audited_builtin_stores() -> None:
         StoreName.APPLE,
         StoreName.GOOGLE_PLAY,
         StoreName.XIAOMI,
+        StoreName.OPPO,
     )
 
 
@@ -92,7 +95,7 @@ def test_oppo_registration_declares_staged_update_capabilities() -> None:
     assert oppo.capabilities.atomic_submission is True
     assert oppo.capabilities.staged_submission is True
     assert oppo.capabilities.supports_no_submit is False
-    assert oppo.factory is None
+    assert oppo.factory is not None
 
 
 def test_registry_builds_the_selected_adapter(
@@ -123,6 +126,10 @@ def test_registry_builds_the_selected_adapter(
         api_secret="api-secret",
         public_key_certificate=rsa_public_certificate,
     )
+    oppo_key = OppoApiCredential(
+        client_id="oppo-client",
+        client_secret="oppo-secret",
+    )
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
 
     try:
@@ -137,6 +144,9 @@ def test_registry_builds_the_selected_adapter(
         xiaomi_factory = get_registration(StoreName.XIAOMI).factory
         assert xiaomi_factory is not None
         xiaomi = xiaomi_factory(xiaomi_key, http)
+        oppo_factory = get_registration(StoreName.OPPO).factory
+        assert oppo_factory is not None
+        oppo = oppo_factory(oppo_key, http)
     finally:
         asyncio.run(http.aclose())
 
@@ -145,6 +155,7 @@ def test_registry_builds_the_selected_adapter(
     assert isinstance(apple, AppleAdapter)
     assert isinstance(google, GooglePlayAdapter)
     assert isinstance(xiaomi, XiaomiAdapter)
+    assert isinstance(oppo, OppoAdapter)
 
 
 def test_registry_rejects_wrong_credential_kind_for_apple(
@@ -200,6 +211,25 @@ def test_registry_rejects_wrong_credential_kind_for_xiaomi(
         factory = get_registration(StoreName.XIAOMI).factory
         assert factory is not None
         with pytest.raises(CredentialError, match="Xiaomi API credential"):
+            factory(wrong, http)
+    finally:
+        asyncio.run(http.aclose())
+
+
+def test_registry_rejects_wrong_credential_kind_for_oppo(
+    rsa_private_key: str,
+) -> None:
+    wrong = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        factory = get_registration(StoreName.OPPO).factory
+        assert factory is not None
+        with pytest.raises(CredentialError, match="OPPO API credential"):
             factory(wrong, http)
     finally:
         asyncio.run(http.aclose())

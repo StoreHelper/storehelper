@@ -56,3 +56,19 @@ def test_error_renderer_redacts_at_output_boundary() -> None:
     payload = json.loads(stdout.getvalue())
     assert payload["code"] == "AUTH_FAILED"
     assert "aaa.bbb.ccc" not in stdout.getvalue() + stderr.getvalue()
+
+
+def test_error_renderer_redacts_oppo_transient_fields_at_output_boundary() -> None:
+    stdout = io.StringIO()
+    error = StoreHelperError(
+        "OPPO_FAILED",
+        "client_id=known-client api_sign=known-sign upload_url=https://known-private.example/file",
+        ExitCode.NETWORK,
+    )
+
+    render_error(error, output="json", stdout=stdout)
+
+    rendered = stdout.getvalue()
+    assert "known-client" not in rendered
+    assert "known-sign" not in rendered
+    assert "known-private.example" not in rendered

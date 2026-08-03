@@ -216,17 +216,17 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: audited OPPO factory and CLI choice for publish/status/credentials.
 - Preserves: stable `OperationResult` schema version 1 and receipt schema version 5.
 
-- [ ] Write failing CLI tests for help/store choices, config validation, credential import/list/
+- [x] Write failing CLI tests for help/store choices, config validation, credential import/list/
   delete/verify, dry-run zero credential/network access, confirmation/`--yes`, notes requirement,
   no-submit rejection before credentials/network, status, and wrong credential kind.
-- [ ] Write failing end-to-end tests for success, staging failure safe retry, final response loss,
+- [x] Write failing end-to-end tests for success, staging failure safe retry, final response loss,
   cancellation, simulated hard crash, ambiguous duplicate blocking, no resume, receipt deletion,
   deliberate new run, and status reconciliation.
-- [ ] Register the strict factory/capabilities/validator and connect credential resolution.
-- [ ] Verify text/JSON output and receipts omit client values, token, signatures, upload values,
+- [x] Register the strict factory/capabilities/validator and connect credential resolution.
+- [x] Verify text/JSON output and receipts omit client values, token, signatures, upload values,
   listing data, signed forms, and raw responses.
-- [ ] Run all OPPO tests and the full five-store regression suite.
-- [ ] Commit: `feat: expose OPPO publishing through the CLI`.
+- [x] Run all OPPO tests and the full five-store regression suite.
+- [x] Commit: `feat: expose OPPO publishing through the CLI`.
 
 ### Task 9: Documentation and v0.6.0
 

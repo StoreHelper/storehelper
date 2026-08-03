@@ -14,6 +14,7 @@ from storehelper.credentials.models import (
     CredentialError,
     GoogleServiceAccount,
     HuaweiServiceAccount,
+    OppoApiCredential,
     StoreCredential,
     XiaomiApiCredential,
 )
@@ -39,6 +40,9 @@ from storehelper.stores.models import (
     StoreName,
     StoreTarget,
 )
+from storehelper.stores.oppo.adapter import OppoAdapter
+from storehelper.stores.oppo.auth import OppoAuth
+from storehelper.stores.oppo.client import OppoClient
 from storehelper.stores.oppo.package import validate_oppo_artifact
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 from storehelper.stores.xiaomi.auth import XiaomiAuth
@@ -127,6 +131,24 @@ def _xiaomi_factory(
     )
 
 
+def _oppo_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, OppoApiCredential):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "OPPO publishing requires an OPPO API credential profile.",
+        )
+    return OppoAdapter(
+        OppoClient(
+            credential=account,
+            auth=OppoAuth(account),
+            http=http,
+        )
+    )
+
+
 _REGISTRATIONS = {
     StoreName.HUAWEI: AdapterRegistration(
         store=StoreName.HUAWEI,
@@ -210,7 +232,7 @@ _REGISTRATIONS = {
             supports_no_submit=False,
         ),
         validator=validate_oppo_artifact,
-        factory=None,
+        factory=_oppo_factory,
     ),
 }
 

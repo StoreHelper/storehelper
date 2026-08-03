@@ -391,7 +391,7 @@ def test_publish_rejects_unsupported_store_and_conflicting_notes(tmp_path: Path)
 
     unsupported = runner.invoke(
         cli_module.app,
-        ["publish", "--file", str(package), "--store", "oppo", "--dry-run"],
+        ["publish", "--file", str(package), "--store", "unsupported_store", "--dry-run"],
     )
     conflict = runner.invoke(
         cli_module.app,

@@ -19,7 +19,8 @@ _AWS_AUTHORIZATION_PATTERN = re.compile(r"(?im)(authorization\s*:\s*aws4-[^\r\n]
 _JWT_PATTERN = re.compile(r"\b[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b")
 _SECRET_FIELD_PATTERN = re.compile(
     r"(?i)(\b(?:authCode|private_key|access_token|client_secret|password|secret|token|"
-    r"api_secret|public_key_certificate|test_accounts|testAccount|SIG)\b"
+    r"api_secret|public_key_certificate|test_accounts|testAccount|SIG|client_id|api_sign|"
+    r"upload_sign|upload_url|file_url|apk_url)\b"
     r"\s*[=:]\s*)[^\s,;]+"
 )
 _SIGNED_FIELD_PATTERN = re.compile(r"(?i)(\b(?:x-amz-signature|objectId)\b\s*[=:]\s*)[^\s,;&]+")
