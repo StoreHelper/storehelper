@@ -7,8 +7,9 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
-from storehelper.domain.errors import StoreHelperError, redact
+from storehelper.domain.errors import redact
 from storehelper.domain.exit_codes import ExitCode
+from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 
 _MESSAGES = {
     "204144641": "Huawei rejected an invalid parameter.",
@@ -43,8 +44,15 @@ class HuaweiResponseStatus(BaseModel):
         return self.code == "0"
 
 
-class HuaweiVendorError(StoreHelperError):
+class HuaweiVendorError(StoreVendorError):
     pass
+
+
+class HuaweiArtifactStillProcessingError(
+    ArtifactStillProcessingError,
+    HuaweiVendorError,
+):
+    """Compatibility error carrying both generic and Huawei classifications."""
 
 
 def _protocol_error(message: str) -> HuaweiVendorError:
@@ -72,7 +80,7 @@ def parse_huawei_response(data: Mapping[str, object]) -> HuaweiResponseStatus:
     return HuaweiResponseStatus(code=code, message=message, hint=hint)
 
 
-def translate_huawei_error(code: str, message: str | None = None) -> HuaweiVendorError:
+def translate_huawei_error(code: str, message: str | None = None) -> StoreVendorError:
     """Translate one Huawei code without exposing raw vendor payloads."""
 
     normalized = str(code)
@@ -81,11 +89,9 @@ def translate_huawei_error(code: str, message: str | None = None) -> HuaweiVendo
     if safe_vendor_message and safe_vendor_message.lower() not in description.lower():
         description = f"{description} Huawei message: {safe_vendor_message}"
     if normalized in _COMPILING_CODES:
-        return HuaweiVendorError(
+        return HuaweiArtifactStillProcessingError(
             "HUAWEI_PACKAGE_COMPILING",
             description,
-            ExitCode.RESUMABLE_TIMEOUT,
-            resumable=True,
             vendor_code=normalized,
         )
     if normalized in _AUTH_CODES:

@@ -3,38 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
-
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.errors import redact
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.huawei.client import HuaweiClient
 from storehelper.stores.huawei.errors import HuaweiVendorError
-from storehelper.stores.huawei.models import BoundPackage, HuaweiApp
-from storehelper.stores.huawei.package import PackageInfo
+from storehelper.stores.models import (
+    ProcessingState,
+    ProcessingStatus,
+    ReviewStatus,
+    UploadedArtifact,
+    VerifiedApplication,
+)
 
-
-class CompileState(StrEnum):
-    PROCESSING = "processing"
-    READY = "ready"
-    FAILED = "failed"
-
-
-class CompileStatus(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    state: CompileState
-    reason: str | None = None
-
-
-class ReviewStatus(StrEnum):
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    IN_REVIEW = "in_review"
-    PENDING_REVIEW = "pending_review"
-    SUSPENDED = "suspended"
-    UNKNOWN = "unknown"
+CompileState = ProcessingState
+CompileStatus = ProcessingStatus
 
 
 def _as_int(value: object) -> int | None:
@@ -115,19 +99,40 @@ class HuaweiAndroidAdapter:
     def __init__(self, client: HuaweiClient) -> None:
         self._client = client
 
-    async def verify(self, *, app_id: str, package_name: str) -> HuaweiApp:
+    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
         return await self._client.verify_app(app_id=app_id, package_name=package_name)
 
-    async def upload(self, *, app_id: str, package: PackageInfo) -> BoundPackage:
-        return await self._client.upload_and_bind(app_id=app_id, package=package)
+    async def upload(
+        self,
+        *,
+        app_id: str,
+        artifact: ArtifactInfo | None = None,
+        package: ArtifactInfo | None = None,
+    ) -> UploadedArtifact:
+        """Upload an artifact, accepting the schema-v1 keyword during migration."""
 
-    async def compile_status(self, *, app_id: str, pkg_version: str) -> CompileStatus:
+        selected = artifact if artifact is not None else package
+        if selected is None:
+            raise ValueError("artifact is required")
+        return await self._client.upload_and_bind(app_id=app_id, package=selected)
+
+    async def processing_status(
+        self,
+        *,
+        app_id: str,
+        artifact_id: str,
+    ) -> ProcessingStatus:
         data = await self._client.request_json(
             "GET",
             "package/compile/status",
-            params={"appId": app_id, "pkgIds": pkg_version},
+            params={"appId": app_id, "pkgIds": artifact_id},
         )
-        return parse_compile_status(data, pkg_version)
+        return parse_compile_status(data, artifact_id)
+
+    async def compile_status(self, *, app_id: str, pkg_version: str) -> CompileStatus:
+        """Compatibility shim for the schema-v1 publisher."""
+
+        return await self.processing_status(app_id=app_id, artifact_id=pkg_version)
 
     async def update_release_notes(
         self,

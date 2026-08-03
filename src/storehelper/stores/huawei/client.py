@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from pydantic import SecretStr
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.errors import (
@@ -21,7 +22,6 @@ from storehelper.stores.huawei.models import (
     UploadedFile,
     UploadTicket,
 )
-from storehelper.stores.huawei.package import PackageInfo
 
 DEFAULT_API_BASE = "https://connect-api.cloud.huawei.com/api/publish/v2"
 
@@ -168,7 +168,7 @@ class HuaweiClient:
     async def upload_file(
         self,
         *,
-        package: PackageInfo,
+        package: ArtifactInfo,
         upload_url: str,
         auth_code: str,
     ) -> UploadedFile:
@@ -222,7 +222,7 @@ class HuaweiClient:
         self,
         *,
         app_id: str,
-        package: PackageInfo,
+        package: ArtifactInfo,
         destination: str,
     ) -> BoundPackage:
         data = await self.request_json(
@@ -244,15 +244,15 @@ class HuaweiClient:
         values = [str(value) for value in versions if value is not None and str(value)]
         if len(values) != 1:
             raise self._protocol_error("Huawei binding must return exactly one pkgVersion.")
-        return BoundPackage(pkg_version=values[0])
+        return BoundPackage(artifact_id=values[0])
 
     async def upload_and_bind(
         self,
         *,
         app_id: str,
-        package: PackageInfo,
+        package: ArtifactInfo,
     ) -> BoundPackage:
-        ticket = await self.request_upload(app_id=app_id, suffix=package.kind.value)
+        ticket = await self.request_upload(app_id=app_id, suffix=str(package.kind))
         uploaded = await self.upload_file(
             package=package,
             upload_url=ticket.upload_url.get_secret_value(),

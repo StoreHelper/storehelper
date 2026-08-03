@@ -34,7 +34,7 @@ def _auth(rsa_private_key: str) -> HuaweiAuth:
 
 
 @pytest.mark.asyncio
-async def test_upload_and_bind_uses_logical_name_and_returns_pkg_version(
+async def test_upload_and_bind_uses_logical_name_and_returns_artifact_id(
     tmp_path: Path,
     rsa_private_key: str,
 ) -> None:
@@ -85,7 +85,7 @@ async def test_upload_and_bind_uses_logical_name_and_returns_pkg_version(
         await client.verify_app(app_id="123", package_name="com.example.app")
         bound = await client.upload_and_bind(app_id="123", package=package)
 
-    assert bound.pkg_version == "10004151"
+    assert bound.artifact_id == "10004151"
     upload_request = requests[2]
     upload_body = await upload_request.aread()
     assert b'filename="release.apk"' in upload_body

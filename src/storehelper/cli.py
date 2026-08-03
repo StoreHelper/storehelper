@@ -14,6 +14,7 @@ import httpx
 import typer
 
 from storehelper import __version__
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.commands.config import initialize, validate
 from storehelper.commands.credentials import delete_profile, import_profile, list_profiles
 from storehelper.config.loader import load_config, select_application
@@ -26,15 +27,15 @@ from storehelper.output.renderers import OutputFormat, render_error, render_resu
 from storehelper.publishing.service import Publisher, PublishingError
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.base import StoreAdapter
-from storehelper.stores.huawei.adapter import (
-    CompileStatus,
-    HuaweiAndroidAdapter,
-    ReviewStatus,
-)
+from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
-from storehelper.stores.huawei.models import BoundPackage, HuaweiApp
-from storehelper.stores.huawei.package import PackageInfo
+from storehelper.stores.models import (
+    ProcessingStatus,
+    ReviewStatus,
+    UploadedArtifact,
+    VerifiedApplication,
+)
 
 app = typer.Typer(
     name="storehelper",
@@ -94,13 +95,18 @@ class _NoNetworkAdapter:
     def _failed() -> NoReturn:
         raise AssertionError("dry-run attempted a network operation")
 
-    async def verify(self, *, app_id: str, package_name: str) -> HuaweiApp:
+    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
         self._failed()
 
-    async def upload(self, *, app_id: str, package: PackageInfo) -> BoundPackage:
+    async def upload(self, *, app_id: str, artifact: ArtifactInfo) -> UploadedArtifact:
         self._failed()
 
-    async def compile_status(self, *, app_id: str, pkg_version: str) -> CompileStatus:
+    async def processing_status(
+        self,
+        *,
+        app_id: str,
+        artifact_id: str,
+    ) -> ProcessingStatus:
         self._failed()
 
     async def update_release_notes(

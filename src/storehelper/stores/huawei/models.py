@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, SecretStr
 
+from storehelper.stores.models import UploadedArtifact, VerifiedApplication
 
-class HuaweiApp(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    app_id: str = Field(min_length=1)
-    package_name: str | None = None
+HuaweiApp = VerifiedApplication
 
 
 class UploadTicket(BaseModel):
@@ -30,7 +27,14 @@ class UploadedFile(BaseModel):
     destination: SecretStr
 
 
-class BoundPackage(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class BoundPackage(UploadedArtifact):
+    """Compatibility type while callers migrate from `pkg_version`."""
 
-    pkg_version: str = Field(min_length=1)
+    artifact_id: str = Field(
+        min_length=1,
+        validation_alias=AliasChoices("artifact_id", "pkg_version"),
+    )
+
+    @property
+    def pkg_version(self) -> str:
+        return self.artifact_id

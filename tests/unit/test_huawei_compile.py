@@ -7,6 +7,7 @@ from storehelper.stores.huawei.adapter import (
     parse_compile_status,
 )
 from storehelper.stores.huawei.errors import HuaweiVendorError
+from storehelper.stores.models import ProcessingState, ProcessingStatus
 
 
 @pytest.mark.parametrize(
@@ -26,7 +27,11 @@ def test_maps_documented_compile_status(
         "pkgStateList": [{"pkgId": "42", "successStatus": success_status}],
     }
 
-    assert parse_compile_status(payload, "42").state is expected
+    result = parse_compile_status(payload, "42")
+
+    assert isinstance(result, ProcessingStatus)
+    assert result.state is expected
+    assert result.state is ProcessingState(expected.value)
 
 
 def test_missing_package_record_is_processing() -> None:

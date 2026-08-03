@@ -74,14 +74,14 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - `StoreVendorError` and `ArtifactStillProcessingError`.
 - A Huawei adapter conforming to the new generic protocol without changed HTTP behavior.
 
-- [ ] Write failing tests for enum serialization, frozen capability models, generic artifact values, and safe errors.
-- [ ] Run `python -m pytest tests/unit/test_store_models.py -q` and verify missing imports fail.
-- [ ] Implement the shared models and protocol; move or alias Huawei types to them.
-- [ ] Rename adapter method arguments internally from `pkg_version` to `artifact_id` while preserving Huawei request field names.
-- [ ] Make `HuaweiVendorError` derive from `StoreVendorError`; translate package-compiling responses into `ArtifactStillProcessingError`.
-- [ ] Run `python -m pytest tests/unit/test_store_models.py tests/unit/test_huawei_package.py tests/unit/test_huawei_compile.py tests/integration/test_huawei_submission.py -q`.
-- [ ] Run `ruff format . && ruff check . && mypy src`.
-- [ ] Commit: `refactor: introduce store-neutral publishing contracts`.
+- [x] Write failing tests for enum serialization, frozen capability models, generic artifact values, and safe errors.
+- [x] Run `python -m pytest tests/unit/test_store_models.py -q` and verify missing imports fail.
+- [x] Implement the shared models and protocol; move or alias Huawei types to them.
+- [x] Rename adapter method arguments internally from `pkg_version` to `artifact_id` while preserving Huawei request field names.
+- [x] Make `HuaweiVendorError` derive from `StoreVendorError`; translate package-compiling responses into `ArtifactStillProcessingError`.
+- [x] Run `python -m pytest tests/unit/test_store_models.py tests/unit/test_huawei_package.py tests/unit/test_huawei_compile.py tests/integration/test_huawei_submission.py -q`.
+- [x] Run `ruff format . && ruff check . && mypy src`.
+- [x] Commit: `refactor: introduce store-neutral publishing contracts`.
 
 ### Task 2: Strict multi-store configuration and resolved targets
 

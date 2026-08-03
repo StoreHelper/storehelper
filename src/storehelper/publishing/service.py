@@ -15,9 +15,9 @@ from storehelper.domain.models import OperationResult, PublishRequest, PublishSt
 from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.base import StoreAdapter
-from storehelper.stores.huawei.adapter import CompileState
-from storehelper.stores.huawei.errors import HuaweiVendorError
+from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.huawei.package import validate_package
+from storehelper.stores.models import ProcessingState
 
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
@@ -184,11 +184,11 @@ class Publisher:
                         "The package changed after this publishing run was created.",
                         ExitCode.PACKAGE_VALIDATION,
                     )
-                bound = await self._adapter.upload(app_id=receipt.app_id, package=package)
+                bound = await self._adapter.upload(app_id=receipt.app_id, artifact=package)
                 receipt = self._transition(
                     receipt,
                     RunState.PACKAGE_BOUND,
-                    pkg_version=bound.pkg_version,
+                    pkg_version=bound.artifact_id,
                 )
 
             if receipt.state in {
@@ -244,9 +244,7 @@ class Publisher:
             if receipt.state is RunState.METADATA_UPDATED:
                 try:
                     await self._adapter.submit(app_id=receipt.app_id)
-                except HuaweiVendorError as error:
-                    if error.code != "HUAWEI_PACKAGE_COMPILING":
-                        raise
+                except ArtifactStillProcessingError as error:
                     receipt = self._transition(receipt, RunState.PACKAGE_COMPILING)
                     ready = await self._wait_until_ready(
                         receipt,
@@ -308,16 +306,16 @@ class Publisher:
         assert receipt.pkg_version is not None
         started = self._clock()
         while True:
-            status = await self._adapter.compile_status(
+            status = await self._adapter.processing_status(
                 app_id=receipt.app_id,
-                pkg_version=receipt.pkg_version,
+                artifact_id=receipt.pkg_version,
             )
-            if status.state is CompileState.READY:
+            if status.state is ProcessingState.READY:
                 return True
-            if status.state is CompileState.FAILED:
-                raise HuaweiVendorError(
-                    "HUAWEI_COMPILE_FAILED",
-                    status.reason or "Huawei package compilation failed.",
+            if status.state is ProcessingState.FAILED:
+                raise StoreVendorError(
+                    "ARTIFACT_PROCESSING_FAILED",
+                    status.reason or "The store could not process the artifact.",
                     ExitCode.VENDOR_REJECTION,
                 )
             if self._clock() - started >= wait_timeout:

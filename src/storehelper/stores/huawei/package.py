@@ -10,8 +10,7 @@ import zipfile
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
-
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 
@@ -32,15 +31,8 @@ class PackageKind(StrEnum):
     AAB = "aab"
 
 
-class PackageInfo(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    path: Path
+class PackageInfo(ArtifactInfo):
     kind: PackageKind
-    size: int
-    sha256: str
-    logical_name: str
-    warnings: tuple[str, ...] = ()
 
 
 def logical_package_name(source: str) -> str:

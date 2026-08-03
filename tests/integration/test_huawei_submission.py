@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.stores.errors import ArtifactStillProcessingError
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter, ReviewStatus
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
@@ -78,7 +79,7 @@ async def test_submit_compiling_response_remains_resumable(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        with pytest.raises(HuaweiVendorError) as raised:
+        with pytest.raises(ArtifactStillProcessingError) as raised:
             await adapter.submit(app_id="123")
 
     assert raised.value.resumable is True

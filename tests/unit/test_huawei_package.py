@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.stores.huawei.package import (
     PackageError,
     PackageKind,
@@ -53,6 +54,7 @@ def test_validates_apk_and_streams_sha256(tmp_path: Path) -> None:
 
     package = validate_package(path)
 
+    assert isinstance(package, ArtifactInfo)
     assert package.kind is PackageKind.APK
     assert package.size == path.stat().st_size
     assert package.sha256 == hashlib.sha256(path.read_bytes()).hexdigest()

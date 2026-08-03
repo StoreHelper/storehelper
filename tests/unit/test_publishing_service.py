@@ -5,17 +5,24 @@ from pathlib import Path
 
 import pytest
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.config.models import ApplicationConfig
 from storehelper.domain.errors import StoreHelperError
-from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import PublishRequest, PublishStage
 from storehelper.publishing.service import Publisher
 from storehelper.runs.models import RunState
 from storehelper.runs.repository import RunRepository
-from storehelper.stores.huawei.adapter import CompileState, CompileStatus, ReviewStatus
-from storehelper.stores.huawei.errors import HuaweiVendorError
-from storehelper.stores.huawei.models import BoundPackage, HuaweiApp
-from storehelper.stores.huawei.package import PackageInfo
+from storehelper.stores.errors import ArtifactStillProcessingError
+from storehelper.stores.models import (
+    ProcessingState,
+    ProcessingStatus,
+    ReviewStatus,
+    UploadedArtifact,
+    VerifiedApplication,
+)
+
+CompileState = ProcessingState
+CompileStatus = ProcessingStatus
 
 
 class FakeAdapter:
@@ -24,15 +31,20 @@ class FakeAdapter:
         self.calls: list[str] = []
         self.submit_compiling_once = False
 
-    async def verify(self, *, app_id: str, package_name: str) -> HuaweiApp:
+    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
         self.calls.append("verify")
-        return HuaweiApp(app_id=app_id, package_name=package_name)
+        return VerifiedApplication(app_id=app_id, package_name=package_name)
 
-    async def upload(self, *, app_id: str, package: PackageInfo) -> BoundPackage:
+    async def upload(self, *, app_id: str, artifact: ArtifactInfo) -> UploadedArtifact:
         self.calls.append("upload")
-        return BoundPackage(pkg_version="42")
+        return UploadedArtifact(artifact_id="42")
 
-    async def compile_status(self, *, app_id: str, pkg_version: str) -> CompileStatus:
+    async def processing_status(
+        self,
+        *,
+        app_id: str,
+        artifact_id: str,
+    ) -> ProcessingStatus:
         self.calls.append("compile")
         state = (
             self.compile_states.pop(0) if len(self.compile_states) > 1 else self.compile_states[0]
@@ -54,11 +66,9 @@ class FakeAdapter:
         self.calls.append("submit")
         if self.submit_compiling_once:
             self.submit_compiling_once = False
-            raise HuaweiVendorError(
+            raise ArtifactStillProcessingError(
                 "HUAWEI_PACKAGE_COMPILING",
                 "Package is still compiling.",
-                ExitCode.RESUMABLE_TIMEOUT,
-                resumable=True,
                 vendor_code="204144727",
             )
         return app_id
