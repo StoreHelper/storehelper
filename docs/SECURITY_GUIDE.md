@@ -29,16 +29,18 @@ environment variables. Never mix the two forms.
 
 ## Persisted data
 
-Run receipts contain app IDs, package paths and hashes, logical file names, Huawei
-`pkgVersion`, release notes, and state timestamps. They never contain private keys, JWTs,
-authorization headers, upload `authCode`, upload URLs, destination URLs, or raw Huawei bodies.
-Receipt files are written atomically with owner-only permissions where the platform supports it.
+Run receipts contain store names, app IDs, package paths and hashes, logical file names, durable
+artifact IDs (`pkgVersion` or `packageId`), release notes, and state timestamps. They never
+contain private keys, JWTs, authorization headers, upload `authCode`, OBS signed headers,
+temporary object IDs, upload URLs, destination URLs, or raw Huawei bodies. Receipt files are
+written atomically with owner-only permissions where the platform supports it.
 
 ## Network boundary
 
 - TLS verification cannot be disabled.
 - Authenticated Huawei redirects are disabled.
 - File uploads accept HTTPS URLs only and do not forward Huawei API authorization headers.
+- HarmonyOS OBS uploads send only Huawei's exact signed upload headers and disable redirects.
 - JWTs and temporary upload values remain inside the Huawei client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
 

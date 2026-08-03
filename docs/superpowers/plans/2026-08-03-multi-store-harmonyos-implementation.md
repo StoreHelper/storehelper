@@ -303,13 +303,13 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Create: `docs/HARMONYOS_MANUAL_TEST.md`
 - Modify: `CHANGELOG.md` if present
 
-- [ ] Add the complete adapter rollout and mark only verified tasks complete.
-- [ ] Document dual-store configuration, shared credentials, `.app`/`.hap`, release notes, dry-run, no-submit, timeout, resume, status, JSON, and security boundaries.
-- [ ] Add an opt-in live test checklist that starts with dry-run and no-submit before any review submission.
-- [ ] Verify every documented command against installed CLI help.
-- [ ] Check all examples contain fake IDs, package names, and profiles only.
-- [ ] Run markdown/link checks available in the repository.
-- [ ] Commit: `docs: document HarmonyOS publishing workflow`.
+- [x] Add the complete adapter rollout and mark only verified tasks complete.
+- [x] Document dual-store configuration, shared credentials, `.app`/`.hap`, release notes, dry-run, no-submit, timeout, resume, status, JSON, and security boundaries.
+- [x] Add an opt-in live test checklist that starts with dry-run and no-submit before any review submission.
+- [x] Verify every documented command against installed CLI help.
+- [x] Check all examples contain fake IDs, package names, and profiles only.
+- [x] Verify local documentation links; no Markdown linter is configured in the repository.
+- [x] Commit: `docs: document HarmonyOS publishing workflow`.
 
 ### Task 12: Full verification and milestone closure
 

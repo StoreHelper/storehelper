@@ -15,7 +15,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 8: HarmonyOS processing, release notes, submission, and status.
 - [x] Task 9: Static adapter registry, runtime factory, and CLI integration.
 - [x] Task 10: End-to-end recovery and security regression suite.
-- [ ] Task 11: Documentation and public progress tracking.
+- [x] Task 11: Documentation and public progress tracking.
 - [ ] Task 12: Full verification and milestone closure.
 
 ## Implementation task status
@@ -102,9 +102,21 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Plan the separate `StoreHelper/homebrew-tap` repository after the first tagged release.
 - [x] Prepare the `v0.1.0` release checklist.
 
+## Milestone 7: Multi-store foundation and HarmonyOS
+
+- [x] Replace Huawei-specific orchestration types with store-neutral contracts and capabilities.
+- [x] Add a static audited registry and runtime selection for `huawei` and `harmonyos`.
+- [x] Preserve Huawei-only configuration and migrate v1 receipts to generic v2 receipts.
+- [x] Validate HarmonyOS APP/HAP archives locally without extraction or vendor tooling.
+- [x] Verify an existing HarmonyOS application through package type `7` lookup.
+- [x] Allocate an OBS upload, stream exact signed headers, and persist only `packageId`.
+- [x] Poll processing, update only `newFeatures`, submit review, and query review state.
+- [x] Resume timeout and interruption without re-upload and handle `204144727` eventual consistency.
+- [x] Document dual-store setup, shared credentials, security boundaries, and opt-in live checks.
+- [ ] Complete the clean v0.2.0 build, coverage, installed-wheel, smoke, and secret review gates.
+
 ## Later milestones
 
-- [ ] Huawei HarmonyOS adapter.
 - [ ] Apple App Store Connect adapter.
 - [ ] Additional Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
