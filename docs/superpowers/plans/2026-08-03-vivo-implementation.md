@@ -81,14 +81,14 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** registry/runtime/CLI, renderers/repository redaction, integration publish-flow tests.
 
-- [ ] Write failing CLI tests for choices, config, credential lifecycle/verification, dry-run,
+- [x] Write failing CLI tests for choices, config, credential lifecycle/verification, dry-run,
   confirmation, notes requirement, unsupported no-submit/resume, status, and wrong credential kind.
-- [ ] Write end-to-end tests for success, safe staging failure, ambiguous final failure/cancellation/
+- [x] Write end-to-end tests for success, safe staging failure, ambiguous final failure/cancellation/
   crash, duplicate blocking, receipt deletion, deliberate new run, and status reconciliation.
-- [ ] Register the audited factory and wire credential/runtime resolution.
-- [ ] Prove text/JSON output and receipts omit all vivo sensitive/transient values.
-- [ ] Run all vivo tests and the full six-store regression suite.
-- [ ] Commit: `feat: expose vivo publishing through the CLI`.
+- [x] Register the audited factory and wire credential/runtime resolution.
+- [x] Prove text/JSON output and receipts omit all vivo sensitive/transient values.
+- [x] Run all vivo tests and the full six-store regression suite.
+- [x] Commit: `feat: expose vivo publishing through the CLI`.
 
 ### Task 7: Documentation and v0.7.0
 

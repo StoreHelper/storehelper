@@ -11,6 +11,7 @@ from storehelper.credentials.models import (
     GoogleServiceAccount,
     HuaweiServiceAccount,
     OppoApiCredential,
+    VivoApiCredential,
     XiaomiApiCredential,
 )
 from storehelper.stores.apple.adapter import AppleAdapter
@@ -20,6 +21,7 @@ from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.models import CredentialKind, StoreName
 from storehelper.stores.oppo.adapter import OppoAdapter
 from storehelper.stores.registry import get_registration, registered_store_names
+from storehelper.stores.vivo.adapter import VivoAdapter
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 
 
@@ -31,6 +33,7 @@ def test_registry_exposes_only_audited_builtin_stores() -> None:
         StoreName.GOOGLE_PLAY,
         StoreName.XIAOMI,
         StoreName.OPPO,
+        StoreName.VIVO,
     )
 
 
@@ -110,7 +113,7 @@ def test_vivo_registration_declares_staged_update_capabilities() -> None:
     assert vivo.capabilities.atomic_submission is True
     assert vivo.capabilities.staged_submission is True
     assert vivo.capabilities.supports_no_submit is False
-    assert vivo.factory is None
+    assert vivo.factory is not None
 
 
 def test_registry_builds_the_selected_adapter(
@@ -145,6 +148,10 @@ def test_registry_builds_the_selected_adapter(
         client_id="oppo-client",
         client_secret="oppo-secret",
     )
+    vivo_key = VivoApiCredential(
+        access_key="vivo-access",
+        secret_key="vivo-secret",
+    )
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
 
     try:
@@ -162,6 +169,9 @@ def test_registry_builds_the_selected_adapter(
         oppo_factory = get_registration(StoreName.OPPO).factory
         assert oppo_factory is not None
         oppo = oppo_factory(oppo_key, http)
+        vivo_factory = get_registration(StoreName.VIVO).factory
+        assert vivo_factory is not None
+        vivo = vivo_factory(vivo_key, http)
     finally:
         asyncio.run(http.aclose())
 
@@ -171,6 +181,7 @@ def test_registry_builds_the_selected_adapter(
     assert isinstance(google, GooglePlayAdapter)
     assert isinstance(xiaomi, XiaomiAdapter)
     assert isinstance(oppo, OppoAdapter)
+    assert isinstance(vivo, VivoAdapter)
 
 
 def test_registry_rejects_wrong_credential_kind_for_apple(
@@ -245,6 +256,25 @@ def test_registry_rejects_wrong_credential_kind_for_oppo(
         factory = get_registration(StoreName.OPPO).factory
         assert factory is not None
         with pytest.raises(CredentialError, match="OPPO API credential"):
+            factory(wrong, http)
+    finally:
+        asyncio.run(http.aclose())
+
+
+def test_registry_rejects_wrong_credential_kind_for_vivo(
+    rsa_private_key: str,
+) -> None:
+    wrong = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        factory = get_registration(StoreName.VIVO).factory
+        assert factory is not None
+        with pytest.raises(CredentialError, match="vivo API credential"):
             factory(wrong, http)
     finally:
         asyncio.run(http.aclose())

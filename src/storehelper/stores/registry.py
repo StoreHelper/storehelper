@@ -16,6 +16,7 @@ from storehelper.credentials.models import (
     HuaweiServiceAccount,
     OppoApiCredential,
     StoreCredential,
+    VivoApiCredential,
     XiaomiApiCredential,
 )
 from storehelper.stores.apple.adapter import AppleAdapter
@@ -44,6 +45,9 @@ from storehelper.stores.oppo.adapter import OppoAdapter
 from storehelper.stores.oppo.auth import OppoAuth
 from storehelper.stores.oppo.client import OppoClient
 from storehelper.stores.oppo.package import validate_oppo_artifact
+from storehelper.stores.vivo.adapter import VivoAdapter
+from storehelper.stores.vivo.auth import VivoAuth
+from storehelper.stores.vivo.client import VivoClient
 from storehelper.stores.vivo.package import validate_vivo_artifact
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 from storehelper.stores.xiaomi.auth import XiaomiAuth
@@ -150,6 +154,18 @@ def _oppo_factory(
     )
 
 
+def _vivo_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, VivoApiCredential):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "vivo publishing requires a vivo API credential profile.",
+        )
+    return VivoAdapter(VivoClient(auth=VivoAuth(account), http=http))
+
+
 _REGISTRATIONS = {
     StoreName.HUAWEI: AdapterRegistration(
         store=StoreName.HUAWEI,
@@ -249,7 +265,7 @@ _REGISTRATIONS = {
             supports_no_submit=False,
         ),
         validator=validate_vivo_artifact,
-        factory=None,
+        factory=_vivo_factory,
     ),
 }
 

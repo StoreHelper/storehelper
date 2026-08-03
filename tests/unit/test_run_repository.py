@@ -71,6 +71,11 @@ def test_receipt_round_trip_and_duplicate_lookup(tmp_path: Path) -> None:
         "upload_url",
         "file_url",
         "listing_snapshot",
+        "access_key",
+        "secret_key",
+        "sign",
+        "serialnumber",
+        "fileMd5",
     ],
 )
 def test_receipt_rejects_secret_fields(field: str) -> None:

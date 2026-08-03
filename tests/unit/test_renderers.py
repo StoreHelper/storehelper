@@ -72,3 +72,19 @@ def test_error_renderer_redacts_oppo_transient_fields_at_output_boundary() -> No
     assert "known-client" not in rendered
     assert "known-sign" not in rendered
     assert "known-private.example" not in rendered
+
+
+def test_error_renderer_redacts_vivo_transient_fields_at_output_boundary() -> None:
+    stdout = io.StringIO()
+    error = StoreHelperError(
+        "VIVO_FAILED",
+        "access_key=known-access secret_key=known-secret sign=known-sign "
+        "serialnumber=known-serial fileMd5=known-md5",
+        ExitCode.NETWORK,
+    )
+
+    render_error(error, output="json", stdout=stdout)
+
+    rendered = stdout.getvalue()
+    for value in ("known-access", "known-secret", "known-sign", "known-serial", "known-md5"):
+        assert value not in rendered
