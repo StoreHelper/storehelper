@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 from keyring.errors import KeyringError
 
-from storehelper.credentials.models import AppleApiKey, AppleKeyType, HuaweiServiceAccount
+from storehelper.credentials.models import (
+    AppleApiKey,
+    AppleKeyType,
+    GoogleServiceAccount,
+    HuaweiServiceAccount,
+)
 from storehelper.credentials.providers import (
     CredentialError,
     CredentialProvider,
@@ -43,6 +48,86 @@ def apple_json(
     if issuer_id is not None:
         value["issuer_id"] = issuer_id
     return json.dumps(value)
+
+
+def google_json(
+    private_key: str,
+    *,
+    credential_type: str = "service_account",
+    client_email: str = "storehelper@demo-project.iam.gserviceaccount.com",
+    token_uri: str = "https://oauth2.googleapis.com/token",
+) -> str:
+    return json.dumps(
+        {
+            "type": credential_type,
+            "project_id": "demo-project",
+            "private_key_id": "google-key-1",
+            "private_key": private_key,
+            "client_email": client_email,
+            "client_id": "1234567890",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": token_uri,
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": (
+                "https://www.googleapis.com/robot/v1/metadata/x509/"
+                "storehelper%40demo-project.iam.gserviceaccount.com"
+            ),
+            "universe_domain": "googleapis.com",
+        }
+    )
+
+
+def test_google_standard_service_account_json_is_strict_and_secret_safe(
+    rsa_private_key: str,
+) -> None:
+    credential = GoogleServiceAccount.model_validate_json(google_json(rsa_private_key))
+
+    assert credential.project_id == "demo-project"
+    assert credential.private_key_id == "google-key-1"
+    assert credential.client_email.endswith(".gserviceaccount.com")
+    assert rsa_private_key not in repr(credential)
+    assert rsa_private_key not in str(credential.model_dump())
+    stored = json.loads(credential.to_storage_json())
+    assert stored["credential_kind"] == "google_service_account"
+    assert "client_id" not in stored["credential"]
+
+
+@pytest.mark.parametrize(
+    ("change", "value"),
+    [
+        ("credential_type", "authorized_user"),
+        ("client_email", "person@example.com"),
+        ("token_uri", "http://oauth2.googleapis.com/token"),
+        ("token_uri", "https://user:password@oauth2.googleapis.com/token"),
+        ("token_uri", "https://oauth2.googleapis.com:not-a-port/token"),
+    ],
+)
+def test_google_service_account_rejects_invalid_identity_and_token_uri(
+    rsa_private_key: str,
+    change: str,
+    value: str,
+) -> None:
+    with pytest.raises(CredentialError):
+        GoogleServiceAccount.model_validate_json(google_json(rsa_private_key, **{change: value}))
+
+
+def test_google_service_account_requires_an_rsa_key_without_echoing_it(
+    p256_private_key: str,
+) -> None:
+    with pytest.raises(CredentialError) as raised:
+        GoogleServiceAccount.model_validate_json(google_json(p256_private_key))
+
+    assert p256_private_key not in str(raised.value)
+
+
+def test_google_service_account_rejects_unknown_fields(rsa_private_key: str) -> None:
+    value = json.loads(google_json(rsa_private_key))
+    value["access_token"] = "must-not-be-accepted"
+
+    with pytest.raises(CredentialError) as raised:
+        GoogleServiceAccount.model_validate(value)
+
+    assert "must-not-be-accepted" not in str(raised.value)
 
 
 def test_apple_team_and_individual_credentials_are_strict(p256_private_key: str) -> None:
@@ -276,6 +361,157 @@ def test_imports_apple_profile_in_an_independent_namespace(
 
     assert service.list_profiles(CredentialKind.APPLE_API_KEY) == ["company"]
     assert service.list_profiles(CredentialKind.HUAWEI_SERVICE_ACCOUNT) == []
+
+
+def test_imports_google_profile_in_an_independent_namespace(
+    tmp_path: Path,
+    rsa_private_key: str,
+) -> None:
+    source = tmp_path / "google.json"
+    source.write_text(google_json(rsa_private_key), encoding="utf-8")
+    keyring = MemoryKeyring()
+    service = CredentialService(keyring)
+
+    service.import_file("release", source, CredentialKind.GOOGLE_SERVICE_ACCOUNT)
+
+    assert service.list_profiles(CredentialKind.GOOGLE_SERVICE_ACCOUNT) == ["release"]
+    assert service.list_profiles(CredentialKind.HUAWEI_SERVICE_ACCOUNT) == []
+    stored = keyring.get("release", CredentialKind.GOOGLE_SERVICE_ACCOUNT)
+    assert stored is not None
+    assert json.loads(stored)["credential_kind"] == "google_service_account"
+
+
+@pytest.mark.usefixtures("clean_google_env")
+def test_google_environment_file_conflicts_with_individual_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    rsa_private_key: str,
+) -> None:
+    path = tmp_path / "google.json"
+    path.write_text(google_json(rsa_private_key), encoding="utf-8")
+    monkeypatch.setenv("STOREHELPER_GOOGLE_CREDENTIALS_FILE", str(path))
+    monkeypatch.setenv("STOREHELPER_GOOGLE_PROJECT_ID", "duplicate")
+
+    with pytest.raises(CredentialError) as raised:
+        CredentialProvider(MemoryKeyring()).resolve(
+            "release", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False
+        )
+
+    assert raised.value.code == "CREDENTIAL_SOURCE_CONFLICT"
+
+
+def test_google_environment_credential_file_is_loaded(
+    tmp_path: Path,
+    rsa_private_key: str,
+) -> None:
+    path = tmp_path / "google.json"
+    path.write_text(google_json(rsa_private_key), encoding="utf-8")
+    provider = CredentialProvider(
+        MemoryKeyring(),
+        environment={"STOREHELPER_GOOGLE_CREDENTIALS_FILE": str(path)},
+    )
+
+    resolved = provider.resolve("ignored", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False)
+
+    assert isinstance(resolved, GoogleServiceAccount)
+    assert resolved.private_key_id == "google-key-1"
+
+
+@pytest.mark.usefixtures("clean_google_env")
+def test_resolves_complete_google_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+    rsa_private_key: str,
+) -> None:
+    monkeypatch.setenv("STOREHELPER_GOOGLE_PROJECT_ID", "demo-project")
+    monkeypatch.setenv("STOREHELPER_GOOGLE_PRIVATE_KEY_ID", "key-1")
+    monkeypatch.setenv("STOREHELPER_GOOGLE_PRIVATE_KEY", rsa_private_key)
+    monkeypatch.setenv(
+        "STOREHELPER_GOOGLE_CLIENT_EMAIL",
+        "storehelper@demo-project.iam.gserviceaccount.com",
+    )
+
+    resolved = CredentialProvider(MemoryKeyring()).resolve(
+        "ignored", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False
+    )
+
+    assert isinstance(resolved, GoogleServiceAccount)
+    assert resolved.project_id == "demo-project"
+    assert resolved.token_uri == "https://oauth2.googleapis.com/token"
+
+
+def test_incomplete_google_environment_credentials_are_rejected() -> None:
+    provider = CredentialProvider(
+        MemoryKeyring(),
+        environment={"STOREHELPER_GOOGLE_PROJECT_ID": "demo-project"},
+    )
+
+    with pytest.raises(CredentialError) as raised:
+        provider.resolve("release", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False)
+
+    assert raised.value.code == "CREDENTIAL_ENV_INCOMPLETE"
+
+
+def test_missing_google_credentials_are_actionable() -> None:
+    with pytest.raises(CredentialError) as raised:
+        CredentialProvider(MemoryKeyring(), environment={}).resolve(
+            "release", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False
+        )
+
+    assert raised.value.code == "CREDENTIAL_NOT_FOUND"
+    assert "release" in str(raised.value)
+
+
+def test_reads_type_tagged_google_keyring_profile(rsa_private_key: str) -> None:
+    keyring = MemoryKeyring()
+    credential = GoogleServiceAccount.model_validate_json(google_json(rsa_private_key))
+    keyring.set(
+        "release",
+        credential.to_storage_json(),
+        CredentialKind.GOOGLE_SERVICE_ACCOUNT,
+    )
+
+    resolved = CredentialProvider(keyring, environment={}).resolve(
+        "release", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=False
+    )
+
+    assert isinstance(resolved, GoogleServiceAccount)
+    assert resolved.private_key_id == "google-key-1"
+
+
+def test_interactive_google_provider_uses_typed_prompt(rsa_private_key: str) -> None:
+    credential = GoogleServiceAccount.model_validate_json(google_json(rsa_private_key))
+
+    class Prompt:
+        def prompt(self, kind: CredentialKind) -> GoogleServiceAccount:
+            assert kind is CredentialKind.GOOGLE_SERVICE_ACCOUNT
+            return credential
+
+    resolved = CredentialProvider(MemoryKeyring(), environment={}, prompt=Prompt()).resolve(
+        "missing", CredentialKind.GOOGLE_SERVICE_ACCOUNT, interactive=True
+    )
+
+    assert resolved == credential
+
+
+def test_secure_prompt_collects_google_values_without_echoing_key(
+    monkeypatch: pytest.MonkeyPatch,
+    rsa_private_key: str,
+) -> None:
+    answers = iter(
+        [
+            "demo-project",
+            "google-key-1",
+            "storehelper@demo-project.iam.gserviceaccount.com",
+            "",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt: next(answers))
+    monkeypatch.setattr("getpass.getpass", lambda prompt: rsa_private_key)
+
+    credential = SecurePrompt().prompt(CredentialKind.GOOGLE_SERVICE_ACCOUNT)
+
+    assert isinstance(credential, GoogleServiceAccount)
+    assert credential.token_uri == "https://oauth2.googleapis.com/token"
 
 
 @pytest.mark.usefixtures("clean_huawei_env")

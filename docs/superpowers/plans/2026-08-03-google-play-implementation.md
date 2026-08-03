@@ -68,12 +68,12 @@ async def submit(
 - Modify: `tests/unit/test_credentials.py`
 - Modify: `tests/integration/test_cli_foundation.py`
 
-- [ ] Add failing tests for standard JSON import, RSA validation, type/client-email/token-URI
+- [x] Add failing tests for standard JSON import, RSA validation, type/client-email/token-URI
   validation, independent keyring namespace, CI file/variables, conflicts, prompt, and redaction.
-- [ ] Add `CredentialKind.GOOGLE_SERVICE_ACCOUNT` and `GoogleServiceAccount`.
-- [ ] Support `STOREHELPER_GOOGLE_*` sources with fixed precedence.
-- [ ] Verify list/delete/import CLI semantics remain backward compatible.
-- [ ] Commit: `feat: secure Google Play credentials`.
+- [x] Add `CredentialKind.GOOGLE_SERVICE_ACCOUNT` and `GoogleServiceAccount`.
+- [x] Support `STOREHELPER_GOOGLE_*` sources with fixed precedence.
+- [x] Verify list/delete/import CLI semantics remain backward compatible.
+- [x] Commit: `feat: secure Google Play credentials`.
 
 ### Task 4: RS256 OAuth assertion and token exchange
 

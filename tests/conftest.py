@@ -48,3 +48,17 @@ def clean_apple_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ):
         monkeypatch.delenv(name, raising=False)
     yield
+
+
+@pytest.fixture
+def clean_google_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    for name in (
+        "STOREHELPER_GOOGLE_PROJECT_ID",
+        "STOREHELPER_GOOGLE_PRIVATE_KEY_ID",
+        "STOREHELPER_GOOGLE_PRIVATE_KEY",
+        "STOREHELPER_GOOGLE_CLIENT_EMAIL",
+        "STOREHELPER_GOOGLE_TOKEN_URI",
+        "STOREHELPER_GOOGLE_CREDENTIALS_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    yield

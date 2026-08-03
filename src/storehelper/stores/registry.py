@@ -122,11 +122,24 @@ _REGISTRATIONS = {
         validator=validate_ipa,
         factory=_apple_factory,
     ),
+    StoreName.GOOGLE_PLAY: AdapterRegistration(
+        store=StoreName.GOOGLE_PLAY,
+        label="Google Play",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.GOOGLE_SERVICE_ACCOUNT,
+            artifact_suffixes=(".apk", ".aab"),
+            requires_processing_poll=False,
+            requires_release_notes=False,
+            supports_review_status=True,
+        ),
+        validator=validate_package,
+        factory=None,
+    ),
 }
 
 
 def registered_store_names() -> tuple[StoreName, ...]:
-    return tuple(_REGISTRATIONS)
+    return tuple(store for store, registration in _REGISTRATIONS.items() if registration.factory)
 
 
 def get_registration(store: StoreName) -> AdapterRegistration:

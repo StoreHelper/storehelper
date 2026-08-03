@@ -43,6 +43,16 @@ def test_apple_registration_declares_native_ios_capabilities() -> None:
     assert apple.capabilities.supports_review_status is True
 
 
+def test_google_registration_exposes_credentials_before_network_adapter() -> None:
+    google = get_registration(StoreName.GOOGLE_PLAY)
+
+    assert google.label == "Google Play"
+    assert google.capabilities.credential_kind is CredentialKind.GOOGLE_SERVICE_ACCOUNT
+    assert google.capabilities.artifact_suffixes == (".apk", ".aab")
+    assert google.capabilities.requires_release_notes is False
+    assert google.factory is None
+
+
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,

@@ -17,6 +17,7 @@ class StoreName(StrEnum):
 class CredentialKind(StrEnum):
     HUAWEI_SERVICE_ACCOUNT = "huawei_service_account"
     APPLE_API_KEY = "apple_api_key"
+    GOOGLE_SERVICE_ACCOUNT = "google_service_account"
 
 
 class StoreCapabilities(BaseModel):

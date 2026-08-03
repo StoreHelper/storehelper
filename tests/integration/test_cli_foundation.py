@@ -207,6 +207,85 @@ def test_apple_credential_import_list_and_delete_use_separate_namespace(
     assert p256_private_key not in imported.stdout + apple_profiles.stdout + deleted.stdout
 
 
+def test_google_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    rsa_private_key: str,
+    monkeypatch,
+) -> None:
+    keyring = MemoryKeyring()
+    monkeypatch.setattr(cli_module, "KEYRING", keyring)
+    credential_file = tmp_path / "google.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "demo-project",
+                "private_key_id": "key-1",
+                "private_key": rsa_private_key,
+                "client_email": "storehelper@demo-project.iam.gserviceaccount.com",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "google_play",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    google_profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "google_play", "--output", "json"],
+    )
+    huawei_profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "google_play",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert imported.exit_code == 0
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "google_play",
+    }
+    assert json.loads(google_profiles.stdout) == {
+        "profiles": ["release"],
+        "store": "google_play",
+    }
+    assert json.loads(huawei_profiles.stdout) == {"profiles": []}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "google_play",
+    }
+    assert rsa_private_key not in imported.stdout + google_profiles.stdout + deleted.stdout
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 
