@@ -9,7 +9,15 @@ from pathlib import Path
 import httpx
 
 from storehelper.artifacts.models import ArtifactInfo
-from storehelper.credentials.models import CredentialError, HuaweiServiceAccount, StoreCredential
+from storehelper.credentials.models import (
+    AppleApiKey,
+    CredentialError,
+    HuaweiServiceAccount,
+    StoreCredential,
+)
+from storehelper.stores.apple.adapter import AppleAdapter
+from storehelper.stores.apple.auth import AppleAuth
+from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.package import validate_ipa
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
@@ -62,6 +70,18 @@ def _harmonyos_factory(
     return HarmonyOSAdapter(HarmonyOSClient(auth=HuaweiAuth(account), http=http))
 
 
+def _apple_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, AppleApiKey):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "Apple publishing requires an Apple API key profile.",
+        )
+    return AppleAdapter(AppleClient(auth=AppleAuth(account), http=http))
+
+
 _REGISTRATIONS = {
     StoreName.HUAWEI: AdapterRegistration(
         store=StoreName.HUAWEI,
@@ -100,7 +120,7 @@ _REGISTRATIONS = {
             supports_review_status=True,
         ),
         validator=validate_ipa,
-        factory=None,
+        factory=_apple_factory,
     ),
 }
 

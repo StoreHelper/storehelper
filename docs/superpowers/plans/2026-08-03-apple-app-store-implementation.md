@@ -237,14 +237,14 @@ class AppleClient:
 def parse_apple_errors(payload: object) -> AppleVendorError: ...
 ```
 
-- [ ] Write failing tests for app read, version read with app relationship, version-string match,
+- [x] Write failing tests for app read, version read with app relationship, version-string match,
   bundle-ID match, 401 refresh once, 403, 429/5xx bounded retry, redirect, malformed JSON:API,
   and raw-secret error bodies.
-- [ ] Run focused tests and capture expected failures.
-- [ ] Implement bearer-authenticated no-redirect requests and bounded sanitized errors.
-- [ ] Verify app/version identity before any upload request.
-- [ ] Run Apple verification and all Huawei/Harmony client tests.
-- [ ] Commit: `feat: verify Apple App Store targets`.
+- [x] Run focused tests and capture expected failures.
+- [x] Implement bearer-authenticated no-redirect requests and bounded sanitized errors.
+- [x] Verify app/version identity before any upload request.
+- [x] Run Apple verification and all Huawei/Harmony client tests.
+- [x] Commit: `feat: verify Apple App Store targets`.
 
 ### Task 6: Build upload creation, range transfer, and commit
 
