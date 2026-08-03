@@ -71,12 +71,12 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Create: `src/storehelper/stores/xiaomi/auth.py`
 - Create: `tests/unit/test_xiaomi_auth.py`
 
-- [ ] Add failing tests for exact RequestData/file MD5, signature JSON order, dynamic RSA chunk size,
+- [x] Add failing tests for exact RequestData/file MD5, signature JSON order, dynamic RSA chunk size,
   multi-block decryption, lowercase hexadecimal, non-RSA/invalid certificate, streamed hashing,
   and secret-safe repr.
-- [ ] Implement PKCS#1 v1.5 public-key encryption with `cryptography`; add no new crypto package.
-- [ ] Keep API secret, plaintext signature JSON, and ciphertext out of logs/receipts.
-- [ ] Commit: `feat: implement Xiaomi request signatures`.
+- [x] Implement PKCS#1 v1.5 public-key encryption with `cryptography`; add no new crypto package.
+- [x] Keep API secret, plaintext signature JSON, and ciphertext out of logs/receipts.
+- [x] Commit: `feat: implement Xiaomi request signatures`.
 
 ### Task 5: Safe Xiaomi errors and signed read-only query
 
