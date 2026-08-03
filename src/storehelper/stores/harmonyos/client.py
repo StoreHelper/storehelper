@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
+from pydantic import SecretStr
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
+from storehelper.stores.harmonyos.models import OBSUploadTicket
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.errors import (
     HuaweiVendorError,
     parse_huawei_response,
     translate_huawei_error,
 )
-from storehelper.stores.models import VerifiedApplication
+from storehelper.stores.models import UploadedArtifact, VerifiedApplication
 
 DEFAULT_V2_API_BASE = "https://connect-api.cloud.huawei.com/api/publish/v2"
 DEFAULT_V3_API_BASE = "https://connect-api.cloud.huawei.com/api/publish/v3"
@@ -145,3 +149,121 @@ class HarmonyOSClient:
                 ExitCode.VENDOR_REJECTION,
             )
         return VerifiedApplication(app_id=app_id, package_name=package_name)
+
+    async def request_obs_upload(
+        self,
+        *,
+        app_id: str,
+        artifact: ArtifactInfo,
+    ) -> OBSUploadTicket:
+        data = await self.request_json(
+            "v2",
+            "GET",
+            "upload-url/for-obs",
+            params={
+                "appId": app_id,
+                "fileName": artifact.logical_name,
+                "contentLength": artifact.size,
+                "releaseType": "1",
+            },
+        )
+        raw = data.get("urlInfo")
+        if not isinstance(raw, Mapping):
+            raise self._protocol_error("Huawei OBS upload allocation is missing urlInfo.")
+        url = raw.get("url")
+        method = raw.get("method")
+        object_id = raw.get("objectId")
+        raw_headers = raw.get("headers")
+        if not isinstance(url, str):
+            raise self._protocol_error("Huawei returned an invalid OBS upload URL.")
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise self._protocol_error("Huawei returned an unsafe OBS upload URL.")
+        if not isinstance(method, str) or method.upper() != "PUT":
+            raise self._protocol_error("Huawei returned an unsupported OBS upload method.")
+        if not isinstance(object_id, str) or not object_id:
+            raise self._protocol_error("Huawei OBS upload allocation is missing objectId.")
+        if not isinstance(raw_headers, Mapping) or not raw_headers:
+            raise self._protocol_error("Huawei OBS upload allocation is missing signed headers.")
+        headers: dict[str, SecretStr] = {}
+        for key, value in raw_headers.items():
+            if not isinstance(key, str) or not key or not isinstance(value, str) or not value:
+                raise self._protocol_error("Huawei returned invalid OBS signed headers.")
+            headers[key] = SecretStr(value)
+        return OBSUploadTicket(
+            url=SecretStr(url),
+            method="PUT",
+            headers=headers,
+            object_id=SecretStr(object_id),
+        )
+
+    async def upload_to_obs(
+        self,
+        *,
+        artifact: ArtifactInfo,
+        ticket: OBSUploadTicket,
+    ) -> None:
+        async def chunks() -> AsyncIterator[bytes]:
+            with artifact.path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    yield chunk
+
+        headers = {key: value.get_secret_value() for key, value in ticket.headers.items()}
+        try:
+            response = await self._http.request(
+                ticket.method,
+                ticket.url.get_secret_value(),
+                headers=headers,
+                content=chunks(),
+                follow_redirects=False,
+            )
+        except (OSError, httpx.HTTPError):
+            raise HuaweiVendorError(
+                "HARMONYOS_OBS_UPLOAD_FAILED",
+                "Could not stream the HarmonyOS artifact to Huawei OBS.",
+                ExitCode.NETWORK,
+            ) from None
+        if response.is_redirect or response.status_code not in (200, 204):
+            raise HuaweiVendorError(
+                "HARMONYOS_OBS_UPLOAD_FAILED",
+                "Huawei OBS did not accept the HarmonyOS artifact.",
+                ExitCode.NETWORK,
+            )
+
+    async def bind_package(
+        self,
+        *,
+        app_id: str,
+        artifact: ArtifactInfo,
+        object_id: str,
+    ) -> UploadedArtifact:
+        data = await self.request_json(
+            "v3",
+            "PUT",
+            "app-package-info",
+            params={"appId": app_id, "releaseType": "1"},
+            json={"fileName": artifact.logical_name, "objectId": object_id},
+        )
+        package_id = data.get("packageId")
+        if not isinstance(package_id, str) or not package_id:
+            raise self._protocol_error("Huawei package binding is missing packageId.")
+        return UploadedArtifact(artifact_id=package_id)
+
+    async def upload_and_bind(
+        self,
+        *,
+        app_id: str,
+        artifact: ArtifactInfo,
+    ) -> UploadedArtifact:
+        ticket = await self.request_obs_upload(app_id=app_id, artifact=artifact)
+        await self.upload_to_obs(artifact=artifact, ticket=ticket)
+        return await self.bind_package(
+            app_id=app_id,
+            artifact=artifact,
+            object_id=ticket.object_id.get_secret_value(),
+        )

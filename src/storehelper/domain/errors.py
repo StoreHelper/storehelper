@@ -11,10 +11,12 @@ _PEM_PATTERN = re.compile(
     re.DOTALL,
 )
 _AUTHORIZATION_PATTERN = re.compile(r"(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+")
+_AWS_AUTHORIZATION_PATTERN = re.compile(r"(?im)(authorization\s*:\s*aws4-[^\r\n]+)")
 _JWT_PATTERN = re.compile(r"\b[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b")
 _SECRET_FIELD_PATTERN = re.compile(
     r"(?i)(\b(?:authCode|private_key|access_token|client_secret)\b\s*[=:]\s*)[^\s,;]+"
 )
+_SIGNED_FIELD_PATTERN = re.compile(r"(?i)(\b(?:x-amz-signature|objectId)\b\s*[=:]\s*)[^\s,;&]+")
 
 
 def redact(value: str) -> str:
@@ -22,7 +24,9 @@ def redact(value: str) -> str:
 
     redacted = _PEM_PATTERN.sub("[REDACTED]", str(value))
     redacted = _AUTHORIZATION_PATTERN.sub(r"\1[REDACTED]", redacted)
+    redacted = _AWS_AUTHORIZATION_PATTERN.sub("Authorization: [REDACTED]", redacted)
     redacted = _SECRET_FIELD_PATTERN.sub(r"\1[REDACTED]", redacted)
+    redacted = _SIGNED_FIELD_PATTERN.sub(r"\1[REDACTED]", redacted)
     return _JWT_PATTERN.sub("[REDACTED]", redacted)
 
 

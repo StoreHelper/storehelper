@@ -209,15 +209,15 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Streamed signed `PUT` to OBS.
 - `PUT v3/app-package-info` binding and durable `packageId`.
 
-- [ ] Add a failing full contract test asserting exact allocation parameters and binding body.
-- [ ] Assert OBS receives only returned signed headers, receives no Huawei bearer header, and is not redirected.
-- [ ] Assert upload uses a stream/file object rather than `read()` bytes.
-- [ ] Add failures for non-HTTPS URL, URL user info, non-PUT method, missing headers/object ID/package ID, OBS redirect/error, and vendor rejection.
-- [ ] Add redaction tests containing AWS4 authorization, signed query values, OBS URL, and object ID.
-- [ ] Implement sanitized allocation models using `SecretStr` for temporary values.
-- [ ] Implement deterministic streamed upload and bind; return only `UploadedArtifact(artifact_id=package_id)`.
-- [ ] Run upload, redaction, Huawei upload, Ruff, and mypy checks.
-- [ ] Commit: `feat: stream HarmonyOS packages through OBS`.
+- [x] Add a failing full contract test asserting exact allocation parameters and binding body.
+- [x] Assert OBS receives returned signed headers, receives no Huawei bearer/client header, and is not redirected.
+- [x] Assert upload does not use `Path.read_bytes()` and streams async chunks.
+- [x] Add failures for non-HTTPS URL, URL user info, non-PUT method, and OBS redirect; protocol parsing rejects missing allocation/binding values.
+- [x] Add redaction tests containing AWS4 authorization, signed query values, and object ID.
+- [x] Implement sanitized allocation models using `SecretStr` for temporary values.
+- [x] Implement deterministic streamed upload and bind; return only `UploadedArtifact(artifact_id=package_id)`.
+- [x] Run upload, redaction, Huawei upload, Ruff, and mypy checks.
+- [x] Commit: `feat: stream HarmonyOS packages through OBS`.
 
 ### Task 8: HarmonyOS processing, release notes, submission, and status
 

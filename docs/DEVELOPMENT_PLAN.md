@@ -11,7 +11,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 4: Store-neutral publishing state machine.
 - [x] Task 5: HarmonyOS APP/HAP artifact validation.
 - [x] Task 6: HarmonyOS authenticated API client and app verification.
-- [ ] Task 7: Secure streamed OBS upload and package binding.
+- [x] Task 7: Secure streamed OBS upload and package binding.
 - [ ] Task 8: HarmonyOS processing, release notes, submission, and status.
 - [ ] Task 9: Static adapter registry, runtime factory, and CLI integration.
 - [ ] Task 10: End-to-end recovery and security regression suite.

@@ -59,6 +59,18 @@ def test_redact_removes_pem_jwt_authorization_and_auth_code() -> None:
     assert "[REDACTED]" in redacted
 
 
+def test_redact_removes_aws_authorization_signature_and_object_id() -> None:
+    value = (
+        "Authorization: AWS4-HMAC-SHA256 Credential=temporary-signature\n"
+        "X-Amz-Signature=query-signature objectId=private-object-id"
+    )
+
+    redacted = redact(value)
+
+    for secret in ("temporary-signature", "query-signature", "private-object-id"):
+        assert secret not in redacted
+
+
 def test_storehelper_error_redacts_message_and_maps_exit_code() -> None:
     error = StoreHelperError(
         code="AUTH_FAILED",
