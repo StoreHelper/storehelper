@@ -14,7 +14,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 7: Fresh-listing staging, exact final update form, and review-status mapping.
 - [x] Task 8: Registry, runtime, CLI, uncertain duplicate blocking, and security regression suite.
 - [x] Task 9: OPPO documentation, examples, and v0.6.0 versioning.
-- [ ] Task 10: Clean build, coverage, exact-wheel six-store smoke tests, and final secret review.
+- [x] Task 10: Clean build, coverage, exact-wheel six-store smoke tests, and final secret review.
 
 ## v0.5.0 Xiaomi task status
 
@@ -177,7 +177,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
 - [x] Complete the Google Play v0.4.0 verification and distribution milestone.
 - [x] Complete the Xiaomi v0.5.0 implementation and security milestone.
-- [ ] Complete the OPPO v0.6.0 implementation and security milestone.
+- [x] Complete the OPPO v0.6.0 implementation and security milestone.
 - [ ] Add vivo and Honor Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

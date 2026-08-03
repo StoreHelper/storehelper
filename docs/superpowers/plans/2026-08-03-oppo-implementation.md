@@ -263,14 +263,14 @@ Ruff, mypy, Hatchling/build, Twine.
 **Interfaces:**
 - Produces: independently reproducible v0.6.0 release evidence.
 
-- [ ] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
-- [ ] Build v0.6.0 sdist/wheel in a fresh temporary directory and run Twine checks.
-- [ ] Inspect both archives for worktrees, caches, credentials, private data, and unexpected files.
-- [ ] Install the exact wheel into a fresh Python environment with TLS verification enabled.
-- [ ] Run installed help/version, six-store config validation, and six offline dry-runs.
-- [ ] Run final non-test secret scan and verify no automated test contacted OPPO.
-- [ ] Mark the OPPO milestone complete only after every gate exits zero.
-- [ ] Commit: `chore: complete OPPO milestone verification`.
+- [x] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
+- [x] Build v0.6.0 sdist/wheel in a fresh temporary directory and run Twine checks.
+- [x] Inspect both archives for worktrees, caches, credentials, private data, and unexpected files.
+- [x] Install the exact wheel into a fresh Python environment with TLS verification enabled.
+- [x] Run installed help/version, six-store config validation, and six offline dry-runs.
+- [x] Run final non-test secret scan and verify no automated test contacted OPPO.
+- [x] Mark the OPPO milestone complete only after every gate exits zero.
+- [x] Commit: `chore: complete OPPO milestone verification`.
 
 ## Completion rule
 
