@@ -37,6 +37,8 @@ def test_store_target_serializes_a_harmonyos_identity() -> None:
         "language": "zh-CN",
         "release_id": None,
         "platform": None,
+        "track": None,
+        "release_status": None,
     }
 
 
@@ -93,13 +95,14 @@ def test_generic_artifact_and_vendor_results_have_no_huawei_field_names() -> Non
         app_id="100000002",
         package_name="com.example.wallet.harmony",
     )
-    uploaded = UploadedArtifact(artifact_id="package-42")
+    uploaded = UploadedArtifact(artifact_id="package-42", operation_id="edit-7")
     processing = ProcessingStatus(state=ProcessingState.PROCESSING)
 
     assert artifact.kind == "app"
     assert artifact.warnings == ()
     assert verified.app_id == "100000002"
     assert uploaded.artifact_id == "package-42"
+    assert uploaded.operation_id == "edit-7"
     assert processing.state is ProcessingState.PROCESSING
     assert ReviewStatus.IN_REVIEW.value == "in_review"
 
@@ -129,4 +132,5 @@ def test_adapter_protocol_uses_store_neutral_boundary_types() -> None:
     assert upload_hints["artifact"] is ArtifactInfo
     assert upload_hints["return"] is UploadedArtifact
     assert processing_hints["artifact_id"] is str
+    assert processing_hints["operation_id"] == str | None
     assert processing_hints["return"] is ProcessingStatus

@@ -24,6 +24,7 @@ class StoreAdapter(Protocol):
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus: ...
 
     async def prepare_release(
@@ -31,9 +32,16 @@ class StoreAdapter(Protocol):
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None: ...
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str: ...
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str: ...
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus: ...

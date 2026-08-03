@@ -126,6 +126,7 @@ class HuaweiAndroidAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus:
         data = await self._client.request_json(
             "GET",
@@ -173,6 +174,7 @@ class HuaweiAndroidAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
         if release_notes is None:
@@ -183,7 +185,13 @@ class HuaweiAndroidAdapter:
             release_notes=release_notes,
         )
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
         await self._client.request_json(
             "POST",
             "app-submit",

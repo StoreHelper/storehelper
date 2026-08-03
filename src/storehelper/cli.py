@@ -110,6 +110,7 @@ class _NoNetworkAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus:
         self._failed()
 
@@ -118,11 +119,18 @@ class _NoNetworkAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
         self._failed()
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
         self._failed()
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:

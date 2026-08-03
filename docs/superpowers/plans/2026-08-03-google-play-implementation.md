@@ -34,13 +34,13 @@ async def submit(
 ) -> str: ...
 ```
 
-- [ ] Add failing tests for `operation_id`, target `track`/`release_status`, v1-v3 receipt
+- [x] Add failing tests for `operation_id`, target `track`/`release_status`, v1-v3 receipt
   migration, v4 round-trip, target mismatch, and all existing adapter calls.
-- [ ] Persist `operation_id`, `track`, and `release_status` atomically.
-- [ ] Pass the operation ID through processing, preparation, and submission without changing
+- [x] Persist `operation_id`, `track`, and `release_status` atomically.
+- [x] Pass the operation ID through processing, preparation, and submission without changing
   Huawei/HarmonyOS/Apple HTTP contracts.
-- [ ] Run all existing store tests, Ruff, and mypy.
-- [ ] Commit: `refactor: add durable store operation context`.
+- [x] Run all existing store tests, Ruff, and mypy.
+- [x] Commit: `refactor: add durable store operation context`.
 
 ### Task 2: Strict Google Play configuration
 

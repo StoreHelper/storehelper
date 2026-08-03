@@ -126,6 +126,8 @@ class Publisher:
             package_sha256=package.sha256,
             logical_name=package.logical_name,
             release_id=self._target.release_id,
+            track=self._target.track,
+            release_status=self._target.release_status,
             language=self._target.language,
             release_notes=request.release_notes.strip() if request.release_notes else None,
             submit=request.submit,
@@ -160,6 +162,8 @@ class Publisher:
             or receipt.app_id != self._target.app_id
             or receipt.package_name != self._target.package_name
             or receipt.release_id != self._target.release_id
+            or receipt.track != self._target.track
+            or receipt.release_status != self._target.release_status
         ):
             raise PublishingError(
                 "RUN_APP_MISMATCH",
@@ -210,6 +214,7 @@ class Publisher:
                     receipt,
                     RunState.PACKAGE_BOUND,
                     artifact_id=bound.artifact_id,
+                    operation_id=bound.operation_id,
                 )
 
             if (
@@ -277,6 +282,7 @@ class Publisher:
                 await self._adapter.prepare_release(
                     target=self._target,
                     artifact_id=receipt.artifact_id,
+                    operation_id=receipt.operation_id,
                     release_notes=receipt.release_notes,
                 )
                 receipt = self._transition(receipt, RunState.METADATA_UPDATED)
@@ -292,6 +298,7 @@ class Publisher:
                     submission_id = await self._adapter.submit(
                         target=self._target,
                         artifact_id=receipt.artifact_id,
+                        operation_id=receipt.operation_id,
                     )
                 except ArtifactStillProcessingError as error:
                     receipt = self._transition(receipt, RunState.PACKAGE_COMPILING)
@@ -318,6 +325,7 @@ class Publisher:
                     submission_id = await self._adapter.submit(
                         target=self._target,
                         artifact_id=receipt.artifact_id,
+                        operation_id=receipt.operation_id,
                     )
                 receipt = self._transition(
                     receipt,
@@ -384,6 +392,7 @@ class Publisher:
             status = await self._adapter.processing_status(
                 target=self._target,
                 artifact_id=receipt.artifact_id,
+                operation_id=receipt.operation_id,
             )
             if status.state is ProcessingState.READY:
                 return status

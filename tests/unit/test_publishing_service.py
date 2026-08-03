@@ -39,6 +39,7 @@ class FakeAdapter:
         self.submit_compiling_once = False
         self.submit_network_failure_once = False
         self.processing_artifact_id: str | None = None
+        self.operation_id = "operation-7"
 
     async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
         self.calls.append("verify")
@@ -46,15 +47,16 @@ class FakeAdapter:
 
     async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
         self.calls.append("upload")
-        return UploadedArtifact(artifact_id="42")
+        return UploadedArtifact(artifact_id="42", operation_id=self.operation_id)
 
     async def processing_status(
         self,
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus:
-        self.calls.append("compile")
+        self.calls.append(f"compile:{operation_id}")
         state = (
             self.compile_states.pop(0) if len(self.compile_states) > 1 else self.compile_states[0]
         )
@@ -69,12 +71,19 @@ class FakeAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
-        self.calls.append("notes")
+        self.calls.append(f"notes:{operation_id}")
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
-        self.calls.append("submit")
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
+        self.calls.append(f"submit:{operation_id}")
         if self.submit_compiling_once:
             self.submit_compiling_once = False
             raise ArtifactStillProcessingError(
@@ -105,7 +114,12 @@ def _package(tmp_path: Path) -> Path:
     return path
 
 
-def _target(app_id: str = "123") -> StoreTarget:
+def _target(
+    app_id: str = "123",
+    *,
+    track: str | None = None,
+    release_status: str | None = None,
+) -> StoreTarget:
     return StoreTarget(
         store=StoreName.HUAWEI,
         label="Huawei AppGallery (Android)",
@@ -113,6 +127,8 @@ def _target(app_id: str = "123") -> StoreTarget:
         package_name="com.example.app",
         credential_profile="default",
         language="zh-CN",
+        track=track,
+        release_status=release_status,
     )
 
 
@@ -132,12 +148,14 @@ def _publisher(
     repository: RunRepository,
     app_id: str = "123",
     processing: bool = True,
+    track: str | None = None,
+    release_status: str | None = None,
     **kwargs: object,
 ) -> Publisher:
     return Publisher(
         adapter=adapter,
         repository=repository,
-        target=_target(app_id),
+        target=_target(app_id, track=track, release_status=release_status),
         validator=validate_package,
         capabilities=_capabilities(processing=processing),
         **kwargs,
@@ -176,11 +194,19 @@ async def test_publish_uploads_waits_updates_and_submits(tmp_path: Path) -> None
 
     assert result.ok is True
     assert result.stage is PublishStage.SUBMITTED
-    assert adapter.calls == ["verify", "upload", "compile", "compile", "notes", "submit"]
+    assert adapter.calls == [
+        "verify",
+        "upload",
+        "compile:operation-7",
+        "compile:operation-7",
+        "notes:operation-7",
+        "submit:operation-7",
+    ]
     assert sleeps == [5]
     receipt = publisher.repository.get(result.run_id or "")
     assert receipt.state is RunState.COMPLETED
     assert receipt.submission_id == "submission-123"
+    assert receipt.operation_id == "operation-7"
 
 
 @pytest.mark.asyncio
@@ -252,7 +278,7 @@ async def test_no_submit_stops_after_package_ready(tmp_path: Path) -> None:
     )
 
     assert result.ok is True
-    assert adapter.calls == ["verify", "upload", "compile"]
+    assert adapter.calls == ["verify", "upload", "compile:operation-7"]
     assert publisher.repository.get(result.run_id or "").state is RunState.COMPLETED
 
 
@@ -333,7 +359,11 @@ async def test_resume_from_timeout_starts_at_compile(tmp_path: Path) -> None:
 
     assert resumed.ok is True
     assert resumed.stage is PublishStage.SUBMITTED
-    assert adapter.calls == ["compile", "notes", "submit"]
+    assert adapter.calls == [
+        "compile:operation-7",
+        "notes:operation-7",
+        "submit:operation-7",
+    ]
 
 
 @pytest.mark.asyncio
@@ -361,6 +391,40 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
         await publisher.resume(receipt.run_id)
 
     assert raised.value.code == "RUN_APP_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_resume_rejects_changed_track_or_release_status_before_network(
+    tmp_path: Path,
+) -> None:
+    repo = RunRepository(tmp_path / "runs")
+    receipt = repo.create(
+        store="huawei",
+        app_alias="demo",
+        app_id="123",
+        package_name="com.example.app",
+        package_path="/build/release.apk",
+        package_sha256="abc",
+        logical_name="release.apk",
+        track="internal",
+        release_status="draft",
+        language="zh-CN",
+        release_notes="Fixes",
+        submit=True,
+    )
+    adapter = FakeAdapter()
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repo,
+        track="production",
+        release_status="completed",
+    )
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+
+    assert raised.value.code == "RUN_APP_MISMATCH"
+    assert adapter.calls == []
 
 
 @pytest.mark.asyncio
@@ -431,9 +495,9 @@ async def test_resume_migrates_legacy_huawei_receipt_without_reupload(tmp_path: 
     result = await publisher.resume(run_id)
 
     assert result.stage is PublishStage.SUBMITTED
-    assert adapter.calls == ["compile", "notes", "submit"]
+    assert adapter.calls == ["compile:None", "notes:None", "submit:None"]
     rewritten = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 3
+    assert rewritten["schema_version"] == 4
     assert rewritten["artifact_id"] == "42"
     assert "pkg_version" not in rewritten
 
@@ -467,11 +531,11 @@ async def test_submit_compiling_rechecks_compile_state_then_retries(tmp_path: Pa
     assert adapter.calls == [
         "verify",
         "upload",
-        "compile",
-        "notes",
-        "submit",
-        "compile",
-        "submit",
+        "compile:operation-7",
+        "notes:operation-7",
+        "submit:operation-7",
+        "compile:operation-7",
+        "submit:operation-7",
     ]
 
 
@@ -494,4 +558,4 @@ async def test_submission_network_failure_preserves_metadata_stage_for_resume(
     resumed = await publisher.resume(receipt.run_id)
 
     assert resumed.stage is PublishStage.SUBMITTED
-    assert adapter.calls == ["submit"]
+    assert adapter.calls == ["submit:operation-7"]

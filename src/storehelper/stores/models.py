@@ -39,6 +39,8 @@ class StoreTarget(BaseModel):
     language: str = Field(min_length=1)
     release_id: str | None = Field(default=None, min_length=1)
     platform: str | None = Field(default=None, min_length=1)
+    track: str | None = Field(default=None, min_length=1)
+    release_status: str | None = Field(default=None, min_length=1)
 
 
 class VerifiedApplication(BaseModel):
@@ -52,6 +54,7 @@ class UploadedArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     artifact_id: str = Field(min_length=1)
+    operation_id: str | None = Field(default=None, min_length=1)
 
 
 class ProcessingState(StrEnum):

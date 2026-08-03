@@ -173,6 +173,7 @@ class AppleAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus:
         payload = await self._client.build_upload_status(artifact_id)
         return parse_build_upload_status(payload)
@@ -182,6 +183,7 @@ class AppleAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
         notes = release_notes.strip() if release_notes is not None else None
@@ -197,7 +199,13 @@ class AppleAdapter:
             release_notes=notes,
         )
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
         return await self._client.submit_for_review(target=target)
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:

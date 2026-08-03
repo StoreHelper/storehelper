@@ -70,6 +70,7 @@ class AppleFlowAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
     ) -> ProcessingStatus:
         self.calls.append(("processing", artifact_id))
         state = self.processing.pop(0) if len(self.processing) > 1 else self.processing[0]
@@ -83,11 +84,18 @@ class AppleFlowAdapter:
         *,
         target: StoreTarget,
         artifact_id: str,
+        operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
         self.calls.append(("prepare", artifact_id))
 
-    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
         self.calls.append(("submit", artifact_id))
         if self.fail_submission_once:
             self.fail_submission_once = False

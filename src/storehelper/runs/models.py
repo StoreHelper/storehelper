@@ -47,7 +47,7 @@ class RunReceipt(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[3] = 3
+    schema_version: Literal[4] = 4
     run_id: str = Field(min_length=1)
     created_at: datetime
     updated_at: datetime
@@ -60,8 +60,11 @@ class RunReceipt(BaseModel):
     package_sha256: str = Field(min_length=1)
     logical_name: str = Field(min_length=1)
     artifact_id: str | None = None
+    operation_id: str | None = None
     release_id: str | None = None
     submission_id: str | None = None
+    track: str | None = None
+    release_status: str | None = None
     language: str = Field(min_length=1)
     release_notes: str | None = None
     submit: bool = True
@@ -72,19 +75,23 @@ class RunReceipt(BaseModel):
 
 
 def migrate_receipt_payload(payload: object) -> Mapping[str, object]:
-    """Convert supported legacy receipt shapes to schema version 3."""
+    """Convert supported legacy receipt shapes to schema version 4."""
 
     if not isinstance(payload, Mapping):
         raise ValueError("receipt must be a JSON object")
     version = payload.get("schema_version")
-    if version == 3:
+    if version == 4:
         return payload
-    if version not in {1, 2}:
+    if version not in {1, 2, 3}:
         raise ValueError("unsupported receipt schema version")
     migrated = dict(payload)
-    migrated["schema_version"] = 3
+    migrated["schema_version"] = 4
     if version == 1:
         migrated["artifact_id"] = migrated.pop("pkg_version", None)
-    migrated.setdefault("release_id", None)
-    migrated.setdefault("submission_id", None)
+    if version in {1, 2}:
+        migrated.setdefault("release_id", None)
+        migrated.setdefault("submission_id", None)
+    migrated.setdefault("operation_id", None)
+    migrated.setdefault("track", None)
+    migrated.setdefault("release_status", None)
     return migrated

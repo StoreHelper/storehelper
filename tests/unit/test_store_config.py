@@ -58,6 +58,8 @@ def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) ->
         "language": "en-US",
         "release_id": None,
         "platform": None,
+        "track": None,
+        "release_status": None,
     }
 
 
@@ -87,6 +89,8 @@ def test_loads_apple_only_application_and_resolves_release_target(tmp_path: Path
         "language": "zh-Hans",
         "release_id": "version-resource-id",
         "platform": "IOS",
+        "track": None,
+        "release_status": None,
     }
 
 
