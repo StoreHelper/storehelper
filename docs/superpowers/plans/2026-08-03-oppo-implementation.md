@@ -123,13 +123,13 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: `sign_params(secret: SecretStr, params: Mapping[str, object]) -> str`.
 - Produces: `OppoAuth` token cache and `signed_params(...)`.
 
-- [ ] Write failing tests for ASCII key order, empty/None omission, literal unencoded signing
+- [x] Write failing tests for ASCII key order, empty/None omission, literal unencoded signing
   values, `api_sign` exclusion, UTF-8 HMAC-SHA256 lowercase hex, deterministic timestamps, token
   expiry forms, forced refresh, and secret-safe repr.
-- [ ] Implement canonicalization and signing with the standard library only.
-- [ ] Implement memory-only token handling; never make auth objects printable with secrets/tokens.
-- [ ] Run `pytest tests/unit/test_oppo_auth.py -q`, Ruff, and mypy for the new module.
-- [ ] Commit: `feat: implement OPPO request signing`.
+- [x] Implement canonicalization and signing with the standard library only.
+- [x] Implement memory-only token handling; never make auth objects printable with secrets/tokens.
+- [x] Run `pytest tests/unit/test_oppo_auth.py -q`, Ruff, and mypy for the new module.
+- [x] Commit: `feat: implement OPPO request signing`.
 
 ### Task 5: Safe token and existing-application queries
 
