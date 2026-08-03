@@ -17,7 +17,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 10: Store-aware CLI and Apple credential commands.
 - [x] Task 11: End-to-end interruption, recovery, and security regression suite.
 - [x] Task 12: Apple documentation, examples, and v0.3.0 versioning.
-- [ ] Task 13: Clean build, coverage, installed-wheel smoke, and final secret review.
+- [x] Task 13: Clean build, coverage, installed-wheel smoke, and final secret review.
 
 ## v0.2.0 multi-store and HarmonyOS task status
 
@@ -133,7 +133,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Later milestones
 
-- [ ] Complete and release the Apple App Store Connect v0.3.0 milestone.
+- [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
 - [ ] Additional Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

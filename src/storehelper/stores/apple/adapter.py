@@ -147,14 +147,6 @@ class AppleAdapter:
         self._verified_version_string = self._client.verified_version_string(target.release_id)
         return verified
 
-    @staticmethod
-    def _pending() -> AppleVendorError:
-        return AppleVendorError(
-            "APPLE_OPERATION_UNAVAILABLE",
-            "This Apple publishing operation is not available.",
-            ExitCode.USAGE,
-        )
-
     async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
         if not isinstance(artifact, AppleArtifactInfo):
             raise AppleVendorError(

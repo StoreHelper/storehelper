@@ -442,15 +442,15 @@ no Apple secret or delivery value in output/error/receipt
 - Modify only files required by fresh verification findings.
 - Modify: `docs/DEVELOPMENT_PLAN.md` after every gate passes.
 
-- [ ] Run `ruff format --check .` and `ruff check .`.
-- [ ] Run `mypy src`.
-- [ ] Run `python -m pytest --cov=storehelper --cov-report=term-missing --cov-fail-under=90`.
-- [ ] Build sdist/wheel in a fresh temporary directory and run Twine checks.
-- [ ] Install the exact wheel in a fresh isolated environment.
-- [ ] Run installed help/version, three-store config validation, and Huawei/HarmonyOS/Apple dry-runs.
-- [ ] Run `git diff --check`, generated-artifact checks, and complete private-data/secret review.
-- [ ] Mark the Apple milestone complete only after all fresh commands exit zero.
-- [ ] Commit: `chore: complete Apple milestone verification`.
+- [x] Run `ruff format --check .` and `ruff check .`.
+- [x] Run `mypy src`.
+- [x] Run `python -m pytest --cov=storehelper --cov-report=term-missing --cov-fail-under=90`.
+- [x] Build sdist/wheel in a fresh temporary directory and run Twine checks.
+- [x] Install the exact wheel in a fresh isolated environment.
+- [x] Run installed help/version, three-store config validation, and Huawei/HarmonyOS/Apple dry-runs.
+- [x] Run `git diff --check`, generated-artifact checks, and complete private-data/secret review.
+- [x] Mark the Apple milestone complete only after all fresh commands exit zero.
+- [x] Commit: `chore: complete Apple milestone verification`.
 
 ## Completion rule
 
