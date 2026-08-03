@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.google_play.client import GooglePlayClient
 from storehelper.stores.google_play.errors import GoogleVendorError
+from storehelper.stores.google_play.package import PackageInfo
 from storehelper.stores.models import (
     ProcessingState,
     ProcessingStatus,
     ReviewStatus,
     StoreName,
     StoreTarget,
+    UploadedArtifact,
     VerifiedApplication,
 )
 
@@ -94,6 +97,30 @@ class GooglePlayAdapter:
     ) -> ProcessingStatus:
         self._validate_target(target)
         return ProcessingStatus(state=ProcessingState.READY, artifact_id=artifact_id)
+
+    async def upload(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+    ) -> UploadedArtifact:
+        package_name, _ = self._validate_target(target)
+        if not isinstance(artifact, PackageInfo):
+            raise GoogleVendorError(
+                "GOOGLE_PACKAGE_INVALID",
+                "Google Play publishing requires a validated AAB or APK artifact.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
+        edit_id = await self._client.create_edit(package_name=package_name)
+        version_code = await self._client.upload_artifact(
+            package_name=package_name,
+            edit_id=edit_id,
+            artifact=artifact,
+        )
+        return UploadedArtifact(
+            artifact_id=str(version_code),
+            operation_id=edit_id,
+        )
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         package_name, track = self._validate_target(target)

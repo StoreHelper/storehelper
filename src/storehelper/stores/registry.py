@@ -20,6 +20,7 @@ from storehelper.stores.apple.auth import AppleAuth
 from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.package import validate_ipa
 from storehelper.stores.base import StoreAdapter
+from storehelper.stores.google_play.package import validate_google_play_artifact
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
@@ -132,7 +133,7 @@ _REGISTRATIONS = {
             requires_release_notes=False,
             supports_review_status=True,
         ),
-        validator=validate_package,
+        validator=validate_google_play_artifact,
         factory=None,
     ),
 }

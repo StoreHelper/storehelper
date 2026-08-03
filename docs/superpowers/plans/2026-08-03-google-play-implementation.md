@@ -113,12 +113,12 @@ async def submit(
 - Modify: `src/storehelper/stores/google_play/adapter.py`
 - Create: `tests/integration/test_google_play_upload.py`
 
-- [ ] Add failing tests for Edit creation, AAB/APK endpoint selection, `uploadType=media`, streamed
+- [x] Add failing tests for Edit creation, AAB/APK endpoint selection, `uploadType=media`, streamed
   bytes, no redirect, long write timeout compatibility, positive version code, SHA-256 match,
   malformed response, and response loss.
-- [ ] Reuse the hardened Android local validator.
-- [ ] Return `versionCode` plus public Edit ID and persist neither expiry nor response bodies.
-- [ ] Commit: `feat: upload Google Play artifacts through app edits`.
+- [x] Reuse the hardened Android local validator.
+- [x] Return `versionCode` plus public Edit ID and persist neither expiry nor response bodies.
+- [x] Commit: `feat: upload Google Play artifacts through app edits`.
 
 ### Task 7: Safe track preparation and optional notes
 
