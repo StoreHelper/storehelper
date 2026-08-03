@@ -347,16 +347,16 @@ async def submit(self, *, target: StoreTarget, artifact_id: str) -> str: ...
 async def review_status(self, *, target: StoreTarget) -> ReviewStatus: ...
 ```
 
-- [ ] Write failing tests for new READY_FOR_REVIEW submission, existing draft reuse, existing item
+- [x] Write failing tests for new READY_FOR_REVIEW submission, existing draft reuse, existing item
   reuse, wrong-version item rejection, `submitted=true`, interruption after create/item, and
   409/422 safe rejection.
-- [ ] Write status mapping tests for READY/WAITING/IN_REVIEW/REJECTED/ACCEPTED/release states.
-- [ ] Run tests and verify failures.
-- [ ] Implement only `reviewSubmissions` and `reviewSubmissionItems`; do not call deprecated APIs.
-- [ ] Reconcile before every create so retries are idempotent.
-- [ ] Query configured App Store version status and normalize it.
-- [ ] Run all Apple adapter tests.
-- [ ] Commit: `feat: submit Apple versions for review`.
+- [x] Write status mapping tests for READY/WAITING/IN_REVIEW/REJECTED/ACCEPTED/release states.
+- [x] Run tests and verify failures.
+- [x] Implement only `reviewSubmissions` and `reviewSubmissionItems`; do not call deprecated APIs.
+- [x] Reconcile before every create so retries are idempotent.
+- [x] Query configured App Store version status and normalize it.
+- [x] Run all Apple adapter tests.
+- [x] Commit: `feat: submit Apple versions for review`.
 
 ### Task 10: Runtime, credential CLI, and Apple commands
 

@@ -79,6 +79,59 @@ def parse_build_upload_status(payload: Mapping[str, object]) -> ProcessingStatus
     )
 
 
+_PENDING_REVIEW_STATES = {"READY_FOR_REVIEW", "WAITING_FOR_REVIEW", "PREPARE_FOR_SUBMISSION"}
+_REJECTED_STATES = {
+    "DEVELOPER_REJECTED",
+    "INVALID_BINARY",
+    "METADATA_REJECTED",
+    "REJECTED",
+}
+_APPROVED_STATES = {
+    "ACCEPTED",
+    "PENDING_APPLE_RELEASE",
+    "PENDING_DEVELOPER_RELEASE",
+    "PREORDER_READY_FOR_SALE",
+    "PROCESSING_FOR_APP_STORE",
+    "PROCESSING_FOR_DISTRIBUTION",
+    "READY_FOR_DISTRIBUTION",
+    "READY_FOR_SALE",
+}
+_SUSPENDED_STATES = {
+    "DEVELOPER_REMOVED_FROM_SALE",
+    "REMOVED_FROM_SALE",
+    "REPLACED_WITH_NEW_VERSION",
+}
+
+
+def parse_review_status(payload: Mapping[str, object]) -> ReviewStatus:
+    data = payload.get("data")
+    if not isinstance(data, Mapping) or data.get("type") != "appStoreVersions":
+        raise AppleVendorError(
+            "APPLE_REVIEW_STATUS_INVALID",
+            "App Store Connect returned an invalid version status.",
+            ExitCode.VENDOR_REJECTION,
+        )
+    attributes = data.get("attributes")
+    state = attributes.get("appStoreState") if isinstance(attributes, Mapping) else None
+    if not isinstance(state, str):
+        raise AppleVendorError(
+            "APPLE_REVIEW_STATUS_INVALID",
+            "App Store Connect version status is missing.",
+            ExitCode.VENDOR_REJECTION,
+        )
+    if state in _PENDING_REVIEW_STATES:
+        return ReviewStatus.PENDING_REVIEW
+    if state == "IN_REVIEW":
+        return ReviewStatus.IN_REVIEW
+    if state in _REJECTED_STATES:
+        return ReviewStatus.REJECTED
+    if state in _APPROVED_STATES:
+        return ReviewStatus.APPROVED
+    if state in _SUSPENDED_STATES:
+        return ReviewStatus.SUSPENDED
+    return ReviewStatus.UNKNOWN
+
+
 class AppleAdapter:
     def __init__(self, client: AppleClient) -> None:
         self._client = client
@@ -153,7 +206,14 @@ class AppleAdapter:
         )
 
     async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
-        raise self._pending()
+        return await self._client.submit_for_review(target=target)
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
-        raise self._pending()
+        if target.release_id is None:
+            raise AppleVendorError(
+                "APPLE_TARGET_INVALID",
+                "Apple target requires an App Store version ID.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        payload = await self._client.app_store_version_status(release_id=target.release_id)
+        return parse_review_status(payload)

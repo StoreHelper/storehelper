@@ -613,3 +613,163 @@ class AppleClient:
                 language=target.language,
                 release_notes=release_notes,
             )
+
+    @staticmethod
+    def _matches_draft(resource: Mapping[str, object], platform: str) -> bool:
+        attributes = resource.get("attributes")
+        return isinstance(attributes, Mapping) and (
+            attributes.get("platform") == platform and attributes.get("state") == "READY_FOR_REVIEW"
+        )
+
+    async def _find_or_create_review_submission(self, target: StoreTarget) -> str:
+        if target.platform is None:
+            raise AppleVendorError(
+                "APPLE_TARGET_INVALID",
+                "Apple target requires a platform.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        payload = await self.request_json(
+            "GET",
+            f"/v1/apps/{quote(target.app_id, safe='')}/reviewSubmissions",
+            params={
+                "filter[platform]": target.platform,
+                "filter[state]": "READY_FOR_REVIEW",
+                "fields[reviewSubmissions]": "platform,state",
+                "limit": 200,
+            },
+        )
+        resources = self._resource_list(payload, resource_type="reviewSubmissions")
+        matches = [
+            resource for resource in resources if self._matches_draft(resource, target.platform)
+        ]
+        if len(matches) > 1:
+            raise AppleVendorError(
+                "APPLE_REVIEW_SUBMISSION_AMBIGUOUS",
+                "Multiple reusable Apple review submissions were returned.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        if len(matches) == 1:
+            return str(matches[0]["id"])
+        created = await self.request_json(
+            "POST",
+            "/v1/reviewSubmissions",
+            json={
+                "data": {
+                    "type": "reviewSubmissions",
+                    "attributes": {"platform": target.platform},
+                    "relationships": {"app": {"data": {"type": "apps", "id": target.app_id}}},
+                }
+            },
+        )
+        data = created.get("data")
+        identifier = data.get("id") if isinstance(data, Mapping) else None
+        resource = self._resource(
+            created,
+            resource_type="reviewSubmissions",
+            resource_id=identifier if isinstance(identifier, str) else "",
+        )
+        return str(resource["id"])
+
+    @staticmethod
+    def _item_version(resource: Mapping[str, object]) -> str | None:
+        relationships = resource.get("relationships")
+        version = (
+            relationships.get("appStoreVersion") if isinstance(relationships, Mapping) else None
+        )
+        data = version.get("data") if isinstance(version, Mapping) else None
+        if not isinstance(data, Mapping) or data.get("type") != "appStoreVersions":
+            return None
+        identifier = data.get("id")
+        return identifier if isinstance(identifier, str) and identifier else None
+
+    async def _ensure_version_item(
+        self,
+        *,
+        submission_id: str,
+        release_id: str,
+    ) -> None:
+        payload = await self.request_json(
+            "GET",
+            f"/v1/reviewSubmissions/{quote(submission_id, safe='')}/items",
+            params={
+                "fields[reviewSubmissionItems]": "appStoreVersion,state",
+                "include": "appStoreVersion",
+                "limit": 200,
+            },
+        )
+        resources = self._resource_list(payload, resource_type="reviewSubmissionItems")
+        versions = [version for resource in resources if (version := self._item_version(resource))]
+        wrong_versions = [version for version in versions if version != release_id]
+        if wrong_versions:
+            raise AppleVendorError(
+                "APPLE_REVIEW_ITEM_VERSION_MISMATCH",
+                "The reusable Apple review submission contains a different App Store version.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        if versions.count(release_id) > 1:
+            raise AppleVendorError(
+                "APPLE_REVIEW_ITEM_AMBIGUOUS",
+                "The Apple review submission contains duplicate version items.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        if release_id in versions:
+            return
+        await self.request_json(
+            "POST",
+            "/v1/reviewSubmissionItems",
+            json={
+                "data": {
+                    "type": "reviewSubmissionItems",
+                    "relationships": {
+                        "reviewSubmission": {
+                            "data": {
+                                "type": "reviewSubmissions",
+                                "id": submission_id,
+                            }
+                        },
+                        "appStoreVersion": {
+                            "data": {
+                                "type": "appStoreVersions",
+                                "id": release_id,
+                            }
+                        },
+                    },
+                }
+            },
+        )
+
+    async def submit_for_review(self, *, target: StoreTarget) -> str:
+        if target.release_id is None:
+            raise AppleVendorError(
+                "APPLE_TARGET_INVALID",
+                "Apple target requires an App Store version ID.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        submission_id = await self._find_or_create_review_submission(target)
+        await self._ensure_version_item(
+            submission_id=submission_id,
+            release_id=target.release_id,
+        )
+        await self.request_json(
+            "PATCH",
+            f"/v1/reviewSubmissions/{quote(submission_id, safe='')}",
+            json={
+                "data": {
+                    "type": "reviewSubmissions",
+                    "id": submission_id,
+                    "attributes": {"submitted": True},
+                }
+            },
+        )
+        return submission_id
+
+    async def app_store_version_status(
+        self,
+        *,
+        release_id: str,
+    ) -> Mapping[str, object]:
+        return await self.request_json(
+            "GET",
+            f"/v1/appStoreVersions/{quote(release_id, safe='')}",
+            params={"fields[appStoreVersions]": "appStoreState"},
+        )
