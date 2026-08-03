@@ -116,3 +116,14 @@ def clean_xiaomi_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ):
         monkeypatch.delenv(name, raising=False)
     yield
+
+
+@pytest.fixture
+def clean_oppo_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    for name in (
+        "STOREHELPER_OPPO_CLIENT_ID",
+        "STOREHELPER_OPPO_CLIENT_SECRET",
+        "STOREHELPER_OPPO_CREDENTIALS_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    yield

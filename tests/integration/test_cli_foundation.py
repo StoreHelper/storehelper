@@ -353,6 +353,72 @@ def test_xiaomi_credential_import_list_and_delete_use_separate_namespace(
     assert "example-api-secret" not in imported.stdout + profiles.stdout + deleted.stdout
 
 
+def test_oppo_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
+    credential_file = tmp_path / "oppo.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "client_id": "example-oppo-client",
+                "client_secret": "example-oppo-secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "oppo",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "oppo", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "oppo",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "oppo",
+    }
+    assert json.loads(profiles.stdout) == {"profiles": ["release"], "store": "oppo"}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "oppo",
+    }
+    rendered = imported.stdout + profiles.stdout + deleted.stdout
+    assert "example-oppo-client" not in rendered
+    assert "example-oppo-secret" not in rendered
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 

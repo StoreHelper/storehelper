@@ -100,16 +100,16 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: `OppoApiCredential(client_id: SecretStr, client_secret: SecretStr)`.
 - Produces: file/env/keyring/prompt sources under `STOREHELPER_OPPO_*` and store `oppo`.
 
-- [ ] Write failing tests for non-empty/bounded values, secret-safe repr/errors, friendly JSON,
+- [x] Write failing tests for non-empty/bounded values, secret-safe repr/errors, friendly JSON,
   storage serialization, independent namespace, source precedence, partial variables, and source
   conflicts.
-- [ ] Add the credential model without exposing either value through `str`, `repr`, or public
+- [x] Add the credential model without exposing either value through `str`, `repr`, or public
   validation errors.
-- [ ] Add mutually exclusive credentials file, complete environment pair, keyring, and secure
+- [x] Add mutually exclusive credentials file, complete environment pair, keyring, and secure
   prompt resolution.
-- [ ] Add import/list/delete behavior for the new store while preserving every existing namespace.
-- [ ] Run credential unit and CLI foundation tests.
-- [ ] Commit: `feat: secure OPPO publishing credentials`.
+- [x] Add import/list/delete behavior for the new store while preserving every existing namespace.
+- [x] Run credential unit and CLI foundation tests.
+- [x] Commit: `feat: secure OPPO publishing credentials`.
 
 ### Task 4: Deterministic OPPO HMAC authentication
 
