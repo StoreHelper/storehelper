@@ -50,6 +50,13 @@ OPPO uses a fifth, application-specific namespace:
 3. the OPPO keyring namespace selected by `credentials ... --store oppo`;
 4. secure interactive prompts for both values.
 
+vivo uses a sixth independent namespace:
+
+1. `STOREHELPER_VIVO_CREDENTIALS_FILE`;
+2. the complete pair `STOREHELPER_VIVO_ACCESS_KEY` and `STOREHELPER_VIVO_SECRET_KEY`;
+3. the vivo keyring namespace selected by `credentials ... --store vivo`;
+4. secure interactive prompts for both values.
+
 Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
 secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
 credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
@@ -59,6 +66,8 @@ automatic-publishing API secret and Xiaomi's X.509 RSA public certificate. Optio
 review accounts, passwords/codes, access codes, and audit notes are credentials too; keep them out
 of project YAML and source control. OPPO's `client_id` and `client_secret` are both treated as
 secrets, and a profile must be scoped to the application for which the OPPO API client was issued.
+vivo's `access_key` and `secret_key` are both treated as secrets; neither belongs in project YAML,
+logs, command-line arguments, receipts, or source control.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
@@ -75,6 +84,8 @@ nested review accounts. Resetting the Xiaomi API secret invalidates the old valu
 keyring/CI copy together.
 Apply the rule independently to OPPO. Never mix the credential file with either individual
 variable, and do not reuse one application's OPPO client pair for another package.
+Apply the rule independently to vivo. Never mix the credential file with either individual
+variable, and rotate both values according to the vivo account's credential-management policy.
 
 ## Persisted data
 
@@ -85,8 +96,9 @@ submission IDs, release notes, and state timestamps. They never contain private 
 JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
 temporary object IDs, upload URLs, destination URLs, Xiaomi API secrets/certificates, `SIG`,
 review accounts, RequestData, OPPO client values/tokens/HMAC signatures/upload signs/file URLs,
-listing snapshots, signed forms, or raw vendor bodies. Receipt files are written atomically with
-owner-only permissions where the platform supports it.
+listing snapshots, vivo access/secret keys, HMAC signatures, upload serial numbers, file MD5,
+signed forms, or raw vendor bodies. Receipt files are written atomically with owner-only
+permissions where the platform supports it.
 
 Xiaomi receipts may contain `submission_started` or `submission_uncertain`. These states mean the
 atomic upload-and-review request may have reached Xiaomi and are intentionally non-resumable. The
@@ -98,6 +110,12 @@ failure happens before `submission_started` and is safe for a new confirmed run.
 `submission_started` or `submission_uncertain` may represent a completed OPPO review submission;
 it is non-resumable and blocks the same app/artifact until an operator checks `status`, reconciles
 the OPPO console, and deliberately deletes the local receipt. Deletion never changes OPPO state.
+
+vivo receipts use the same staged boundary. Upload failures occur before `submission_started` and
+are safe for a newly confirmed run. A final request in `submission_started` or
+`submission_uncertain` is non-resumable and blocks the same app/artifact until an operator checks
+`status`, reconciles the vivo console, and deliberately deletes the local receipt. Deletion never
+changes vivo state.
 
 ## Network boundary
 
@@ -132,6 +150,12 @@ the OPPO console, and deliberately deletes the local receipt. Deletion never cha
 - OPPO's vendor-required APK MD5 and opaque file URL exist only in memory. SHA-256 remains the
   durable local identity. `--no-submit` and `resume` are rejected because the upload context is
   intentionally not persisted.
+- vivo requests use only `https://developer-api.vivo.com.cn/router/rest`; redirects are rejected.
+  Signed application queries may retry bounded transient failures twice. APK upload and final
+  update submission have zero automatic retries.
+- vivo's vendor-required APK MD5, temporary `serialnumber`, signature, full forms, and responses
+  exist only in memory. SHA-256 remains the durable local identity. `--no-submit` and `resume` are
+  rejected because the staged upload context is intentionally not persisted.
 - JWTs and temporary upload values remain inside their store client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
 

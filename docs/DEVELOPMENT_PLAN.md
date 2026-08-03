@@ -3,6 +3,17 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.7.0 vivo task status
+
+- [x] Task 1: Strict existing-application configuration, version code, and APK preflight.
+- [x] Task 2: Independent credential sources, keyring namespace, and deterministic HMAC signing.
+- [x] Task 3: Fixed-host application/access verification and safe response/error mapping.
+- [x] Task 4: Streamed APK upload, exact final update form, and review-status mapping.
+- [x] Task 5: Staged non-resumable uncertainty boundary and duplicate protection.
+- [x] Task 6: Registry, runtime, CLI, security regression suite, and seven-store compatibility.
+- [x] Task 7: vivo documentation, live checklist, examples, and v0.7.0 versioning.
+- [ ] Task 8: Clean build, coverage, exact-wheel seven-store smoke tests, and final secret review.
+
 ## v0.6.0 OPPO task status
 
 - [x] Task 1: Staged non-resumable submission orchestration and uncertainty boundary.

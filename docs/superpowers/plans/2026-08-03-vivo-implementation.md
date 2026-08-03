@@ -94,12 +94,12 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** README, security/development plans, manual checklist, example, active version sources.
 
-- [ ] Document setup, credential storage, config, scope, notes/version constraints, status,
+- [x] Document setup, credential storage, config, scope, notes/version constraints, status,
   unsupported operations, and uncertainty reconciliation in English plus Chinese guidance.
-- [ ] Add a local-first, separately approved live-verification checklist.
-- [ ] Bump every active version source and lock metadata to `0.7.0`.
-- [ ] Run documentation/config/version tests, Ruff, mypy, and non-test secret scan.
-- [ ] Commit: `docs: document vivo publishing`.
+- [x] Add a local-first, separately approved live-verification checklist.
+- [x] Bump every active version source and lock metadata to `0.7.0`.
+- [x] Run documentation/config/version tests, Ruff, mypy, and non-test secret scan.
+- [x] Commit: `docs: document vivo publishing`.
 
 ### Task 8: Full verification and milestone closure
 

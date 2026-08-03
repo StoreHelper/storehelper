@@ -2,9 +2,9 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.6.0` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.7.0` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
-App Store Connect、Google Play、小米或 OPPO 软件商店应用，并提供安全的状态查询、
+App Store Connect、Google Play、小米、OPPO 或 vivo 软件商店应用，并提供安全的状态查询、
 断点恢复或原子/分阶段提交保护。
 
 > Status: alpha. Store records and release versions must already exist. StoreHelper does not
@@ -13,7 +13,7 @@ App Store Connect、Google Play、小米或 OPPO 软件商店应用，并提供�
 ## Why StoreHelper?
 
 - One command validates, uploads, prepares a release, and optionally submits it for review on
-  Huawei Android, HarmonyOS, Apple, Google Play, Xiaomi, or OPPO.
+  Huawei Android, HarmonyOS, Apple, Google Play, Xiaomi, OPPO, or vivo.
 - Credentials live in the OS keyring or CI secret store—not in project YAML.
 - Every durable step has a redacted atomic receipt, so compilation timeouts can be resumed
   without uploading the package again.
@@ -33,6 +33,8 @@ App Store Connect、Google Play、小米或 OPPO 软件商店应用，并提供�
   certificate, a signed APK, and a PNG icon
 - OPPO: an existing mainland-China application, its application-specific Open Platform
   `client_id`/`client_secret`, and one signed APK with a new version code
+- vivo: an existing mainland-China application, publishing API `access_key`/`secret_key`, and one
+  signed APK with a new version code
 
 Install the isolated CLI with [pipx](https://pipx.pypa.io/):
 
@@ -61,12 +63,12 @@ Create a secret-free project configuration:
 storehelper init
 ```
 
-Edit `storehelper.yaml`. One logical app may configure any subset of the six stores. Android and
+Edit `storehelper.yaml`. One logical app may configure any subset of the seven stores. Android and
 Google Play use the application-level package name; HarmonyOS and Apple have their own
 package/bundle identifiers.
 
 编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple、Google
-Play、小米和 OPPO 软件商店中的任意组合；示例中的 ID、包名和配置名都是假的。
+Play、小米、OPPO 和 vivo 软件商店中的任意组合；示例中的 ID、包名和配置名都是假的。
 
 ```yaml
 version: 1
@@ -105,6 +107,10 @@ apps:
       oppo:
         credential_profile: oppo-release
         version_code: 123
+        language: zh-CN
+      vivo:
+        credential_profile: vivo-release
+        version_code: 124
         language: zh-CN
 ```
 
@@ -192,6 +198,26 @@ storehelper credentials verify --app my-android-app --store oppo
 The profile is application-specific. Do not reuse it for a different OPPO package. See the
 [OPPO live checklist](docs/OPPO_MANUAL_TEST.md) before any real submission.
 
+vivo uses an account-level publishing API pair in its own keyring namespace. Store both values in
+a local JSON file outside the repository, import it, and verify the configured existing package:
+
+```json
+{
+  "access_key": "replace-with-vivo-access-key",
+  "secret_key": "replace-with-vivo-secret-key"
+}
+```
+
+```bash
+storehelper credentials import \
+  --store vivo --profile vivo-release --file ~/Downloads/vivo-api.json
+storehelper credentials list --store vivo
+storehelper credentials verify --app my-android-app --store vivo
+```
+
+Both values are secrets even though one is named `access_key`. See the
+[vivo live checklist](docs/VIVO_MANUAL_TEST.md) before any real submission.
+
 Validate locally without credentials or network access:
 
 ```bash
@@ -201,6 +227,7 @@ storehelper publish --app my-android-app --store apple --file build/Wallet.ipa -
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --dry-run
 storehelper publish --app my-android-app --store xiaomi --file build/app-release.apk --dry-run
 storehelper publish --app my-android-app --store oppo --file build/app-release.apk --dry-run
+storehelper publish --app my-android-app --store vivo --file build/app-release.apk --dry-run
 ```
 
 Upload and wait for package readiness without changing metadata or submitting review:
@@ -212,9 +239,9 @@ storehelper publish --app my-android-app --store apple --file build/Wallet.ipa -
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --no-submit
 ```
 
-Xiaomi and OPPO do not support `--no-submit`. Xiaomi uploads and submits in one request; OPPO's
-temporary upload URL is deliberately kept only in memory for the immediately following final
-submission. Use `--dry-run` for zero-network validation.
+Xiaomi, OPPO, and vivo do not support `--no-submit`. Xiaomi uploads and submits in one request;
+OPPO and vivo keep their temporary upload values only in memory for the immediately following
+final submission. Use `--dry-run` for zero-network validation.
 
 Publish end to end:
 
@@ -297,6 +324,23 @@ allocates and streams one temporary upload, then performs one separately confirm
 submission. It never creates or claims an app, changes listing metadata, uploads AAB/multiple APKs,
 or schedules a release.
 
+Publish an existing vivo APK update. Configure a positive `version_code` greater than the current
+vivo version and supply release notes containing 5–200 characters:
+
+```bash
+storehelper publish \
+  --app my-android-app \
+  --store vivo \
+  --file build/app-release.apk \
+  --release-notes "修复已知问题并提升稳定性"
+```
+
+The v0.7.0 vivo scope is one signed APK no larger than 3 GiB for an existing mainland-China phone
+application, with immediate publication after approval. StoreHelper queries the exact package,
+streams one temporary upload, and sends one separately confirmed final update containing only the
+package/version, upload reference, phone/immediate-online flags, and release notes. It never
+creates an app, uploads AAB/multiple APKs, changes listing metadata, or schedules publication.
+
 Interactive text mode shows a confirmation. CI and JSON mode must supply `--yes`:
 
 ```bash
@@ -322,6 +366,7 @@ storehelper status --app my-android-app --store harmonyos
 storehelper status --app my-android-app --store apple
 storehelper status --app my-android-app --store google_play
 storehelper status --app my-android-app --store oppo
+storehelper status --app my-android-app --store vivo
 ```
 
 `resume` derives the store from the receipt, verifies the current local artifact digest, starts
@@ -340,6 +385,12 @@ final submission are safe for a newly confirmed run. Once the receipt reaches
 `submission_uncertain` and blocks the same app/artifact. Query `status --store oppo`, inspect the
 OPPO console, and delete the local receipt only after a release owner deliberately decides whether
 another submission is safe. Receipt deletion never changes remote OPPO state.
+
+vivo follows the same staged, non-resumable boundary. An upload failure before
+`submission_started` is safe for a newly confirmed run. After the final update begins, a missing
+response or interruption becomes `submission_uncertain` and blocks the same app/artifact. Query
+`status --store vivo`, inspect the vivo console, and delete only the local receipt after the
+release owner determines whether a new submission is safe.
 
 ## CI credentials
 
@@ -427,6 +478,21 @@ export STOREHELPER_OPPO_CLIENT_SECRET="..."
 Do not mix the OPPO file and individual variables, and do not pass either value on the command
 line. Each application should use a dedicated OPPO profile.
 
+For vivo, use either one secret JSON file:
+
+```bash
+export STOREHELPER_VIVO_CREDENTIALS_FILE="$RUNNER_TEMP/vivo-api.json"
+```
+
+or the complete pair:
+
+```bash
+export STOREHELPER_VIVO_ACCESS_KEY="..."
+export STOREHELPER_VIVO_SECRET_KEY="..."
+```
+
+Do not mix the vivo file and individual variables or pass either value on the command line.
+
 Temporary upload URLs, signed headers, object IDs, JWTs, and raw vendor responses are never
 persisted. See [the security guide](docs/SECURITY_GUIDE.md).
 
@@ -486,13 +552,20 @@ persisted. See [the security guide](docs/SECURITY_GUIDE.md).
   HTTPS upload URLs under its explicit OPPO/HeyTap allowlist and never follows redirects.
 - OPPO `submission_uncertain`: query OPPO status and inspect the console before deleting the local
   receipt or authorizing another submission.
+- `VIVO_VERSION_CONFLICT`: set a positive `version_code` greater than the current vivo version and
+  confirm that the signed APK contains the same package and intended version.
+- `VIVO_UPDATE_CONFLICT` (vendor `B0302`): vivo already has an update in progress; reconcile it in
+  the vivo console before starting another publish.
+- vivo `submission_uncertain`: query vivo status and inspect the console before deleting the local
+  receipt or authorizing another submission. StoreHelper never retries the final mutation.
 
 For the deliberately opt-in production checklist, see
 [`docs/HARMONYOS_MANUAL_TEST.md`](docs/HARMONYOS_MANUAL_TEST.md) or
 [`docs/APPLE_MANUAL_TEST.md`](docs/APPLE_MANUAL_TEST.md), or
 [`docs/GOOGLE_PLAY_MANUAL_TEST.md`](docs/GOOGLE_PLAY_MANUAL_TEST.md), or
 [`docs/XIAOMI_MANUAL_TEST.md`](docs/XIAOMI_MANUAL_TEST.md), or
-[`docs/OPPO_MANUAL_TEST.md`](docs/OPPO_MANUAL_TEST.md). Start with local-only `--dry-run` and
+[`docs/OPPO_MANUAL_TEST.md`](docs/OPPO_MANUAL_TEST.md), or
+[`docs/VIVO_MANUAL_TEST.md`](docs/VIVO_MANUAL_TEST.md). Start with local-only `--dry-run` and
 read-only credential verification. Use `--no-submit` only where supported; only a separately
 confirmed command should commit or submit a review.
 
