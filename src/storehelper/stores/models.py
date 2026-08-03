@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StoreName(StrEnum):
@@ -32,7 +32,16 @@ class StoreCapabilities(BaseModel):
     requires_release_notes: bool
     supports_review_status: bool
     atomic_submission: bool = False
+    staged_submission: bool = False
     supports_no_submit: bool = True
+
+    @model_validator(mode="after")
+    def validate_staged_submission(self) -> StoreCapabilities:
+        if self.staged_submission and not self.atomic_submission:
+            raise ValueError("staged submission must use atomic uncertainty handling")
+        if self.staged_submission and self.supports_no_submit:
+            raise ValueError("staged submission cannot support upload-only publishing")
+        return self
 
 
 class StoreTarget(BaseModel):

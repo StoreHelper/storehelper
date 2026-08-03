@@ -15,7 +15,7 @@ from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
 from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
-from storehelper.stores.base import AtomicStoreAdapter, StoreAdapter
+from storehelper.stores.base import AtomicStoreAdapter, StagedStoreAdapter, StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.models import (
     ProcessingState,
@@ -239,7 +239,37 @@ class Publisher:
                 await self._adapter.verify(target=self._target)
                 receipt = self._transition(receipt, RunState.APP_VERIFIED)
 
-            if receipt.state is RunState.APP_VERIFIED and self._capabilities.atomic_submission:
+            if receipt.state is RunState.APP_VERIFIED and self._capabilities.staged_submission:
+                package = self._validator(Path(receipt.package_path))
+                if package.sha256 != receipt.package_sha256:
+                    raise PublishingError(
+                        "PACKAGE_CHANGED",
+                        "The package changed after this publishing run was created.",
+                        ExitCode.PACKAGE_VALIDATION,
+                    )
+                staged_adapter = cast(StagedStoreAdapter, self._adapter)
+                await staged_adapter.stage_submission(
+                    target=self._target,
+                    artifact=package,
+                    release_notes=receipt.release_notes,
+                )
+                receipt = self._transition(receipt, RunState.METADATA_UPDATED)
+
+            if receipt.state is RunState.METADATA_UPDATED and self._capabilities.staged_submission:
+                receipt = self._transition(receipt, RunState.SUBMISSION_STARTED)
+                staged_adapter = cast(StagedStoreAdapter, self._adapter)
+                submission_id = await staged_adapter.commit_staged_submission(target=self._target)
+                receipt = self._transition(
+                    receipt,
+                    RunState.SUBMITTED,
+                    submission_id=submission_id,
+                )
+
+            if (
+                receipt.state is RunState.APP_VERIFIED
+                and self._capabilities.atomic_submission
+                and not self._capabilities.staged_submission
+            ):
                 package = self._validator(Path(receipt.package_path))
                 if package.sha256 != receipt.package_sha256:
                     raise PublishingError(

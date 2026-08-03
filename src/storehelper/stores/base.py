@@ -57,3 +57,17 @@ class AtomicStoreAdapter(StoreAdapter, Protocol):
         artifact: ArtifactInfo,
         release_notes: str | None,
     ) -> str: ...
+
+
+class StagedStoreAdapter(StoreAdapter, Protocol):
+    """Adapter that keeps upload context in memory before one uncertain final mutation."""
+
+    async def stage_submission(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+        release_notes: str | None,
+    ) -> None: ...
+
+    async def commit_staged_submission(self, *, target: StoreTarget) -> str: ...

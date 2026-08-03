@@ -44,17 +44,17 @@ Ruff, mypy, Hatchling/build, Twine.
   `commit_staged_submission(...) -> str`.
 - Preserves: direct `AtomicStoreAdapter` and normal `StoreAdapter` behavior.
 
-- [ ] Write failing tests proving stage runs before `submission_started`, commit runs after it,
+- [x] Write failing tests proving stage runs before `submission_started`, commit runs after it,
   staging failures/cancellation become `failed`, and final network loss/cancellation becomes
   `submission_uncertain`.
-- [ ] Write failing tests proving staged stores reject `--no-submit`, reject `resume`, block a
+- [x] Write failing tests proving staged stores reject `--no-submit`, reject `resume`, block a
   duplicate only after ambiguous final submission, and never persist staged context.
-- [ ] Add the capability and protocol with mutually consistent staged/atomic validation.
-- [ ] Add the staged branch to `Publisher._continue`; keep direct atomic and four resumable store
+- [x] Add the capability and protocol with mutually consistent staged/atomic validation.
+- [x] Add the staged branch to `Publisher._continue`; keep direct atomic and four resumable store
   branches byte-for-byte behaviorally equivalent.
-- [ ] Run `pytest tests/unit/test_publishing_service.py tests/unit/test_store_models.py -q` and the
+- [x] Run `pytest tests/unit/test_publishing_service.py tests/unit/test_store_models.py -q` and the
   existing Xiaomi publish-flow tests.
-- [ ] Commit: `refactor: support staged store submissions safely`.
+- [x] Commit: `refactor: support staged store submissions safely`.
 
 ### Task 2: Strict OPPO target configuration and APK preflight
 

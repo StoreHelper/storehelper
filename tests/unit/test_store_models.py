@@ -1,9 +1,12 @@
 from pathlib import Path
 from typing import get_type_hints
 
+import pytest
+from pydantic import ValidationError
+
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.stores.base import AtomicStoreAdapter, StoreAdapter
+from storehelper.stores.base import AtomicStoreAdapter, StagedStoreAdapter, StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.models import (
     CredentialKind,
@@ -84,6 +87,7 @@ def test_capabilities_describe_orchestration_without_vendor_fields() -> None:
         "requires_release_notes": True,
         "supports_review_status": True,
         "atomic_submission": False,
+        "staged_submission": False,
         "supports_no_submit": True,
     }
 
@@ -145,3 +149,33 @@ def test_adapter_protocol_uses_store_neutral_boundary_types() -> None:
     assert atomic_hints["artifact"] is ArtifactInfo
     assert atomic_hints["release_notes"] == str | None
     assert atomic_hints["return"] is str
+
+    stage_hints = get_type_hints(StagedStoreAdapter.stage_submission)
+    commit_hints = get_type_hints(StagedStoreAdapter.commit_staged_submission)
+    assert stage_hints["target"] is StoreTarget
+    assert stage_hints["artifact"] is ArtifactInfo
+    assert stage_hints["release_notes"] == str | None
+    assert stage_hints["return"] is type(None)
+    assert commit_hints["target"] is StoreTarget
+    assert commit_hints["return"] is str
+
+
+@pytest.mark.parametrize(
+    ("atomic_submission", "supports_no_submit"),
+    [(False, False), (True, True)],
+)
+def test_staged_capabilities_require_atomic_no_submit_semantics(
+    atomic_submission: bool,
+    supports_no_submit: bool,
+) -> None:
+    with pytest.raises(ValidationError):
+        StoreCapabilities(
+            credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
+            artifact_suffixes=(".apk",),
+            requires_processing_poll=False,
+            requires_release_notes=True,
+            supports_review_status=True,
+            atomic_submission=atomic_submission,
+            staged_submission=True,
+            supports_no_submit=supports_no_submit,
+        )

@@ -128,6 +128,38 @@ class AtomicFakeAdapter(FakeAdapter):
         return target.package_name
 
 
+class StagedFakeAdapter(FakeAdapter):
+    def __init__(self, repository: RunRepository) -> None:
+        super().__init__()
+        self.repository = repository
+        self.stage_failure: StoreHelperError | None = None
+        self.commit_failure: StoreHelperError | None = None
+        self.cancel_stage = False
+        self.cancel_commit = False
+
+    async def stage_submission(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+        release_notes: str | None,
+    ) -> None:
+        self.calls.append(f"stage:{artifact.sha256}:{release_notes}")
+        if self.cancel_stage:
+            raise asyncio.CancelledError
+        if self.stage_failure is not None:
+            raise self.stage_failure
+
+    async def commit_staged_submission(self, *, target: StoreTarget) -> str:
+        state = self.repository.list()[0].state
+        self.calls.append(f"commit:{state.value}")
+        if self.cancel_commit:
+            raise asyncio.CancelledError
+        if self.commit_failure is not None:
+            raise self.commit_failure
+        return target.package_name
+
+
 def _package(tmp_path: Path) -> Path:
     path = tmp_path / "release.apk"
     with zipfile.ZipFile(path, "w") as archive:
@@ -158,6 +190,7 @@ def _capabilities(
     *,
     processing: bool = True,
     atomic_submission: bool = False,
+    staged_submission: bool = False,
     supports_no_submit: bool = True,
 ) -> StoreCapabilities:
     return StoreCapabilities(
@@ -167,6 +200,7 @@ def _capabilities(
         requires_release_notes=True,
         supports_review_status=True,
         atomic_submission=atomic_submission,
+        staged_submission=staged_submission,
         supports_no_submit=supports_no_submit,
     )
 
@@ -178,6 +212,7 @@ def _publisher(
     app_id: str = "123",
     processing: bool = True,
     atomic_submission: bool = False,
+    staged_submission: bool = False,
     supports_no_submit: bool = True,
     track: str | None = None,
     release_status: str | None = None,
@@ -191,6 +226,7 @@ def _publisher(
         capabilities=_capabilities(
             processing=processing,
             atomic_submission=atomic_submission,
+            staged_submission=staged_submission,
             supports_no_submit=supports_no_submit,
         ),
         **kwargs,
@@ -753,3 +789,157 @@ async def test_atomic_started_receipt_from_hard_crash_blocks_retry(tmp_path: Pat
     assert blocked.run_id == receipt.run_id
     assert blocked.resumable is False
     assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_staged_store_persists_started_only_after_staging_then_commits(
+    tmp_path: Path,
+) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    adapter = StagedFakeAdapter(repository)
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        staged_submission=True,
+        supports_no_submit=False,
+    )
+    package = _package(tmp_path)
+    artifact = validate_package(package)
+
+    result = await publisher.publish(_request(package))
+
+    assert result.stage is PublishStage.SUBMITTED
+    assert adapter.calls == [
+        "verify",
+        f"stage:{artifact.sha256}:Fixes",
+        "commit:submission_started",
+    ]
+    receipt = repository.get(result.run_id or "")
+    assert receipt.state is RunState.COMPLETED
+    assert receipt.artifact_id is None
+    assert receipt.operation_id is None
+    assert receipt.submission_id == "com.example.app"
+
+
+@pytest.mark.asyncio
+async def test_staged_failure_before_final_submission_is_failed_and_safe_to_retry(
+    tmp_path: Path,
+) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    adapter = StagedFakeAdapter(repository)
+    adapter.stage_failure = StoreVendorError(
+        "OPPO_UPLOAD_FAILED",
+        "The temporary upload failed.",
+        ExitCode.NETWORK,
+        resumable=False,
+    )
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        staged_submission=True,
+        supports_no_submit=False,
+    )
+    package = _package(tmp_path)
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.publish(_request(package))
+
+    assert raised.value.code == "OPPO_UPLOAD_FAILED"
+    assert repository.list()[0].state is RunState.FAILED
+    adapter.stage_failure = None
+    adapter.calls.clear()
+
+    retried = await publisher.publish(_request(package))
+
+    assert retried.ok is True
+    assert len(repository.list()) == 2
+    assert adapter.calls[-1] == "commit:submission_started"
+
+
+@pytest.mark.asyncio
+async def test_staged_cancellation_before_final_submission_is_failed_not_uncertain(
+    tmp_path: Path,
+) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    adapter = StagedFakeAdapter(repository)
+    adapter.cancel_stage = True
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        staged_submission=True,
+        supports_no_submit=False,
+    )
+
+    result = await publisher.publish(_request(_package(tmp_path)))
+
+    assert result.stage is PublishStage.INTERRUPTED
+    assert result.resumable is False
+    assert repository.get(result.run_id or "").state is RunState.FAILED
+
+
+@pytest.mark.asyncio
+async def test_staged_final_response_loss_is_uncertain_and_blocks_duplicate(
+    tmp_path: Path,
+) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    adapter = StagedFakeAdapter(repository)
+    adapter.commit_failure = StoreVendorError(
+        "OPPO_SUBMISSION_UNCERTAIN",
+        "The final response was lost.",
+        ExitCode.NETWORK,
+        resumable=False,
+    )
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        staged_submission=True,
+        supports_no_submit=False,
+    )
+    package = _package(tmp_path)
+
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.publish(_request(package))
+
+    assert raised.value.code == "OPPO_SUBMISSION_UNCERTAIN"
+    uncertain = repository.list()[0]
+    assert uncertain.state is RunState.SUBMISSION_UNCERTAIN
+    adapter.calls.clear()
+
+    duplicate = await publisher.publish(_request(package))
+
+    assert duplicate.ok is False
+    assert duplicate.run_id == uncertain.run_id
+    assert duplicate.resumable is False
+    assert adapter.calls == []
+
+
+@pytest.mark.asyncio
+async def test_staged_final_cancellation_is_uncertain_and_cannot_resume(tmp_path: Path) -> None:
+    repository = RunRepository(tmp_path / "runs")
+    adapter = StagedFakeAdapter(repository)
+    adapter.cancel_commit = True
+    publisher = _publisher(
+        adapter=adapter,
+        repository=repository,
+        processing=False,
+        atomic_submission=True,
+        staged_submission=True,
+        supports_no_submit=False,
+    )
+
+    result = await publisher.publish(_request(_package(tmp_path)))
+
+    assert result.stage is PublishStage.INTERRUPTED
+    receipt = repository.get(result.run_id or "")
+    assert receipt.state is RunState.SUBMISSION_UNCERTAIN
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+    assert raised.value.code == "ATOMIC_RUN_NOT_RESUMABLE"
