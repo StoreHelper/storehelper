@@ -153,6 +153,7 @@ async def _publish_operation(
             request
         )
     huawei = application.stores.huawei
+    assert huawei is not None
     account = CredentialProvider(KEYRING).resolve(
         huawei.credential_profile,
         interactive=interactive,
@@ -175,6 +176,7 @@ async def _resume_operation(
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
     huawei = application.stores.huawei
+    assert huawei is not None
     account = CredentialProvider(KEYRING).resolve(
         huawei.credential_profile,
         interactive=interactive,
@@ -199,6 +201,7 @@ async def _status_operation(
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
     huawei = application.stores.huawei
+    assert huawei is not None
     account = CredentialProvider(KEYRING).resolve(
         huawei.credential_profile,
         interactive=interactive,
@@ -218,6 +221,7 @@ async def _verify_credentials_operation(
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
     huawei = application.stores.huawei
+    assert huawei is not None
     account = CredentialProvider(KEYRING).resolve(
         profile or huawei.credential_profile,
         interactive=interactive,

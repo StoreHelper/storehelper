@@ -98,14 +98,14 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Optional `huawei` and `harmonyos` entries with at least one configured store.
 - `resolve_store_target(application, store) -> StoreTarget`.
 
-- [ ] Add failing tests for Huawei-only backward compatibility, HarmonyOS-only and dual-store applications, at-least-one-store validation, unknown fields, invalid bundle names, and unconfigured store selection.
-- [ ] Run `python -m pytest tests/unit/test_store_config.py tests/unit/test_config.py -q` and verify failures.
-- [ ] Implement strict optional store fields plus a model-level at-least-one validator.
-- [ ] Keep the application-level Huawei package name unchanged; require a HarmonyOS store-local package name.
-- [ ] Implement target resolution with bounded `STORE_NOT_CONFIGURED` errors.
-- [ ] Update example generation without embedding secret placeholders.
-- [ ] Run focused tests, then `python -m pytest tests/integration/test_cli_foundation.py -q`.
-- [ ] Commit: `feat: add strict HarmonyOS project configuration`.
+- [x] Add failing tests for Huawei-only backward compatibility, HarmonyOS-only and dual-store applications, at-least-one-store validation, unknown fields, invalid bundle names, and unconfigured store selection.
+- [x] Run `python -m pytest tests/unit/test_store_config.py tests/unit/test_config.py -q` and verify failures.
+- [x] Implement strict optional store fields plus a model-level at-least-one validator.
+- [x] Keep the application-level Huawei package name unchanged; require a HarmonyOS store-local package name.
+- [x] Implement target resolution with bounded `STORE_NOT_CONFIGURED` errors.
+- [x] Update example generation without embedding secret placeholders.
+- [x] Run focused tests, then `python -m pytest tests/integration/test_cli_foundation.py -q`.
+- [x] Commit: `feat: add strict HarmonyOS project configuration`.
 
 ### Task 3: Receipt schema v2 and safe migration
 

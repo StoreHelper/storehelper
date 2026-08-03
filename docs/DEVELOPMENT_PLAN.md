@@ -6,7 +6,7 @@ Checkboxes are updated only after the related implementation and verification su
 ## v0.2.0 multi-store and HarmonyOS task status
 
 - [x] Task 1: Store-neutral models, errors, and Huawei compatibility.
-- [ ] Task 2: Strict multi-store configuration and resolved targets.
+- [x] Task 2: Strict multi-store configuration and resolved targets.
 - [ ] Task 3: Receipt schema v2 and safe migration.
 - [ ] Task 4: Store-neutral publishing state machine.
 - [ ] Task 5: HarmonyOS APP/HAP artifact validation.

@@ -60,7 +60,9 @@ class Publisher:
 
     @property
     def _huawei(self) -> HuaweiStoreConfig:
-        return self._application.stores.huawei
+        config = self._application.stores.huawei
+        assert config is not None
+        return config
 
     def _transition(
         self,

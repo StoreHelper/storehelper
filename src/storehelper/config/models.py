@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 NonEmptyString = Annotated[str, Field(min_length=1)]
 _APP_ALIAS = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -20,10 +20,33 @@ class HuaweiStoreConfig(BaseModel):
     language: NonEmptyString = "zh-CN"
 
 
+class HarmonyOSStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    app_id: NonEmptyString
+    package_name: NonEmptyString
+    credential_profile: NonEmptyString
+    language: NonEmptyString = "zh-CN"
+
+    @field_validator("package_name")
+    @classmethod
+    def validate_package_name(cls, value: str) -> str:
+        if not _PACKAGE_NAME.fullmatch(value):
+            raise ValueError("must be a dotted HarmonyOS package name")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    huawei: HuaweiStoreConfig
+    huawei: HuaweiStoreConfig | None = None
+    harmonyos: HarmonyOSStoreConfig | None = None
+
+    @model_validator(mode="after")
+    def require_one_store(self) -> StoreConfigs:
+        if self.huawei is None and self.harmonyos is None:
+            raise ValueError("at least one store must be configured")
+        return self
 
 
 class ApplicationConfig(BaseModel):

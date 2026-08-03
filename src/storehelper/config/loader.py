@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from storehelper.config.models import ApplicationConfig, StoreHelperConfig
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
+from storehelper.stores.models import StoreName, StoreTarget
 
 _SECRET_KEYS = {
     "access_token",
@@ -31,6 +32,11 @@ apps:
     stores:
       huawei:
         app_id: "123456789"
+        credential_profile: default
+        language: zh-CN
+      harmonyos:
+        app_id: "987654321"
+        package_name: com.example.app.harmony
         credential_profile: default
         language: zh-CN
 """
@@ -111,6 +117,44 @@ def select_application(
         )
     selected_alias = next(iter(config.apps))
     return selected_alias, config.apps[selected_alias]
+
+
+def resolve_store_target(
+    application: ApplicationConfig,
+    store: StoreName,
+) -> StoreTarget:
+    """Resolve one configured store into the publisher's neutral target."""
+
+    if store is StoreName.HUAWEI:
+        huawei_config = application.stores.huawei
+        if huawei_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="Huawei AppGallery (Android)",
+            app_id=huawei_config.app_id,
+            package_name=application.package_name,
+            credential_profile=huawei_config.credential_profile,
+            language=huawei_config.language,
+        )
+
+    harmony_config = application.stores.harmonyos
+    if harmony_config is None:
+        raise ConfigError(
+            "STORE_NOT_CONFIGURED",
+            f"Store is not configured for the selected application: {store.value}",
+        )
+    return StoreTarget(
+        store=store,
+        label="Huawei AppGallery (HarmonyOS)",
+        app_id=harmony_config.app_id,
+        package_name=harmony_config.package_name,
+        credential_profile=harmony_config.credential_profile,
+        language=harmony_config.language,
+    )
 
 
 def write_example_config(path: Path) -> None:
