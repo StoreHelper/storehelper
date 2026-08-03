@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from pathlib import Path
 
 import httpx
 
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.credentials.models import XiaomiApiCredential
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.models import VerifiedApplication
@@ -143,3 +145,96 @@ class XiaomiClient:
                 ExitCode.VENDOR_REJECTION,
             )
         return VerifiedApplication(app_id=package_name, package_name=package_name)
+
+    async def push_update(
+        self,
+        *,
+        package_name: str,
+        app_name: str,
+        privacy_url: str,
+        icon_path: Path,
+        artifact: ArtifactInfo,
+        release_notes: str,
+    ) -> str:
+        app_info: dict[str, object] = {
+            "appName": app_name,
+            "packageName": package_name,
+            "updateDesc": release_notes,
+            "privacyUrl": privacy_url,
+            "suitableType": 0,
+        }
+        review_accounts = self._credential.review_accounts_api_value()
+        if review_accounts is not None:
+            app_info["testAccount"] = json.dumps(
+                review_accounts,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        request_data = json.dumps(
+            {
+                "userName": self._credential.username,
+                "appInfo": json.dumps(
+                    app_info,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+                "synchroType": 1,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        try:
+            signature = self._auth.signature(
+                request_data,
+                files=(("apk", artifact.path), ("icon", icon_path)),
+            )
+        except OSError:
+            raise XiaomiVendorError(
+                "XIAOMI_LOCAL_FILE_ERROR",
+                "The Xiaomi APK or icon became unreadable before upload.",
+                ExitCode.PACKAGE_VALIDATION,
+            ) from None
+
+        try:
+            with artifact.path.open("rb") as apk, icon_path.open("rb") as icon:
+                response = await self._http.post(
+                    f"{DEFAULT_API_BASE}/dev/push",
+                    data={"RequestData": request_data, "SIG": signature},
+                    files={
+                        "apk": (
+                            artifact.logical_name,
+                            apk,
+                            "application/vnd.android.package-archive",
+                        ),
+                        "icon": (icon_path.name, icon, "image/png"),
+                    },
+                    follow_redirects=False,
+                )
+        except (OSError, httpx.HTTPError):
+            raise self._network_error(
+                "XIAOMI_NETWORK_ERROR",
+                "The Xiaomi update response was not received; inspect the developer console.",
+            ) from None
+        if response.is_redirect:
+            raise self._network_error(
+                "XIAOMI_REDIRECT",
+                "Xiaomi publishing returned an unexpected redirect.",
+            )
+        if response.is_error:
+            raise parse_xiaomi_error(result=None, status_code=response.status_code)
+        try:
+            payload = response.json()
+        except (ValueError, UnicodeDecodeError):
+            raise self._protocol_error("Xiaomi publishing returned a non-JSON response.") from None
+        if not isinstance(payload, Mapping):
+            raise self._protocol_error("Xiaomi publishing returned an invalid JSON response.")
+        result = payload.get("result")
+        if not isinstance(result, int) or isinstance(result, bool):
+            raise self._protocol_error("Xiaomi publishing response is missing an integer result.")
+        if result != 0:
+            raise parse_xiaomi_error(
+                result=result,
+                status_code=response.status_code,
+                vendor_message=payload.get("message"),
+            )
+        return package_name

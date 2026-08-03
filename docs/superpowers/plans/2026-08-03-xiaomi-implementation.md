@@ -102,12 +102,12 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Create: `src/storehelper/stores/xiaomi/package.py`
 - Create: `tests/integration/test_xiaomi_push.py`
 
-- [ ] Add failing tests for `synchroType=1`, exact appInfo fields, updateDesc, optional structured
+- [x] Add failing tests for `synchroType=1`, exact appInfo fields, updateDesc, optional structured
   testAccount, APK/icon digests, streamed multipart bytes, 2 GiB limit, success, documented vendor
   errors, redirect, response loss, cancellation, and zero mutation retries.
-- [ ] Reuse hardened Android APK validation and add Xiaomi/icon limits.
-- [ ] Return only the public package name after `result=0`.
-- [ ] Commit: `feat: submit Xiaomi APK updates atomically`.
+- [x] Reuse hardened Android APK validation and add Xiaomi/icon limits.
+- [x] Return only the public package name after `result=0`.
+- [x] Commit: `feat: submit Xiaomi APK updates atomically`.
 
 ### Task 7: Registry, runtime, and CLI integration
 
