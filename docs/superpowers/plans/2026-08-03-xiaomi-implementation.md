@@ -56,13 +56,13 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Modify: `tests/unit/test_credentials.py`
 - Modify: `tests/integration/test_cli_foundation.py`
 
-- [ ] Add failing tests for email/API-secret/X.509 RSA validation, nested structured account rules,
+- [x] Add failing tests for email/API-secret/X.509 RSA validation, nested structured account rules,
   five-account/audit-note limits, file/env/keyring/prompt precedence, source conflicts, independent
   namespace, and secret-safe repr/errors.
-- [ ] Add `CredentialKind.XIAOMI_API`, friendly credential JSON, secure storage serialization, and
+- [x] Add `CredentialKind.XIAOMI_API`, friendly credential JSON, secure storage serialization, and
   exact structured API conversion.
-- [ ] Support `STOREHELPER_XIAOMI_*` sources without changing existing credential resolution.
-- [ ] Commit: `feat: secure Xiaomi publishing credentials`.
+- [x] Support `STOREHELPER_XIAOMI_*` sources without changing existing credential resolution.
+- [x] Commit: `feat: secure Xiaomi publishing credentials`.
 
 ### Task 4: Vendor-required RSA encryption and digest contract
 

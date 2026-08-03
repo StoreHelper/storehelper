@@ -286,6 +286,73 @@ def test_google_credential_import_list_and_delete_use_separate_namespace(
     assert rsa_private_key not in imported.stdout + google_profiles.stdout + deleted.stdout
 
 
+def test_xiaomi_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    rsa_public_certificate: str,
+    monkeypatch,
+) -> None:
+    keyring = MemoryKeyring()
+    monkeypatch.setattr(cli_module, "KEYRING", keyring)
+    credential_file = tmp_path / "xiaomi.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "username": "developer@example.com",
+                "api_secret": "example-api-secret",
+                "public_key_certificate": rsa_public_certificate,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "xiaomi",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "xiaomi", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "xiaomi",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "xiaomi",
+    }
+    assert json.loads(profiles.stdout) == {"profiles": ["release"], "store": "xiaomi"}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "xiaomi",
+    }
+    assert "example-api-secret" not in imported.stdout + profiles.stdout + deleted.stdout
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 

@@ -19,6 +19,7 @@ from storehelper.credentials.models import (
     GoogleServiceAccount,
     HuaweiServiceAccount,
     StoreCredential,
+    XiaomiApiCredential,
 )
 from storehelper.stores.models import CredentialKind
 
@@ -30,6 +31,7 @@ def _service_name(kind: CredentialKind) -> str:
         CredentialKind.HUAWEI_SERVICE_ACCOUNT: "huawei",
         CredentialKind.APPLE_API_KEY: "apple",
         CredentialKind.GOOGLE_SERVICE_ACCOUNT: "google_play",
+        CredentialKind.XIAOMI_API: "xiaomi",
     }
     return f"storehelper:{names[kind]}"
 
@@ -202,6 +204,17 @@ class SecurePrompt:
             if token_uri:
                 values["token_uri"] = token_uri
             return _parse_credential(values, kind)
+        if kind is CredentialKind.XIAOMI_API:
+            return _parse_credential(
+                {
+                    "username": input("Xiaomi developer email: ").strip(),
+                    "api_secret": getpass.getpass("Xiaomi API secret: "),
+                    "public_key_certificate": getpass.getpass(
+                        "Xiaomi public certificate (paste with \\n): "
+                    ),
+                },
+                kind,
+            )
         return _parse_credential(
             {
                 "key_id": input("Huawei key_id: ").strip(),
@@ -236,6 +249,17 @@ def _parse_credential(value: object, kind: CredentialKind) -> StoreCredential:
             raise CredentialError(
                 "CREDENTIAL_INVALID",
                 "Google service-account JSON is missing or contains invalid required fields.",
+            ) from None
+    if kind is CredentialKind.XIAOMI_API:
+        try:
+            return XiaomiApiCredential.model_validate(value)
+        except CredentialError:
+            raise
+        except ValidationError:
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "Xiaomi credential must contain username, api_secret, and an RSA X.509 "
+                "public_key_certificate.",
             ) from None
     try:
         return AppleApiKey.model_validate(value)
@@ -309,6 +333,8 @@ class CredentialProvider:
             return self._resolve_apple(profile, interactive=interactive)
         if kind is CredentialKind.GOOGLE_SERVICE_ACCOUNT:
             return self._resolve_google(profile, interactive=interactive)
+        if kind is CredentialKind.XIAOMI_API:
+            return self._resolve_xiaomi(profile, interactive=interactive)
         return self._resolve_huawei(profile, interactive=interactive)
 
     def _resolve_huawei(self, profile: str, *, interactive: bool) -> HuaweiServiceAccount:
@@ -484,4 +510,70 @@ class CredentialProvider:
         raise CredentialError(
             "CREDENTIAL_NOT_FOUND",
             f"Google credential profile is not available: {profile}",
+        )
+
+    def _resolve_xiaomi(self, profile: str, *, interactive: bool) -> XiaomiApiCredential:
+        names = (
+            "STOREHELPER_XIAOMI_USERNAME",
+            "STOREHELPER_XIAOMI_API_SECRET",
+            "STOREHELPER_XIAOMI_PUBLIC_KEY_CERTIFICATE",
+            "STOREHELPER_XIAOMI_TEST_ACCOUNTS_JSON",
+        )
+        file_value = self._environment.get("STOREHELPER_XIAOMI_CREDENTIALS_FILE")
+        values = [self._environment.get(name) for name in names]
+        if file_value and any(value is not None for value in values):
+            raise CredentialError(
+                "CREDENTIAL_SOURCE_CONFLICT",
+                "Use either STOREHELPER_XIAOMI_CREDENTIALS_FILE or individual Xiaomi values.",
+            )
+        if file_value:
+            credential = load_credential_file(Path(file_value), CredentialKind.XIAOMI_API)
+            assert isinstance(credential, XiaomiApiCredential)
+            return credential
+        if any(value is not None for value in values):
+            username, api_secret, certificate, test_accounts_json = values
+            if not all((username, api_secret, certificate)):
+                raise CredentialError(
+                    "CREDENTIAL_ENV_INCOMPLETE",
+                    "Xiaomi username, API secret, and public certificate environment values "
+                    "are required.",
+                )
+            test_accounts: object = None
+            if test_accounts_json is not None:
+                try:
+                    test_accounts = json.loads(test_accounts_json)
+                except json.JSONDecodeError:
+                    raise CredentialError(
+                        "CREDENTIAL_ENV_INVALID",
+                        "Xiaomi test account environment JSON is invalid.",
+                    ) from None
+            credential = _parse_credential(
+                {
+                    "username": username,
+                    "api_secret": api_secret,
+                    "public_key_certificate": certificate,
+                    "test_accounts": test_accounts,
+                },
+                CredentialKind.XIAOMI_API,
+            )
+            assert isinstance(credential, XiaomiApiCredential)
+            return credential
+
+        stored = self._keyring.get(profile, CredentialKind.XIAOMI_API)
+        if stored is not None:
+            try:
+                credential = parse_stored_credential(json.loads(stored), CredentialKind.XIAOMI_API)
+            except json.JSONDecodeError:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID", f"Credential profile is invalid: {profile}"
+                ) from None
+            assert isinstance(credential, XiaomiApiCredential)
+            return credential
+        if interactive:
+            credential = self._prompt.prompt(CredentialKind.XIAOMI_API)
+            assert isinstance(credential, XiaomiApiCredential)
+            return credential
+        raise CredentialError(
+            "CREDENTIAL_NOT_FOUND",
+            f"Xiaomi credential profile is not available: {profile}",
         )

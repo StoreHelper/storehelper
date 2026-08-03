@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
@@ -20,6 +21,8 @@ DEFAULT_GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 _GOOGLE_SERVICE_ACCOUNT_EMAIL = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9._%+\-]*@[A-Za-z0-9.\-]+\.gserviceaccount\.com$"
 )
+_XIAOMI_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_XIAOMI_LOCALE = re.compile(r"^[a-z]{2}_[A-Z]{2}$")
 
 
 class CredentialError(StoreHelperError):
@@ -312,4 +315,228 @@ class GoogleServiceAccount(BaseModel):
         )
 
 
-StoreCredential = HuaweiServiceAccount | AppleApiKey | GoogleServiceAccount
+class XiaomiReviewAccount(BaseModel):
+    """One Xiaomi structured review login with masked sensitive values."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    login_type: Literal[1, 2]
+    account: SecretStr | None = None
+    password: SecretStr | None = None
+    access_code: SecretStr | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_secret_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        unknown = set(normalized).difference({"login_type", "account", "password", "access_code"})
+        if unknown:
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi review account contains unsupported fields."
+            )
+        if normalized.get("login_type") not in (1, 2):
+            raise CredentialError("CREDENTIAL_INVALID", "Xiaomi review login_type must be 1 or 2.")
+        present: dict[str, str | None] = {}
+        for field in ("account", "password", "access_code"):
+            raw = normalized.get(field)
+            if isinstance(raw, SecretStr):
+                raw = raw.get_secret_value()
+            if raw is None:
+                present[field] = None
+                continue
+            if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 50:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID",
+                    "Xiaomi review account values must contain 1 to 50 characters.",
+                )
+            present[field] = raw.strip()
+            normalized[field] = raw.strip()
+        if (present["account"] is None) != (present["password"] is None):
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "Xiaomi review account and password/code must be provided together.",
+            )
+        if present["account"] is None and present["access_code"] is None:
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "Xiaomi review account requires login values or an access code.",
+            )
+        return normalized
+
+    def api_value(self) -> dict[str, object]:
+        value: dict[str, object] = {"t": self.login_type}
+        if self.account is not None:
+            value["a"] = self.account.get_secret_value()
+        if self.password is not None:
+            value["p"] = self.password.get_secret_value()
+        if self.access_code is not None:
+            value["c"] = self.access_code.get_secret_value()
+        return value
+
+    def storage_value(self) -> dict[str, object]:
+        value: dict[str, object] = {"login_type": self.login_type}
+        for name in ("account", "password", "access_code"):
+            secret = getattr(self, name)
+            if secret is not None:
+                value[name] = secret.get_secret_value()
+        return value
+
+
+class XiaomiReviewLocale(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    accounts: tuple[XiaomiReviewAccount, ...] = ()
+    audit_notes: SecretStr | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_notes(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        unknown = set(normalized).difference({"accounts", "audit_notes"})
+        if unknown:
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi review locale contains unsupported fields."
+            )
+        raw = normalized.get("audit_notes")
+        if isinstance(raw, SecretStr):
+            raw = raw.get_secret_value()
+        if raw is not None:
+            if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 500:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID",
+                    "Xiaomi audit notes must contain 1 to 500 characters.",
+                )
+            normalized["audit_notes"] = raw.strip()
+        return normalized
+
+    @model_validator(mode="after")
+    def require_content(self) -> XiaomiReviewLocale:
+        if len(self.accounts) > 5:
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi review locales accept at most five accounts."
+            )
+        if not self.accounts and self.audit_notes is None:
+            raise CredentialError("CREDENTIAL_INVALID", "Xiaomi review locale must not be empty.")
+        return self
+
+
+class XiaomiApiCredential(BaseModel):
+    """Xiaomi automatic-publishing credentials and optional reviewer access."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    username: str = Field(min_length=1)
+    api_secret: SecretStr
+    public_key_certificate: SecretStr
+    test_accounts: dict[str, XiaomiReviewLocale] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_and_validate(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        unknown = set(normalized).difference(
+            {"username", "api_secret", "public_key_certificate", "test_accounts"}
+        )
+        if unknown:
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi credential contains unsupported fields."
+            )
+
+        username = normalized.get("username")
+        if not isinstance(username, str) or not _XIAOMI_EMAIL.fullmatch(username.strip()):
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi username must be a developer login email."
+            )
+        normalized["username"] = username.strip()
+
+        raw_secret = normalized.get("api_secret")
+        if isinstance(raw_secret, SecretStr):
+            raw_secret = raw_secret.get_secret_value()
+        if not isinstance(raw_secret, str) or not raw_secret.strip():
+            raise CredentialError("CREDENTIAL_INVALID", "Xiaomi api_secret is required.")
+        normalized["api_secret"] = raw_secret.strip()
+
+        raw_certificate = normalized.get("public_key_certificate")
+        if isinstance(raw_certificate, SecretStr):
+            raw_certificate = raw_certificate.get_secret_value()
+        if not isinstance(raw_certificate, str) or not raw_certificate.strip():
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "Xiaomi public_key_certificate is required."
+            )
+        pem = raw_certificate.strip().strip('"').replace("\\r\\n", "\n").replace("\\n", "\n")
+        if not pem.endswith("\n"):
+            pem += "\n"
+        try:
+            certificate = x509.load_pem_x509_certificate(pem.encode("utf-8"))
+        except ValueError:
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "Xiaomi public_key_certificate must be a valid PEM X.509 certificate.",
+            ) from None
+        if not isinstance(certificate.public_key(), rsa.RSAPublicKey):
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "Xiaomi public_key_certificate must contain an RSA public key.",
+            )
+        normalized["public_key_certificate"] = pem
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_locale_keys(self) -> XiaomiApiCredential:
+        if self.test_accounts is not None:
+            if not self.test_accounts:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID", "Xiaomi test_accounts must not be empty."
+                )
+            if any(not _XIAOMI_LOCALE.fullmatch(locale) for locale in self.test_accounts):
+                raise CredentialError(
+                    "CREDENTIAL_INVALID",
+                    "Xiaomi test account locales must use language_COUNTRY form.",
+                )
+        return self
+
+    def review_accounts_api_value(self) -> dict[str, object] | None:
+        if self.test_accounts is None:
+            return None
+        result: dict[str, object] = {}
+        for locale, group in self.test_accounts.items():
+            value: dict[str, object] = {}
+            if group.accounts:
+                value["accounts"] = [account.api_value() for account in group.accounts]
+            if group.audit_notes is not None:
+                value["auditNotes"] = group.audit_notes.get_secret_value()
+            result[locale] = value
+        return result
+
+    def to_storage_json(self) -> str:
+        test_accounts: dict[str, object] | None = None
+        if self.test_accounts is not None:
+            test_accounts = {}
+            for locale, group in self.test_accounts.items():
+                value: dict[str, object] = {
+                    "accounts": [account.storage_value() for account in group.accounts]
+                }
+                if group.audit_notes is not None:
+                    value["audit_notes"] = group.audit_notes.get_secret_value()
+                test_accounts[locale] = value
+        return json.dumps(
+            {
+                "credential_kind": "xiaomi_api",
+                "credential": {
+                    "username": self.username,
+                    "api_secret": self.api_secret.get_secret_value(),
+                    "public_key_certificate": self.public_key_certificate.get_secret_value(),
+                    "test_accounts": test_accounts,
+                },
+            },
+            ensure_ascii=False,
+        )
+
+
+StoreCredential = HuaweiServiceAccount | AppleApiKey | GoogleServiceAccount | XiaomiApiCredential
