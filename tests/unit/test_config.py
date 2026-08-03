@@ -109,3 +109,4 @@ def test_example_config_is_valid_and_secret_free(tmp_path: Path) -> None:
     contents = path.read_text(encoding="utf-8")
     assert "private_key" not in contents
     assert "client_secret" not in contents
+    assert config.apps["my-app"].stores.google_play.release_status == "draft"

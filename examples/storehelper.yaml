@@ -20,3 +20,8 @@ apps:
         credential_profile: apple-release
         platform: IOS
         language: en-US
+      google_play:
+        credential_profile: google-release
+        track: internal
+        release_status: draft
+        language: en-US

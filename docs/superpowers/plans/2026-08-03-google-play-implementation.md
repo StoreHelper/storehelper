@@ -52,12 +52,12 @@ async def submit(
 - Modify: `tests/unit/test_config.py`
 - Modify: `examples/storehelper.yaml`
 
-- [ ] Add failing tests for `google_play`, required credential profile/track/status, safe track
+- [x] Add failing tests for `google_play`, required credential profile/track/status, safe track
   identifiers, BCP-47 language, unknown fields, and multi-store compatibility.
-- [ ] Add `StoreName.GOOGLE_PLAY` and required `draft|completed` release status.
-- [ ] Resolve package name as both Google application ID and package name.
-- [ ] Keep schema version `1` and preserve every previous valid configuration.
-- [ ] Commit: `feat: configure Google Play targets`.
+- [x] Add `StoreName.GOOGLE_PLAY` and required `draft|completed` release status.
+- [x] Resolve package name as both Google application ID and package name.
+- [x] Keep schema version `1` and preserve every previous valid configuration.
+- [x] Commit: `feat: configure Google Play targets`.
 
 ### Task 3: Google service-account credentials
 

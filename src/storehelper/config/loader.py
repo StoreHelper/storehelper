@@ -46,6 +46,11 @@ apps:
         credential_profile: apple-release
         platform: IOS
         language: en-US
+      google_play:
+        credential_profile: google-release
+        track: internal
+        release_status: draft
+        language: en-US
 """
 
 
@@ -164,21 +169,39 @@ def resolve_store_target(
             language=harmony_config.language,
         )
 
-    apple_config = application.stores.apple
-    if apple_config is None:
+    if store is StoreName.APPLE:
+        apple_config = application.stores.apple
+        if apple_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="Apple App Store",
+            app_id=apple_config.app_id,
+            package_name=apple_config.bundle_id,
+            credential_profile=apple_config.credential_profile,
+            language=apple_config.language,
+            release_id=apple_config.app_store_version_id,
+            platform=apple_config.platform,
+        )
+
+    google_config = application.stores.google_play
+    if google_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label="Apple App Store",
-        app_id=apple_config.app_id,
-        package_name=apple_config.bundle_id,
-        credential_profile=apple_config.credential_profile,
-        language=apple_config.language,
-        release_id=apple_config.app_store_version_id,
-        platform=apple_config.platform,
+        label=(f"Google Play ({google_config.track}, {google_config.release_status})"),
+        app_id=application.package_name,
+        package_name=application.package_name,
+        credential_profile=google_config.credential_profile,
+        language=google_config.language,
+        track=google_config.track,
+        release_status=google_config.release_status,
     )
 
 

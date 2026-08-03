@@ -41,6 +41,13 @@ APPLE = """      apple:
         language: zh-Hans
 """
 
+GOOGLE_PLAY = """      google_play:
+        credential_profile: google-release
+        track: internal
+        release_status: draft
+        language: en-US
+"""
+
 
 def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, HARMONYOS))
@@ -100,6 +107,61 @@ def test_three_store_application_keeps_independent_targets(tmp_path: Path) -> No
     assert resolve_store_target(application, StoreName.HUAWEI).app_id == "100000001"
     assert resolve_store_target(application, StoreName.HARMONYOS).app_id == "100000002"
     assert resolve_store_target(application, StoreName.APPLE).release_id == "version-resource-id"
+
+
+def test_loads_google_play_target_from_android_package_name(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, GOOGLE_PLAY)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.GOOGLE_PLAY)
+
+    assert target.model_dump(mode="json") == {
+        "store": "google_play",
+        "label": "Google Play (internal, draft)",
+        "app_id": "com.example.wallet",
+        "package_name": "com.example.wallet",
+        "credential_profile": "google-release",
+        "language": "en-US",
+        "release_id": None,
+        "platform": None,
+        "track": "internal",
+        "release_status": "draft",
+    }
+
+
+def test_google_play_completed_release_is_explicit(tmp_path: Path) -> None:
+    completed = GOOGLE_PLAY.replace("release_status: draft", "release_status: completed")
+    application = load_config(_write(tmp_path, completed)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.GOOGLE_PLAY)
+
+    assert target.release_status == "completed"
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        GOOGLE_PLAY.replace("        release_status: draft\n", ""),
+        GOOGLE_PLAY.replace("credential_profile: google-release", "credential_profile: ' '"),
+        GOOGLE_PLAY.replace("track: internal", "track: production/../../secrets"),
+        GOOGLE_PLAY.replace("release_status: draft", "release_status: staged"),
+        GOOGLE_PLAY.replace("language: en-US", "language: en_US"),
+        GOOGLE_PLAY + "        unexpected: true\n",
+    ],
+)
+def test_google_play_configuration_is_strict(tmp_path: Path, invalid: str) -> None:
+    with pytest.raises(ConfigError, match="google_play"):
+        load_config(_write(tmp_path, invalid))
+
+
+def test_google_play_coexists_with_existing_store_targets(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, HUAWEI + HARMONYOS + APPLE + GOOGLE_PLAY)).apps[
+        "wallet"
+    ]
+
+    assert resolve_store_target(application, StoreName.HUAWEI).app_id == "100000001"
+    assert resolve_store_target(application, StoreName.HARMONYOS).app_id == "100000002"
+    assert resolve_store_target(application, StoreName.APPLE).app_id == "1234567890"
+    assert resolve_store_target(application, StoreName.GOOGLE_PLAY).track == "internal"
 
 
 @pytest.mark.parametrize(

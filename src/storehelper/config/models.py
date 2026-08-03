@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 NonEmptyString = Annotated[str, Field(min_length=1)]
 _APP_ALIAS = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
+_GOOGLE_TRACK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_BCP47_LANGUAGE = re.compile(r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$")
 
 
 class HuaweiStoreConfig(BaseModel):
@@ -54,16 +56,40 @@ class AppleStoreConfig(BaseModel):
         return value
 
 
+class GooglePlayStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    credential_profile: NonEmptyString
+    track: NonEmptyString
+    release_status: Literal["draft", "completed"]
+    language: NonEmptyString = "en-US"
+
+    @field_validator("track")
+    @classmethod
+    def validate_track(cls, value: str) -> str:
+        if not _GOOGLE_TRACK.fullmatch(value):
+            raise ValueError("must be a safe Google Play track identifier")
+        return value
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        if not _BCP47_LANGUAGE.fullmatch(value):
+            raise ValueError("must be a BCP-47 language tag")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     huawei: HuaweiStoreConfig | None = None
     harmonyos: HarmonyOSStoreConfig | None = None
     apple: AppleStoreConfig | None = None
+    google_play: GooglePlayStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
-        if self.huawei is None and self.harmonyos is None and self.apple is None:
+        if not any((self.huawei, self.harmonyos, self.apple, self.google_play)):
             raise ValueError("at least one store must be configured")
         return self
 

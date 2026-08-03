@@ -11,6 +11,7 @@ class StoreName(StrEnum):
     HUAWEI = "huawei"
     HARMONYOS = "harmonyos"
     APPLE = "apple"
+    GOOGLE_PLAY = "google_play"
 
 
 class CredentialKind(StrEnum):
