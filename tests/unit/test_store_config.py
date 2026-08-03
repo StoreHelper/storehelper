@@ -47,6 +47,8 @@ def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) ->
         "package_name": "com.example.wallet.harmony",
         "credential_profile": "company",
         "language": "en-US",
+        "release_id": None,
+        "platform": None,
     }
 
 

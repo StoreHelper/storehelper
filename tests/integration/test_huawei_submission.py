@@ -11,6 +11,18 @@ from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter, ReviewStatus
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
 from storehelper.stores.huawei.errors import HuaweiVendorError
+from storehelper.stores.models import StoreName, StoreTarget
+
+
+def _target() -> StoreTarget:
+    return StoreTarget(
+        store=StoreName.HUAWEI,
+        label="Huawei AppGallery (Android)",
+        app_id="123",
+        package_name="com.example.app",
+        credential_profile="company",
+        language="zh-CN",
+    )
 
 
 def _adapter(
@@ -47,13 +59,13 @@ async def test_release_notes_submit_and_review_status_contract(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        await adapter.update_release_notes(
-            app_id="123",
-            language="zh-CN",
+        await adapter.prepare_release(
+            target=_target(),
+            artifact_id="42",
             release_notes="修复已知问题",
         )
-        submission_id = await adapter.submit(app_id="123")
-        status = await adapter.review_status(app_id="123")
+        submission_id = await adapter.submit(target=_target(), artifact_id="42")
+        status = await adapter.review_status(target=_target())
 
     assert submission_id == "123"
     assert status is ReviewStatus.IN_REVIEW
@@ -80,7 +92,7 @@ async def test_submit_compiling_response_remains_resumable(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(ArtifactStillProcessingError) as raised:
-            await adapter.submit(app_id="123")
+            await adapter.submit(target=_target(), artifact_id="42")
 
     assert raised.value.resumable is True
 
@@ -113,7 +125,7 @@ async def test_maps_review_states(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        assert await adapter.review_status(app_id="123") is expected
+        assert await adapter.review_status(target=_target()) is expected
 
 
 @pytest.mark.asyncio

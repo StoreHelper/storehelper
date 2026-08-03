@@ -16,7 +16,12 @@ from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
-from storehelper.stores.models import ProcessingState, StoreCapabilities, StoreTarget
+from storehelper.stores.models import (
+    ProcessingState,
+    ProcessingStatus,
+    StoreCapabilities,
+    StoreTarget,
+)
 
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
@@ -120,6 +125,7 @@ class Publisher:
             package_path=str(package.path),
             package_sha256=package.sha256,
             logical_name=package.logical_name,
+            release_id=self._target.release_id,
             language=self._target.language,
             release_notes=request.release_notes.strip() if request.release_notes else None,
             submit=request.submit,
@@ -153,6 +159,7 @@ class Publisher:
             receipt.store is not self._target.store
             or receipt.app_id != self._target.app_id
             or receipt.package_name != self._target.package_name
+            or receipt.release_id != self._target.release_id
         ):
             raise PublishingError(
                 "RUN_APP_MISMATCH",
@@ -187,10 +194,7 @@ class Publisher:
     ) -> OperationResult:
         try:
             if receipt.state in {RunState.CREATED, RunState.VALIDATED}:
-                await self._adapter.verify(
-                    app_id=receipt.app_id,
-                    package_name=receipt.package_name,
-                )
+                await self._adapter.verify(target=self._target)
                 receipt = self._transition(receipt, RunState.APP_VERIFIED)
 
             if receipt.state is RunState.APP_VERIFIED:
@@ -201,7 +205,7 @@ class Publisher:
                         "The package changed after this publishing run was created.",
                         ExitCode.PACKAGE_VALIDATION,
                     )
-                bound = await self._adapter.upload(app_id=receipt.app_id, artifact=package)
+                bound = await self._adapter.upload(target=self._target, artifact=package)
                 receipt = self._transition(
                     receipt,
                     RunState.PACKAGE_BOUND,
@@ -232,7 +236,7 @@ class Publisher:
                     poll_interval=poll_interval,
                     wait_timeout=wait_timeout,
                 )
-                if not ready:
+                if ready is None:
                     receipt = self._transition(receipt, RunState.TIMED_OUT)
                     return OperationResult.failure(
                         store=self._target.store,
@@ -241,7 +245,10 @@ class Publisher:
                         message=f"{self._target.label} is still processing the artifact.",
                         resumable=True,
                     )
-                receipt = self._transition(receipt, RunState.PACKAGE_READY)
+                updates: dict[str, object] = {}
+                if ready.artifact_id is not None:
+                    updates["artifact_id"] = ready.artifact_id
+                receipt = self._transition(receipt, RunState.PACKAGE_READY, **updates)
 
             if not receipt.submit and receipt.state is RunState.PACKAGE_READY:
                 self._transition(receipt, RunState.COMPLETED)
@@ -261,17 +268,31 @@ class Publisher:
                         "The resumable run does not contain release notes.",
                         ExitCode.LOCAL_STATE,
                     )
-                if receipt.release_notes:
-                    await self._adapter.update_release_notes(
-                        app_id=receipt.app_id,
-                        language=receipt.language,
-                        release_notes=receipt.release_notes,
+                if not receipt.artifact_id:
+                    raise PublishingError(
+                        "RUN_ARTIFACT_ID_MISSING",
+                        "The run cannot prepare a release because its artifact ID is missing.",
+                        ExitCode.LOCAL_STATE,
                     )
+                await self._adapter.prepare_release(
+                    target=self._target,
+                    artifact_id=receipt.artifact_id,
+                    release_notes=receipt.release_notes,
+                )
                 receipt = self._transition(receipt, RunState.METADATA_UPDATED)
 
             if receipt.state is RunState.METADATA_UPDATED:
+                if not receipt.artifact_id:
+                    raise PublishingError(
+                        "RUN_ARTIFACT_ID_MISSING",
+                        "The run cannot submit because its artifact ID is missing.",
+                        ExitCode.LOCAL_STATE,
+                    )
                 try:
-                    await self._adapter.submit(app_id=receipt.app_id)
+                    submission_id = await self._adapter.submit(
+                        target=self._target,
+                        artifact_id=receipt.artifact_id,
+                    )
                 except ArtifactStillProcessingError as error:
                     receipt = self._transition(receipt, RunState.PACKAGE_COMPILING)
                     ready = await self._wait_until_ready(
@@ -279,7 +300,7 @@ class Publisher:
                         poll_interval=poll_interval,
                         wait_timeout=wait_timeout,
                     )
-                    if not ready:
+                    if ready is None:
                         receipt = self._transition(receipt, RunState.TIMED_OUT)
                         return OperationResult.failure(
                             store=self._target.store,
@@ -289,9 +310,20 @@ class Publisher:
                             resumable=True,
                             vendor_code=error.vendor_code,
                         )
-                    receipt = self._transition(receipt, RunState.METADATA_UPDATED)
-                    await self._adapter.submit(app_id=receipt.app_id)
-                receipt = self._transition(receipt, RunState.SUBMITTED)
+                    updates = {}
+                    if ready.artifact_id is not None:
+                        updates["artifact_id"] = ready.artifact_id
+                    receipt = self._transition(receipt, RunState.METADATA_UPDATED, **updates)
+                    assert receipt.artifact_id is not None
+                    submission_id = await self._adapter.submit(
+                        target=self._target,
+                        artifact_id=receipt.artifact_id,
+                    )
+                receipt = self._transition(
+                    receipt,
+                    RunState.SUBMITTED,
+                    submission_id=submission_id,
+                )
 
             if receipt.state is RunState.SUBMITTED:
                 self._transition(receipt, RunState.COMPLETED)
@@ -335,16 +367,16 @@ class Publisher:
         *,
         poll_interval: float,
         wait_timeout: float,
-    ) -> bool:
+    ) -> ProcessingStatus | None:
         assert receipt.artifact_id is not None
         started = self._clock()
         while True:
             status = await self._adapter.processing_status(
-                app_id=receipt.app_id,
+                target=self._target,
                 artifact_id=receipt.artifact_id,
             )
             if status.state is ProcessingState.READY:
-                return True
+                return status
             if status.state is ProcessingState.FAILED:
                 raise StoreVendorError(
                     "ARTIFACT_PROCESSING_FAILED",
@@ -352,7 +384,7 @@ class Publisher:
                     ExitCode.VENDOR_REJECTION,
                 )
             if self._clock() - started >= wait_timeout:
-                return False
+                return None
             await self._sleeper(poll_interval)
 
     async def status(self) -> OperationResult:
@@ -362,7 +394,7 @@ class Publisher:
                 "The selected store does not support review status queries.",
                 ExitCode.USAGE,
             )
-        state = await self._adapter.review_status(app_id=self._target.app_id)
+        state = await self._adapter.review_status(target=self._target)
         return OperationResult.success(
             store=self._target.store,
             stage=PublishStage.COMPLETED,

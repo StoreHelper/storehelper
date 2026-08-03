@@ -36,19 +36,20 @@ class FakeAdapter:
         self.compile_states = compile_states or [CompileState.READY]
         self.calls: list[str] = []
         self.submit_compiling_once = False
+        self.processing_artifact_id: str | None = None
 
-    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
+    async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
         self.calls.append("verify")
-        return VerifiedApplication(app_id=app_id, package_name=package_name)
+        return VerifiedApplication(app_id=target.app_id, package_name=target.package_name)
 
-    async def upload(self, *, app_id: str, artifact: ArtifactInfo) -> UploadedArtifact:
+    async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
         self.calls.append("upload")
         return UploadedArtifact(artifact_id="42")
 
     async def processing_status(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact_id: str,
     ) -> ProcessingStatus:
         self.calls.append("compile")
@@ -56,19 +57,21 @@ class FakeAdapter:
             self.compile_states.pop(0) if len(self.compile_states) > 1 else self.compile_states[0]
         )
         return CompileStatus(
-            state=state, reason="compile failed" if state is CompileState.FAILED else None
+            state=state,
+            reason="compile failed" if state is CompileState.FAILED else None,
+            artifact_id=self.processing_artifact_id if state is CompileState.READY else None,
         )
 
-    async def update_release_notes(
+    async def prepare_release(
         self,
         *,
-        app_id: str,
-        language: str,
-        release_notes: str,
+        target: StoreTarget,
+        artifact_id: str,
+        release_notes: str | None,
     ) -> None:
         self.calls.append("notes")
 
-    async def submit(self, *, app_id: str) -> str:
+    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
         self.calls.append("submit")
         if self.submit_compiling_once:
             self.submit_compiling_once = False
@@ -77,9 +80,9 @@ class FakeAdapter:
                 "Package is still compiling.",
                 vendor_code="204144727",
             )
-        return app_id
+        return "submission-123"
 
-    async def review_status(self, *, app_id: str) -> ReviewStatus:
+    async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         self.calls.append("status")
         return ReviewStatus.IN_REVIEW
 
@@ -165,7 +168,22 @@ async def test_publish_uploads_waits_updates_and_submits(tmp_path: Path) -> None
     assert result.stage is PublishStage.SUBMITTED
     assert adapter.calls == ["verify", "upload", "compile", "compile", "notes", "submit"]
     assert sleeps == [5]
-    assert publisher.repository.get(result.run_id or "").state is RunState.COMPLETED
+    receipt = publisher.repository.get(result.run_id or "")
+    assert receipt.state is RunState.COMPLETED
+    assert receipt.submission_id == "submission-123"
+
+
+@pytest.mark.asyncio
+async def test_processing_ready_atomically_replaces_upload_handle(tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    adapter.processing_artifact_id = "apple-build-99"
+    publisher = _publisher(adapter=adapter, repository=RunRepository(tmp_path / "runs"))
+
+    result = await publisher.publish(_request(_package(tmp_path)))
+
+    receipt = publisher.repository.get(result.run_id or "")
+    assert receipt.artifact_id == "apple-build-99"
+    assert receipt.submission_id == "submission-123"
 
 
 @pytest.mark.asyncio
@@ -405,7 +423,7 @@ async def test_resume_migrates_legacy_huawei_receipt_without_reupload(tmp_path: 
     assert result.stage is PublishStage.SUBMITTED
     assert adapter.calls == ["compile", "notes", "submit"]
     rewritten = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 2
+    assert rewritten["schema_version"] == 3
     assert rewritten["artifact_id"] == "42"
     assert "pkg_version" not in rewritten
 

@@ -33,6 +33,8 @@ def sample_receipt(
         package_sha256=sha256,
         logical_name="release.apk",
         artifact_id="42",
+        release_id="release-7",
+        submission_id="submission-8",
         language="zh-CN",
         release_notes="Fixes",
         submit=True,
@@ -137,7 +139,7 @@ def test_save_replaces_complete_json_not_partial_content(tmp_path: Path) -> None
     assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_loads_v1_receipt_and_rewrites_it_as_v2(tmp_path: Path) -> None:
+def test_loads_v1_receipt_and_rewrites_it_as_v3(tmp_path: Path) -> None:
     run_id = "20260730T100000Z-legacy01"
     path = tmp_path / f"{run_id}.json"
     path.write_text(
@@ -167,13 +169,31 @@ def test_loads_v1_receipt_and_rewrites_it_as_v2(tmp_path: Path) -> None:
 
     receipt = repo.get(run_id)
 
-    assert receipt.schema_version == 2
+    assert receipt.schema_version == 3
     assert receipt.artifact_id == "42"
+    assert receipt.release_id is None
+    assert receipt.submission_id is None
     repo.save(receipt)
     rewritten = json.loads(path.read_text(encoding="utf-8"))
-    assert rewritten["schema_version"] == 2
+    assert rewritten["schema_version"] == 3
     assert rewritten["artifact_id"] == "42"
     assert "pkg_version" not in rewritten
+
+
+def test_loads_v2_receipt_and_adds_v3_identifiers(tmp_path: Path) -> None:
+    receipt = sample_receipt()
+    payload = receipt.model_dump(mode="json")
+    payload["schema_version"] = 2
+    payload.pop("release_id")
+    payload.pop("submission_id")
+    path = tmp_path / f"{receipt.run_id}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = RunRepository(tmp_path).get(receipt.run_id)
+
+    assert loaded.schema_version == 3
+    assert loaded.release_id is None
+    assert loaded.submission_id is None
 
 
 def test_rejects_unknown_future_receipt_version(tmp_path: Path) -> None:

@@ -10,10 +10,12 @@ from pydantic import BaseModel, ConfigDict, Field
 class StoreName(StrEnum):
     HUAWEI = "huawei"
     HARMONYOS = "harmonyos"
+    APPLE = "apple"
 
 
 class CredentialKind(StrEnum):
     HUAWEI_SERVICE_ACCOUNT = "huawei_service_account"
+    APPLE_API_KEY = "apple_api_key"
 
 
 class StoreCapabilities(BaseModel):
@@ -35,6 +37,8 @@ class StoreTarget(BaseModel):
     package_name: str = Field(min_length=1)
     credential_profile: str = Field(min_length=1)
     language: str = Field(min_length=1)
+    release_id: str | None = Field(default=None, min_length=1)
+    platform: str | None = Field(default=None, min_length=1)
 
 
 class VerifiedApplication(BaseModel):
@@ -61,6 +65,7 @@ class ProcessingStatus(BaseModel):
 
     state: ProcessingState
     reason: str | None = None
+    artifact_id: str | None = Field(default=None, min_length=1)
 
 
 class ReviewStatus(StrEnum):

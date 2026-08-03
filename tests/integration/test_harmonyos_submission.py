@@ -11,7 +11,18 @@ from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.errors import HuaweiVendorError
-from storehelper.stores.models import ProcessingState, ReviewStatus
+from storehelper.stores.models import ProcessingState, ReviewStatus, StoreName, StoreTarget
+
+
+def _target() -> StoreTarget:
+    return StoreTarget(
+        store=StoreName.HARMONYOS,
+        label="Huawei AppGallery (HarmonyOS)",
+        app_id="100000002",
+        package_name="com.example.wallet.harmony",
+        credential_profile="company",
+        language="zh-CN",
+    )
 
 
 def _adapter(
@@ -52,16 +63,16 @@ async def test_processing_notes_submit_and_status_contract(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         processing = await adapter.processing_status(
-            app_id="100000002",
+            target=_target(),
             artifact_id="package-42",
         )
-        await adapter.update_release_notes(
-            app_id="100000002",
-            language="zh-CN",
+        await adapter.prepare_release(
+            target=_target(),
+            artifact_id="package-42",
             release_notes="修复已知问题",
         )
-        submission_id = await adapter.submit(app_id="100000002")
-        review = await adapter.review_status(app_id="100000002")
+        submission_id = await adapter.submit(target=_target(), artifact_id="package-42")
+        review = await adapter.review_status(target=_target())
 
     assert processing.state is ProcessingState.READY
     assert submission_id == "100000002"
@@ -105,7 +116,7 @@ async def test_submit_processing_response_uses_generic_resumable_error(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(ArtifactStillProcessingError) as raised:
-            await adapter.submit(app_id="100000002")
+            await adapter.submit(target=_target(), artifact_id="package-42")
 
     assert raised.value.resumable is True
     assert raised.value.vendor_code == "204144727"
@@ -139,7 +150,7 @@ async def test_maps_harmonyos_review_states(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        assert await adapter.review_status(app_id="100000002") is expected
+        assert await adapter.review_status(target=_target()) is expected
 
 
 @pytest.mark.asyncio

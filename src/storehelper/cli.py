@@ -30,6 +30,7 @@ from storehelper.stores.models import (
     ProcessingStatus,
     ReviewStatus,
     StoreName,
+    StoreTarget,
     UploadedArtifact,
     VerifiedApplication,
 )
@@ -92,33 +93,33 @@ class _NoNetworkAdapter:
     def _failed() -> NoReturn:
         raise AssertionError("dry-run attempted a network operation")
 
-    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
+    async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
         self._failed()
 
-    async def upload(self, *, app_id: str, artifact: ArtifactInfo) -> UploadedArtifact:
+    async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
         self._failed()
 
     async def processing_status(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact_id: str,
     ) -> ProcessingStatus:
         self._failed()
 
-    async def update_release_notes(
+    async def prepare_release(
         self,
         *,
-        app_id: str,
-        language: str,
-        release_notes: str,
+        target: StoreTarget,
+        artifact_id: str,
+        release_notes: str | None,
     ) -> None:
         self._failed()
 
-    async def submit(self, *, app_id: str) -> str:
+    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
         self._failed()
 
-    async def review_status(self, *, app_id: str) -> ReviewStatus:
+    async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         self._failed()
 
 
@@ -226,10 +227,7 @@ async def _verify_credentials_operation(
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
         runtime = build_runtime(application, store, account, http)
-        await runtime.adapter.verify(
-            app_id=target.app_id,
-            package_name=target.package_name,
-        )
+        await runtime.adapter.verify(target=target)
     return OperationResult.success(
         store=store,
         stage=PublishStage.APP_VERIFIED,

@@ -94,15 +94,15 @@ class StoreAdapter(Protocol):
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus: ...
 ```
 
-- [ ] Write failing serialization, migration, publisher replacement-ID, and adapter contract tests.
-- [ ] Run the focused tests and confirm old app-ID-only calls fail.
-- [ ] Add `APPLE`, `APPLE_API_KEY`, optional target fields, and optional processing replacement ID.
-- [ ] Advance `RunReceipt` to schema v3 with `release_id` and `submission_id`; migrate literal v1 and v2 payloads.
-- [ ] Refactor Publisher to pass `StoreTarget`, always call `prepare_release` for full submission,
+- [x] Write failing serialization, migration, publisher replacement-ID, and adapter contract tests.
+- [x] Run the focused tests and confirm old app-ID-only calls fail.
+- [x] Add `APPLE`, `APPLE_API_KEY`, optional target fields, and optional processing replacement ID.
+- [x] Advance `RunReceipt` to schema v3 with `release_id` and `submission_id`; migrate literal v1 and v2 payloads.
+- [x] Refactor Publisher to pass `StoreTarget`, always call `prepare_release` for full submission,
   replace the processing handle when READY returns `artifact_id`, and persist the returned submission ID.
-- [ ] Adapt Huawei/HarmonyOS implementations without changing their HTTP contracts.
-- [ ] Run all existing tests, Ruff, and mypy.
-- [ ] Commit: `refactor: prepare publishing contracts for Apple`.
+- [x] Adapt Huawei/HarmonyOS implementations without changing their HTTP contracts.
+- [x] Run all existing tests, Ruff, and mypy.
+- [x] Commit: `refactor: prepare publishing contracts for Apple`.
 
 ### Task 2: Strict Apple configuration and registry entry
 

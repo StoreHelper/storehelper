@@ -13,6 +13,8 @@ from storehelper.stores.models import (
     ProcessingState,
     ProcessingStatus,
     ReviewStatus,
+    StoreName,
+    StoreTarget,
     UploadedArtifact,
     VerifiedApplication,
 )
@@ -99,13 +101,16 @@ class HuaweiAndroidAdapter:
     def __init__(self, client: HuaweiClient) -> None:
         self._client = client
 
-    async def verify(self, *, app_id: str, package_name: str) -> VerifiedApplication:
-        return await self._client.verify_app(app_id=app_id, package_name=package_name)
+    async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
+        return await self._client.verify_app(
+            app_id=target.app_id,
+            package_name=target.package_name,
+        )
 
     async def upload(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact: ArtifactInfo | None = None,
         package: ArtifactInfo | None = None,
     ) -> UploadedArtifact:
@@ -114,25 +119,33 @@ class HuaweiAndroidAdapter:
         selected = artifact if artifact is not None else package
         if selected is None:
             raise ValueError("artifact is required")
-        return await self._client.upload_and_bind(app_id=app_id, package=selected)
+        return await self._client.upload_and_bind(app_id=target.app_id, package=selected)
 
     async def processing_status(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact_id: str,
     ) -> ProcessingStatus:
         data = await self._client.request_json(
             "GET",
             "package/compile/status",
-            params={"appId": app_id, "pkgIds": artifact_id},
+            params={"appId": target.app_id, "pkgIds": artifact_id},
         )
         return parse_compile_status(data, artifact_id)
 
     async def compile_status(self, *, app_id: str, pkg_version: str) -> CompileStatus:
         """Compatibility shim for the schema-v1 publisher."""
 
-        return await self.processing_status(app_id=app_id, artifact_id=pkg_version)
+        target = StoreTarget(
+            store=StoreName.HUAWEI,
+            label="Huawei AppGallery (Android)",
+            app_id=app_id,
+            package_name="compatibility.placeholder",
+            credential_profile="compatibility",
+            language="zh-CN",
+        )
+        return await self.processing_status(target=target, artifact_id=pkg_version)
 
     async def update_release_notes(
         self,
@@ -155,19 +168,34 @@ class HuaweiAndroidAdapter:
             json={"lang": language, "newFeatures": notes},
         )
 
-    async def submit(self, *, app_id: str) -> str:
+    async def prepare_release(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        release_notes: str | None,
+    ) -> None:
+        if release_notes is None:
+            return
+        await self.update_release_notes(
+            app_id=target.app_id,
+            language=target.language,
+            release_notes=release_notes,
+        )
+
+    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
         await self._client.request_json(
             "POST",
             "app-submit",
-            params={"appId": app_id, "releaseType": "1"},
+            params={"appId": target.app_id, "releaseType": "1"},
         )
-        return app_id
+        return target.app_id
 
-    async def review_status(self, *, app_id: str) -> ReviewStatus:
+    async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         data = await self._client.request_json(
             "GET",
             "app-info",
-            params={"appId": app_id, "releaseType": "1"},
+            params={"appId": target.app_id, "releaseType": "1"},
         )
         app_info = data.get("appInfo")
         if not isinstance(app_info, Mapping):

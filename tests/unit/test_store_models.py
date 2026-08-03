@@ -35,7 +35,32 @@ def test_store_target_serializes_a_harmonyos_identity() -> None:
         "package_name": "com.example.wallet.harmony",
         "credential_profile": "company",
         "language": "zh-CN",
+        "release_id": None,
+        "platform": None,
     }
+
+
+def test_apple_contract_extensions_are_store_neutral() -> None:
+    target = StoreTarget(
+        store=StoreName.APPLE,
+        label="Apple App Store",
+        app_id="123456789",
+        package_name="com.example.wallet",
+        credential_profile="apple-team",
+        language="en-US",
+        release_id="version-resource-id",
+        platform="IOS",
+    )
+    processing = ProcessingStatus(
+        state=ProcessingState.READY,
+        artifact_id="build-resource-id",
+    )
+
+    assert StoreName.APPLE.value == "apple"
+    assert CredentialKind.APPLE_API_KEY.value == "apple_api_key"
+    assert target.release_id == "version-resource-id"
+    assert target.platform == "IOS"
+    assert processing.artifact_id == "build-resource-id"
 
 
 def test_capabilities_describe_orchestration_without_vendor_fields() -> None:
@@ -98,7 +123,9 @@ def test_adapter_protocol_uses_store_neutral_boundary_types() -> None:
     upload_hints = get_type_hints(StoreAdapter.upload)
     processing_hints = get_type_hints(StoreAdapter.processing_status)
 
+    assert verify_hints["target"] is StoreTarget
     assert verify_hints["return"] is VerifiedApplication
+    assert upload_hints["target"] is StoreTarget
     assert upload_hints["artifact"] is ArtifactInfo
     assert upload_hints["return"] is UploadedArtifact
     assert processing_hints["artifact_id"] is str

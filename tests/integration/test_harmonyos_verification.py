@@ -8,6 +8,18 @@ from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.errors import HuaweiVendorError
+from storehelper.stores.models import StoreName, StoreTarget
+
+
+def _target() -> StoreTarget:
+    return StoreTarget(
+        store=StoreName.HARMONYOS,
+        label="Huawei AppGallery (HarmonyOS)",
+        app_id="100000002",
+        package_name="com.example.wallet.harmony",
+        credential_profile="company",
+        language="zh-CN",
+    )
 
 
 def _adapter(
@@ -46,10 +58,7 @@ async def test_verifies_existing_harmonyos_app_with_package_type_seven(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        verified = await adapter.verify(
-            app_id="100000002",
-            package_name="com.example.wallet.harmony",
-        )
+        verified = await adapter.verify(target=_target())
 
     assert verified.app_id == "100000002"
     assert verified.package_name == "com.example.wallet.harmony"
@@ -77,10 +86,7 @@ async def test_rejects_configured_app_id_not_returned_by_huawei(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(HuaweiVendorError) as raised:
-            await adapter.verify(
-                app_id="100000002",
-                package_name="com.example.wallet.harmony",
-            )
+            await adapter.verify(target=_target())
 
     assert raised.value.code == "HARMONYOS_APP_NOT_FOUND"
 
@@ -103,10 +109,7 @@ async def test_refreshes_authentication_once_after_unauthorized(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        await adapter.verify(
-            app_id="100000002",
-            package_name="com.example.wallet.harmony",
-        )
+        await adapter.verify(target=_target())
 
     assert attempts == 2
 
@@ -121,9 +124,6 @@ async def test_invalid_response_does_not_echo_raw_body(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(HuaweiVendorError) as raised:
-            await adapter.verify(
-                app_id="100000002",
-                package_name="com.example.wallet.harmony",
-            )
+            await adapter.verify(target=_target())
 
     assert "never-print" not in str(raised.value)

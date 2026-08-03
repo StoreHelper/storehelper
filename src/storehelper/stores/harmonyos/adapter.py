@@ -13,6 +13,7 @@ from storehelper.stores.models import (
     ProcessingState,
     ProcessingStatus,
     ReviewStatus,
+    StoreTarget,
     UploadedArtifact,
     VerifiedApplication,
 )
@@ -87,30 +88,32 @@ class HarmonyOSAdapter:
     async def verify(
         self,
         *,
-        app_id: str,
-        package_name: str,
+        target: StoreTarget,
     ) -> VerifiedApplication:
-        return await self._client.verify_app(app_id=app_id, package_name=package_name)
+        return await self._client.verify_app(
+            app_id=target.app_id,
+            package_name=target.package_name,
+        )
 
     async def upload(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact: ArtifactInfo,
     ) -> UploadedArtifact:
-        return await self._client.upload_and_bind(app_id=app_id, artifact=artifact)
+        return await self._client.upload_and_bind(app_id=target.app_id, artifact=artifact)
 
     async def processing_status(
         self,
         *,
-        app_id: str,
+        target: StoreTarget,
         artifact_id: str,
     ) -> ProcessingStatus:
         data = await self._client.request_json(
             "v2",
             "GET",
             "app-package-info",
-            params={"packageId": artifact_id, "appId": app_id},
+            params={"packageId": artifact_id, "appId": target.app_id},
         )
         return parse_processing_status(data)
 
@@ -136,22 +139,37 @@ class HarmonyOSAdapter:
             json={"lang": language, "newFeatures": notes},
         )
 
-    async def submit(self, *, app_id: str) -> str:
+    async def prepare_release(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        release_notes: str | None,
+    ) -> None:
+        if release_notes is None:
+            return
+        await self.update_release_notes(
+            app_id=target.app_id,
+            language=target.language,
+            release_notes=release_notes,
+        )
+
+    async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
         await self._client.request_json(
             "v3",
             "POST",
             "app-submit",
-            params={"appId": app_id},
+            params={"appId": target.app_id},
             json={"releaseType": 1, "releasePhase": 0},
         )
-        return app_id
+        return target.app_id
 
-    async def review_status(self, *, app_id: str) -> ReviewStatus:
+    async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         data = await self._client.request_json(
             "v3",
             "GET",
             "app-info",
-            params={"appId": app_id, "releaseType": "1", "releasePhase": "0"},
+            params={"appId": target.app_id, "releaseType": "1", "releasePhase": "0"},
         )
         app_info = data.get("appInfo")
         if not isinstance(app_info, Mapping):

@@ -303,7 +303,7 @@ def test_publish_rejects_unsupported_store_and_conflicting_notes(tmp_path: Path)
 
     unsupported = runner.invoke(
         cli_module.app,
-        ["publish", "--file", str(package), "--store", "apple", "--dry-run"],
+        ["publish", "--file", str(package), "--store", "xiaomi", "--dry-run"],
     )
     conflict = runner.invoke(
         cli_module.app,
@@ -646,10 +646,18 @@ def test_publish_help_lists_registered_store_choices() -> None:
 @pytest.mark.asyncio
 async def test_dry_run_adapter_fails_fast_if_a_network_method_is_called() -> None:
     adapter = cli_module._NoNetworkAdapter()
+    target = cli_module.StoreTarget(
+        store=cli_module.StoreName.HUAWEI,
+        label="Huawei AppGallery (Android)",
+        app_id="1",
+        package_name="com.example.app",
+        credential_profile="default",
+        language="zh-CN",
+    )
 
     with pytest.raises(AssertionError):
-        await adapter.verify(app_id="1", package_name="com.example.app")
+        await adapter.verify(target=target)
     with pytest.raises(AssertionError):
-        await adapter.submit(app_id="1")
+        await adapter.submit(target=target, artifact_id="42")
     with pytest.raises(AssertionError):
-        await adapter.review_status(app_id="1")
+        await adapter.review_status(target=target)

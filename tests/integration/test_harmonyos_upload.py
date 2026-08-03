@@ -13,6 +13,18 @@ from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.errors import HuaweiVendorError
+from storehelper.stores.models import StoreName, StoreTarget
+
+
+def _target() -> StoreTarget:
+    return StoreTarget(
+        store=StoreName.HARMONYOS,
+        label="Huawei AppGallery (HarmonyOS)",
+        app_id="100000002",
+        package_name="com.example.wallet.harmony",
+        credential_profile="company",
+        language="zh-CN",
+    )
 
 
 def _artifact(tmp_path: Path):
@@ -86,7 +98,7 @@ async def test_streams_obs_upload_and_binds_only_durable_package_id(
 
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
-        uploaded = await adapter.upload(app_id="100000002", artifact=artifact)
+        uploaded = await adapter.upload(target=_target(), artifact=artifact)
 
     assert uploaded.artifact_id == "package-42"
     allocation, obs, binding = requests
@@ -142,7 +154,7 @@ async def test_rejects_unsafe_obs_allocation_without_leaking_values(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(HuaweiVendorError) as raised:
-            await adapter.upload(app_id="100000002", artifact=artifact)
+            await adapter.upload(target=_target(), artifact=artifact)
 
     message = str(raised.value)
     assert "private-object-id" not in message
@@ -180,7 +192,7 @@ async def test_obs_redirect_is_rejected_without_binding(
     adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
     async with http:
         with pytest.raises(HuaweiVendorError) as raised:
-            await adapter.upload(app_id="100000002", artifact=artifact)
+            await adapter.upload(target=_target(), artifact=artifact)
 
     assert raised.value.code == "HARMONYOS_OBS_UPLOAD_FAILED"
     assert not any(path.endswith("/app-package-info") for path in paths)
