@@ -10,6 +10,7 @@ from storehelper.credentials.models import (
     CredentialError,
     GoogleServiceAccount,
     HuaweiServiceAccount,
+    XiaomiApiCredential,
 )
 from storehelper.stores.apple.adapter import AppleAdapter
 from storehelper.stores.google_play.adapter import GooglePlayAdapter
@@ -17,6 +18,7 @@ from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.models import CredentialKind, StoreName
 from storehelper.stores.registry import get_registration, registered_store_names
+from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 
 
 def test_registry_exposes_only_audited_builtin_stores() -> None:
@@ -25,6 +27,7 @@ def test_registry_exposes_only_audited_builtin_stores() -> None:
         StoreName.HARMONYOS,
         StoreName.APPLE,
         StoreName.GOOGLE_PLAY,
+        StoreName.XIAOMI,
     )
 
 
@@ -74,12 +77,13 @@ def test_xiaomi_registration_declares_atomic_update_capabilities() -> None:
     assert xiaomi.capabilities.atomic_submission is True
     assert xiaomi.capabilities.supports_no_submit is False
     assert xiaomi.target_validator is not None
-    assert xiaomi.factory is None
+    assert xiaomi.factory is not None
 
 
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,
+    rsa_public_certificate: str,
 ) -> None:
     account = HuaweiServiceAccount(
         key_id="key-1",
@@ -99,6 +103,11 @@ def test_registry_builds_the_selected_adapter(
         private_key=rsa_private_key,
         client_email="storehelper@demo-project.iam.gserviceaccount.com",
     )
+    xiaomi_key = XiaomiApiCredential(
+        username="developer@example.com",
+        api_secret="api-secret",
+        public_key_certificate=rsa_public_certificate,
+    )
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
 
     try:
@@ -110,6 +119,9 @@ def test_registry_builds_the_selected_adapter(
         google_factory = get_registration(StoreName.GOOGLE_PLAY).factory
         assert google_factory is not None
         google = google_factory(google_key, http)
+        xiaomi_factory = get_registration(StoreName.XIAOMI).factory
+        assert xiaomi_factory is not None
+        xiaomi = xiaomi_factory(xiaomi_key, http)
     finally:
         asyncio.run(http.aclose())
 
@@ -117,6 +129,7 @@ def test_registry_builds_the_selected_adapter(
     assert isinstance(harmonyos, HarmonyOSAdapter)
     assert isinstance(apple, AppleAdapter)
     assert isinstance(google, GooglePlayAdapter)
+    assert isinstance(xiaomi, XiaomiAdapter)
 
 
 def test_registry_rejects_wrong_credential_kind_for_apple(
@@ -153,6 +166,25 @@ def test_registry_rejects_wrong_credential_kind_for_google(
         factory = get_registration(StoreName.GOOGLE_PLAY).factory
         assert factory is not None
         with pytest.raises(CredentialError, match="Google service account"):
+            factory(wrong, http)
+    finally:
+        asyncio.run(http.aclose())
+
+
+def test_registry_rejects_wrong_credential_kind_for_xiaomi(
+    rsa_private_key: str,
+) -> None:
+    wrong = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        factory = get_registration(StoreName.XIAOMI).factory
+        assert factory is not None
+        with pytest.raises(CredentialError, match="Xiaomi API credential"):
             factory(wrong, http)
     finally:
         asyncio.run(http.aclose())

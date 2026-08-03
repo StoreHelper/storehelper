@@ -164,6 +164,14 @@ async def _publish_operation(
     if not request.app_alias:
         request = request.model_copy(update={"app_alias": selected_alias})
     target = resolve_store_target(application, request.store)
+    capabilities = get_registration(request.store).capabilities
+    if not request.submit and not request.dry_run and not capabilities.supports_no_submit:
+        raise PublishingError(
+            "NO_SUBMIT_UNSUPPORTED",
+            f"{target.label} cannot upload without submitting for review; "
+            "use --dry-run for local validation.",
+            ExitCode.USAGE,
+        )
     if request.dry_run:
         runtime = resolve_runtime(application, request.store, _NoNetworkAdapter())
         return await _publisher(runtime=runtime).publish(request)
@@ -192,6 +200,12 @@ async def _resume_operation(
     config = load_config(config_path)
     _, application = select_application(config, app_alias or receipt.app_alias)
     target = resolve_store_target(application, receipt.store)
+    if get_registration(receipt.store).capabilities.atomic_submission:
+        raise PublishingError(
+            "ATOMIC_RUN_NOT_RESUMABLE",
+            "Atomic store submissions cannot be resumed safely; inspect the store console.",
+            ExitCode.LOCAL_STATE,
+        )
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
         _credential_kind(receipt.store),
@@ -218,6 +232,12 @@ async def _status_operation(
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
     target = resolve_store_target(application, store)
+    if not get_registration(store).capabilities.supports_review_status:
+        raise PublishingError(
+            "STORE_STATUS_UNSUPPORTED",
+            f"{target.label} does not provide a review-status API.",
+            ExitCode.USAGE,
+        )
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
         _credential_kind(store),

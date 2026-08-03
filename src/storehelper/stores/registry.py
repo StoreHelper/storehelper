@@ -15,6 +15,7 @@ from storehelper.credentials.models import (
     GoogleServiceAccount,
     HuaweiServiceAccount,
     StoreCredential,
+    XiaomiApiCredential,
 )
 from storehelper.stores.apple.adapter import AppleAdapter
 from storehelper.stores.apple.auth import AppleAuth
@@ -38,6 +39,9 @@ from storehelper.stores.models import (
     StoreName,
     StoreTarget,
 )
+from storehelper.stores.xiaomi.adapter import XiaomiAdapter
+from storehelper.stores.xiaomi.auth import XiaomiAuth
+from storehelper.stores.xiaomi.client import XiaomiClient
 from storehelper.stores.xiaomi.package import validate_xiaomi_artifact, validate_xiaomi_target
 
 ArtifactValidator = Callable[[Path], ArtifactInfo]
@@ -102,6 +106,24 @@ def _google_factory(
         )
     auth = GoogleAuth(account, http)
     return GooglePlayAdapter(GooglePlayClient(auth=auth, http=http))
+
+
+def _xiaomi_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, XiaomiApiCredential):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "Xiaomi publishing requires a Xiaomi API credential profile.",
+        )
+    return XiaomiAdapter(
+        XiaomiClient(
+            auth=XiaomiAuth(account),
+            credential=account,
+            http=http,
+        )
+    )
 
 
 _REGISTRATIONS = {
@@ -170,7 +192,7 @@ _REGISTRATIONS = {
             supports_no_submit=False,
         ),
         validator=validate_xiaomi_artifact,
-        factory=None,
+        factory=_xiaomi_factory,
         target_validator=validate_xiaomi_target,
     ),
 }

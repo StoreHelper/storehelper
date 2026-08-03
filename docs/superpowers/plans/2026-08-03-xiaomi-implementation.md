@@ -118,12 +118,12 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Create: `tests/integration/test_xiaomi_cli.py`
 - Modify: existing CLI/registry tests
 
-- [ ] Add failing tests for help choices, credential import/list/delete/verify, dry-run, full JSON
+- [x] Add failing tests for help choices, credential import/list/delete/verify, dry-run, full JSON
   publish, prompt/`--yes`, release-notes requirement, no-submit early rejection, unsupported status,
   wrong credential kind, and no live I/O.
-- [ ] Register the audited Xiaomi factory, local preflight, APK validator, and atomic capabilities.
-- [ ] Fail unsupported status before credential resolution.
-- [ ] Commit: `feat: expose Xiaomi publishing through the CLI`.
+- [x] Register the audited Xiaomi factory, local preflight, APK validator, and atomic capabilities.
+- [x] Fail unsupported status before credential resolution.
+- [x] Commit: `feat: expose Xiaomi publishing through the CLI`.
 
 ### Task 8: End-to-end uncertain-result and security regression
 

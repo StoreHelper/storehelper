@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
 from urllib.parse import urlsplit
 
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.stores.models import StoreName, StoreTarget, VerifiedApplication
+from storehelper.stores.models import (
+    ProcessingStatus,
+    ReviewStatus,
+    StoreName,
+    StoreTarget,
+    UploadedArtifact,
+    VerifiedApplication,
+)
 from storehelper.stores.xiaomi.client import XiaomiClient
 from storehelper.stores.xiaomi.errors import XiaomiVendorError
 from storehelper.stores.xiaomi.package import MAX_XIAOMI_PACKAGE_SIZE, validate_xiaomi_target
@@ -33,6 +41,57 @@ class XiaomiAdapter:
     async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
         package_name = self._validate_target(target)
         return await self._client.query_package(package_name=package_name)
+
+    @staticmethod
+    def _atomic_only() -> NoReturn:
+        raise XiaomiVendorError(
+            "XIAOMI_ATOMIC_ONLY",
+            "Xiaomi uploads and review submission are one atomic operation.",
+            ExitCode.LOCAL_STATE,
+        )
+
+    async def upload(
+        self,
+        *,
+        target: StoreTarget,
+        artifact: ArtifactInfo,
+    ) -> UploadedArtifact:
+        self._atomic_only()
+
+    async def processing_status(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> ProcessingStatus:
+        self._atomic_only()
+
+    async def prepare_release(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+        release_notes: str | None,
+    ) -> None:
+        self._atomic_only()
+
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
+        self._atomic_only()
+
+    async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
+        raise XiaomiVendorError(
+            "XIAOMI_STATUS_UNSUPPORTED",
+            "Xiaomi does not provide an automatic-publishing review-status API.",
+            ExitCode.USAGE,
+        )
 
     async def publish_atomic(
         self,
