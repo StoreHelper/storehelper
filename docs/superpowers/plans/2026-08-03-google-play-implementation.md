@@ -82,11 +82,11 @@ async def submit(
 - Create: `src/storehelper/stores/google_play/auth.py`
 - Create: `tests/unit/test_google_play_auth.py`
 
-- [ ] Add failing tests for JWT header/claims/signature, Android Publisher scope, one-hour maximum,
+- [x] Add failing tests for JWT header/claims/signature, Android Publisher scope, one-hour maximum,
   cached access token, expiry margin, malformed token response, and secret-safe repr/errors.
-- [ ] Implement direct HTTPS form exchange without adding a Google SDK dependency.
-- [ ] Keep assertions and access tokens in memory only.
-- [ ] Commit: `feat: authenticate Google Play service accounts`.
+- [x] Implement direct HTTPS form exchange without adding a Google SDK dependency.
+- [x] Keep assertions and access tokens in memory only.
+- [x] Commit: `feat: authenticate Google Play service accounts`.
 
 ### Task 5: Google errors, lifecycle status, and read-only verification
 
