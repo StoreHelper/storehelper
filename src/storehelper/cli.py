@@ -18,7 +18,6 @@ from storehelper.artifacts.models import ArtifactInfo
 from storehelper.commands.config import initialize, validate
 from storehelper.commands.credentials import delete_profile, import_profile, list_profiles
 from storehelper.config.loader import load_config, resolve_store_target, select_application
-from storehelper.config.models import ApplicationConfig
 from storehelper.credentials.providers import CredentialProvider, KeyringStore, SystemKeyring
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
@@ -26,16 +25,10 @@ from storehelper.domain.models import OperationResult, PublishRequest, PublishSt
 from storehelper.output.renderers import OutputFormat, render_error, render_result
 from storehelper.publishing.service import Publisher, PublishingError
 from storehelper.runs.repository import RunRepository
-from storehelper.stores.base import StoreAdapter
-from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
-from storehelper.stores.huawei.auth import HuaweiAuth
-from storehelper.stores.huawei.client import HuaweiClient
-from storehelper.stores.huawei.package import validate_package
+from storehelper.runtime import StoreRuntime, build_runtime, resolve_runtime
 from storehelper.stores.models import (
-    CredentialKind,
     ProcessingStatus,
     ReviewStatus,
-    StoreCapabilities,
     StoreName,
     UploadedArtifact,
     VerifiedApplication,
@@ -56,13 +49,6 @@ app.add_typer(runs_app, name="runs")
 KEYRING: KeyringStore = SystemKeyring()
 RUNS_ROOT: Path | None = None
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)(s|m|h)?$")
-_HUAWEI_CAPABILITIES = StoreCapabilities(
-    credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
-    artifact_suffixes=(".apk", ".aab"),
-    requires_processing_poll=True,
-    requires_release_notes=True,
-    supports_review_status=True,
-)
 
 
 def _output(value: str) -> OutputFormat:
@@ -138,16 +124,15 @@ class _NoNetworkAdapter:
 
 def _publisher(
     *,
-    adapter: StoreAdapter,
-    application: ApplicationConfig,
+    runtime: StoreRuntime,
+    repository: RunRepository | None = None,
 ) -> Publisher:
-    target = resolve_store_target(application, StoreName.HUAWEI)
     return Publisher(
-        adapter=adapter,
-        repository=RunRepository(RUNS_ROOT),
-        target=target,
-        validator=validate_package,
-        capabilities=_HUAWEI_CAPABILITIES,
+        adapter=runtime.adapter,
+        repository=repository or RunRepository(RUNS_ROOT),
+        target=runtime.target,
+        validator=runtime.validator,
+        capabilities=runtime.capabilities,
     )
 
 
@@ -162,20 +147,18 @@ async def _publish_operation(
     selected_alias, application = select_application(config, app_alias)
     if not request.app_alias:
         request = request.model_copy(update={"app_alias": selected_alias})
+    target = resolve_store_target(application, request.store)
     if request.dry_run:
-        return await _publisher(adapter=_NoNetworkAdapter(), application=application).publish(
-            request
-        )
-    huawei = application.stores.huawei
-    assert huawei is not None
+        runtime = resolve_runtime(application, request.store, _NoNetworkAdapter())
+        return await _publisher(runtime=runtime).publish(request)
     account = CredentialProvider(KEYRING).resolve(
-        huawei.credential_profile,
+        target.credential_profile,
         interactive=interactive,
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout) as http:
-        adapter = HuaweiAndroidAdapter(HuaweiClient(auth=HuaweiAuth(account), http=http))
-        return await _publisher(adapter=adapter, application=application).publish(request)
+        runtime = build_runtime(application, request.store, account, http)
+        return await _publisher(runtime=runtime).publish(request)
 
 
 async def _resume_operation(
@@ -187,18 +170,19 @@ async def _resume_operation(
     poll_interval: float,
     wait_timeout: float,
 ) -> OperationResult:
+    repository = RunRepository(RUNS_ROOT)
+    receipt = repository.get(run_id)
     config = load_config(config_path)
-    _, application = select_application(config, app_alias)
-    huawei = application.stores.huawei
-    assert huawei is not None
+    _, application = select_application(config, app_alias or receipt.app_alias)
+    target = resolve_store_target(application, receipt.store)
     account = CredentialProvider(KEYRING).resolve(
-        huawei.credential_profile,
+        target.credential_profile,
         interactive=interactive,
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout) as http:
-        adapter = HuaweiAndroidAdapter(HuaweiClient(auth=HuaweiAuth(account), http=http))
-        publisher = _publisher(adapter=adapter, application=application)
+        runtime = build_runtime(application, receipt.store, account, http)
+        publisher = _publisher(runtime=runtime, repository=repository)
         return await publisher.resume(
             run_id,
             poll_interval=poll_interval,
@@ -210,19 +194,19 @@ async def _status_operation(
     *,
     config_path: Path,
     app_alias: str | None,
+    store: StoreName,
     interactive: bool,
 ) -> OperationResult:
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
-    huawei = application.stores.huawei
-    assert huawei is not None
+    target = resolve_store_target(application, store)
     account = CredentialProvider(KEYRING).resolve(
-        huawei.credential_profile,
+        target.credential_profile,
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
-        adapter = HuaweiAndroidAdapter(HuaweiClient(auth=HuaweiAuth(account), http=http))
-        return await _publisher(adapter=adapter, application=application).status()
+        runtime = build_runtime(application, store, account, http)
+        return await _publisher(runtime=runtime).status()
 
 
 async def _verify_credentials_operation(
@@ -230,26 +214,27 @@ async def _verify_credentials_operation(
     config_path: Path,
     app_alias: str | None,
     profile: str | None,
+    store: StoreName,
     interactive: bool,
 ) -> OperationResult:
     config = load_config(config_path)
     _, application = select_application(config, app_alias)
-    huawei = application.stores.huawei
-    assert huawei is not None
+    target = resolve_store_target(application, store)
     account = CredentialProvider(KEYRING).resolve(
-        profile or huawei.credential_profile,
+        profile or target.credential_profile,
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
-        client = HuaweiClient(auth=HuaweiAuth(account), http=http)
-        await client.verify_app(
-            app_id=huawei.app_id,
-            package_name=application.package_name,
+        runtime = build_runtime(application, store, account, http)
+        await runtime.adapter.verify(
+            app_id=target.app_id,
+            package_name=target.package_name,
         )
     return OperationResult.success(
+        store=store,
         stage=PublishStage.APP_VERIFIED,
         run_id=None,
-        message="Huawei credentials and configured application were verified.",
+        message=f"{target.label} credentials and configured application were verified.",
     )
 
 
@@ -373,6 +358,7 @@ def credentials_delete(
 def credentials_verify(
     app_alias: Annotated[str | None, typer.Option("--app")] = None,
     profile: Annotated[str | None, typer.Option("--profile")] = None,
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
@@ -384,6 +370,7 @@ def credentials_verify(
             config_path=config,
             app_alias=app_alias,
             profile=profile,
+            store=store,
             interactive=_interactive(output_format),
         ),
         output_format,
@@ -394,7 +381,7 @@ def credentials_verify(
 def publish(
     file: Annotated[Path, typer.Option("--file", exists=True, dir_okay=False)],
     app_alias: Annotated[str | None, typer.Option("--app")] = None,
-    store: Annotated[str, typer.Option("--store")] = "huawei",
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
     release_notes: Annotated[str | None, typer.Option("--release-notes")] = None,
     release_notes_file: Annotated[
         Path | None,
@@ -408,18 +395,9 @@ def publish(
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
-    """Upload and publish an Android APK/AAB to Huawei AppGallery."""
+    """Validate, upload, and optionally submit an app-store artifact."""
 
     output_format = _output(output)
-    if store != "huawei":
-        _abort(
-            PublishingError(
-                "STORE_UNSUPPORTED",
-                "The first StoreHelper release supports only --store huawei.",
-                ExitCode.USAGE,
-            ),
-            output_format,
-        )
     if release_notes is not None and release_notes_file is not None:
         _abort(
             PublishingError(
@@ -453,12 +431,12 @@ def publish(
                 ),
                 output_format,
             )
-        if not typer.confirm("Upload, update release notes, and submit to Huawei review?"):
+        if not typer.confirm(f"Upload, update release notes, and submit to {store.value} review?"):
             raise typer.Exit(code=int(ExitCode.USAGE))
         yes = True
     if submit and release_notes is None:
         if interactive:
-            release_notes = typer.prompt("Huawei release notes (1-500 characters)")
+            release_notes = typer.prompt("Release notes (1-500 characters)")
         else:
             _abort(
                 PublishingError(
@@ -473,6 +451,7 @@ def publish(
     try:
         request = PublishRequest(
             app_alias=app_alias or "",
+            store=store,
             file=file,
             release_notes=release_notes,
             submit=submit,
@@ -529,6 +508,7 @@ def resume(
 @app.command()
 def status(
     app_alias: Annotated[str | None, typer.Option("--app")] = None,
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
@@ -539,6 +519,7 @@ def status(
         _status_operation(
             config_path=config,
             app_alias=app_alias,
+            store=store,
             interactive=_interactive(output_format),
         ),
         output_format,
@@ -596,7 +577,7 @@ def runs_delete(
     yes: Annotated[bool, typer.Option("--yes")] = False,
     output: Annotated[str, typer.Option("--output")] = "text",
 ) -> None:
-    """Delete one local receipt; this never changes Huawei state."""
+    """Delete one local receipt; this never changes vendor state."""
 
     output_format = _output(output)
     if not yes and (output_format == "json" or not typer.confirm(f"Delete local run {run_id}?")):

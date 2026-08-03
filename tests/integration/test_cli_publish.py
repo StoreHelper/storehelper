@@ -41,6 +41,29 @@ apps:
     return config, package
 
 
+def _harmony_project(tmp_path: Path) -> tuple[Path, Path]:
+    config = tmp_path / "storehelper.yaml"
+    config.write_text(
+        """version: 1
+apps:
+  wallet:
+    package_name: com.example.wallet
+    stores:
+      harmonyos:
+        app_id: "100000002"
+        package_name: com.example.wallet.harmony
+        credential_profile: default
+        language: zh-CN
+""",
+        encoding="utf-8",
+    )
+    package = tmp_path / "wallet.app"
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("pack.info", b"{}")
+        archive.writestr("entry.hap", b"hap")
+    return config, package
+
+
 def test_noninteractive_submit_requires_yes(tmp_path: Path) -> None:
     config, package = _project(tmp_path)
 
@@ -118,6 +141,38 @@ def test_dry_run_does_not_require_credentials(tmp_path: Path, monkeypatch) -> No
 
     assert result.exit_code == 0
     assert json.loads(result.stdout)["stage"] == "completed"
+
+
+def test_harmonyos_dry_run_uses_selected_store_without_credentials(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config, package = _harmony_project(tmp_path)
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--app",
+            "wallet",
+            "--store",
+            "harmonyos",
+            "--file",
+            str(package),
+            "--dry-run",
+            "--output",
+            "json",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["store"] == "harmonyos"
+    receipt = RunRepository(tmp_path / "runs").list()[0]
+    assert receipt.store.value == "harmonyos"
 
 
 def test_no_submit_does_not_require_release_notes(
@@ -267,7 +322,8 @@ def test_publish_rejects_unsupported_store_and_conflicting_notes(tmp_path: Path)
     )
 
     assert unsupported.exit_code == 2
-    assert "STORE_UNSUPPORTED" in unsupported.stderr
+    assert "huawei" in unsupported.stderr
+    assert "harmonyos" in unsupported.stderr
     assert conflict.exit_code == 2
     assert "RELEASE_NOTES_CONFLICT" in conflict.stderr
 
@@ -457,12 +513,14 @@ async def test_real_cli_operation_factories_use_huawei_adapter(
     status = await cli_module._status_operation(
         config_path=config,
         app_alias="wallet",
+        store=cli_module.StoreName.HUAWEI,
         interactive=False,
     )
     verified = await cli_module._verify_credentials_operation(
         config_path=config,
         app_alias="wallet",
         profile=None,
+        store=cli_module.StoreName.HUAWEI,
         interactive=False,
     )
 

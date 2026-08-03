@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+import asyncio
+
+import httpx
+
+from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
+from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
+from storehelper.stores.models import CredentialKind, StoreName
+from storehelper.stores.registry import get_registration, registered_store_names
+
+
+def test_registry_exposes_only_audited_builtin_stores() -> None:
+    assert registered_store_names() == (StoreName.HUAWEI, StoreName.HARMONYOS)
+
+
+def test_huawei_and_harmonyos_share_credentials_but_not_artifact_rules() -> None:
+    huawei = get_registration(StoreName.HUAWEI)
+    harmonyos = get_registration(StoreName.HARMONYOS)
+
+    assert huawei.capabilities.credential_kind is CredentialKind.HUAWEI_SERVICE_ACCOUNT
+    assert harmonyos.capabilities.credential_kind is CredentialKind.HUAWEI_SERVICE_ACCOUNT
+    assert huawei.capabilities.artifact_suffixes == (".apk", ".aab")
+    assert harmonyos.capabilities.artifact_suffixes == (".app", ".hap")
+    assert huawei.validator is not harmonyos.validator
+
+
+def test_registry_builds_the_selected_adapter(
+    rsa_private_key: str,
+) -> None:
+    account = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        huawei = get_registration(StoreName.HUAWEI).factory(account, http)
+        harmonyos = get_registration(StoreName.HARMONYOS).factory(account, http)
+    finally:
+        asyncio.run(http.aclose())
+
+    assert isinstance(huawei, HuaweiAndroidAdapter)
+    assert isinstance(harmonyos, HarmonyOSAdapter)

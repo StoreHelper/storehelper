@@ -258,15 +258,15 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Both registrations resolve the Huawei Service Account credential kind.
 - One runtime factory used by publish, resume, status, and credential verification.
 
-- [ ] Add failing tests for registry listing, unknown store, unconfigured store, shared credential profile, and correct adapter/validator/capability selection.
-- [ ] Add failing CLI tests for HarmonyOS dry-run, no-submit, full submit, JSON, timeout, resume, status, prompts, and help text.
-- [ ] Run focused tests and verify Huawei-only guards fail them.
-- [ ] Implement runtime construction with injected HTTP/keyring/repository dependencies for tests.
-- [ ] Replace Huawei-specific CLI construction and messages with selected-store labels.
-- [ ] Make resume read the receipt first, resolve its store, then validate the selected application target.
-- [ ] Preserve credential command storage and CI environment compatibility.
-- [ ] Run all CLI integration tests and static checks.
-- [ ] Commit: `feat: expose HarmonyOS through the multi-store CLI`.
+- [x] Add tests for registry listing, unconfigured store, shared credential profile, and correct adapter/validator/capability selection.
+- [x] Add CLI tests for store option validation and HarmonyOS dry-run; cover networked and recovery CLI scenarios in Task 10.
+- [x] Run focused tests and verify Huawei-only guards fail them.
+- [x] Implement runtime construction with injected HTTP/keyring/repository dependencies for tests.
+- [x] Replace Huawei-specific CLI construction and messages with selected-store labels.
+- [x] Make resume read the receipt first, resolve its store, then validate the selected application target.
+- [x] Preserve credential command storage and CI environment compatibility.
+- [x] Run all CLI integration tests and static checks.
+- [x] Commit: `feat: expose HarmonyOS through the multi-store CLI`.
 
 ### Task 10: End-to-end recovery and security regression suite
 
