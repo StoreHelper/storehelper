@@ -273,17 +273,17 @@ def validate_upload_plan(
 ) -> tuple[AppleUploadOperation, ...]: ...
 ```
 
-- [ ] Write failing plan tests for sorting, gap/overlap, duplicate parts, range overflow, expired
+- [x] Write failing plan tests for sorting, gap/overlap, duplicate parts, range overflow, expired
   operations, unsafe URLs, methods, headers, and already-delivered entity tags.
-- [ ] Write mocked integration tests for new reservation, exact-match reuse, ambiguous reuse,
+- [x] Write mocked integration tests for new reservation, exact-match reuse, ambiguous reuse,
   multiple streamed ranges, bearer-header isolation, redirect rejection, checksum commit, and
   interruption followed by reuse without a second build-upload POST.
-- [ ] Run tests and verify missing behavior.
-- [ ] Implement exact buildUpload/buildUploadFile JSON:API bodies from Apple's OpenAPI schema.
-- [ ] Implement bounded range readers and sequential no-redirect PUTs for undelivered operations.
-- [ ] Commit `uploaded=true` with SHA-256 and return only the build-upload ID.
-- [ ] Run focused and cross-store upload tests.
-- [ ] Commit: `feat: upload IPA builds through Apple delivery operations`.
+- [x] Run tests and verify missing behavior.
+- [x] Implement exact buildUpload/buildUploadFile JSON:API bodies from Apple's OpenAPI schema.
+- [x] Implement bounded range readers and sequential no-redirect PUTs for undelivered operations.
+- [x] Commit `uploaded=true` with SHA-256 and return only the build-upload ID.
+- [x] Run focused and cross-store upload tests.
+- [x] Commit: `feat: upload IPA builds through Apple delivery operations`.
 
 ### Task 7: Import processing and final Build ID transition
 

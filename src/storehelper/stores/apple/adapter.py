@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from storehelper.artifacts.models import ArtifactInfo
+from storehelper.artifacts.models import AppleArtifactInfo, ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.errors import AppleVendorError
@@ -39,7 +39,25 @@ class AppleAdapter:
         )
 
     async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
-        raise self._pending()
+        if not isinstance(artifact, AppleArtifactInfo):
+            raise AppleVendorError(
+                "APPLE_PACKAGE_INVALID",
+                "Apple publishing requires a validated IPA artifact.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
+        if artifact.bundle_id != target.package_name:
+            raise AppleVendorError(
+                "APPLE_BUNDLE_MISMATCH",
+                "The IPA bundle ID does not match the configured Apple target.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
+        if self._verified_version_string != artifact.marketing_version:
+            raise AppleVendorError(
+                "APPLE_VERSION_MISMATCH",
+                "The IPA marketing version does not match the configured App Store version.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
+        return await self._client.upload_ipa(target=target, artifact=artifact)
 
     async def processing_status(
         self,
