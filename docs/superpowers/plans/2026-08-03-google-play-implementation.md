@@ -204,14 +204,14 @@ no Google key, assertion, token, or raw error in output/receipt
 - Modify: `src/storehelper/__init__.py`
 - Modify: version tests
 
-- [ ] Document Play/Cloud setup, permissions, service-account sources, required package/track/status,
+- [x] Document Play/Cloud setup, permissions, service-account sources, required package/track/status,
   AAB/APK commands, draft/completed risk, optional notes, no-submit expiry, resume, lifecycle status,
   JSON, and security boundaries.
-- [ ] Add a live checklist ordered config/dry-run → read-only verify → draft no-submit/commit →
+- [x] Add a live checklist ordered config/dry-run → read-only verify → draft no-submit/commit →
   separately reviewed completed release.
-- [ ] Verify examples against installed help and keep all identifiers fake.
-- [ ] Bump version consistently to `0.4.0`.
-- [ ] Commit: `docs: document Google Play publishing`.
+- [x] Verify examples against installed help and keep all identifiers fake.
+- [x] Bump version consistently to `0.4.0`.
+- [x] Commit: `docs: document Google Play publishing`.
 
 ### Task 12: Full verification and milestone closure
 

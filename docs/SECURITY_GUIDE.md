@@ -25,10 +25,20 @@ Apple uses the equivalent store-specific sources:
 3. the Apple keyring namespace selected by `credentials ... --store apple`;
 4. the Apple secure prompt in an interactive terminal.
 
+Google Play uses a third, independent namespace and the same precedence rule:
+
+1. `STOREHELPER_GOOGLE_CREDENTIALS_FILE` containing a standard service-account JSON;
+2. the complete set of `STOREHELPER_GOOGLE_PROJECT_ID`,
+   `STOREHELPER_GOOGLE_PRIVATE_KEY_ID`, `STOREHELPER_GOOGLE_PRIVATE_KEY`, and
+   `STOREHELPER_GOOGLE_CLIENT_EMAIL`, plus optional `STOREHELPER_GOOGLE_TOKEN_URI`;
+3. the Google keyring namespace selected by `credentials ... --store google_play`;
+4. the Google secure prompt in an interactive terminal.
+
 Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
 secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
 credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
-require an unencrypted P-256 private key.
+require an unencrypted P-256 private key. Google requires a standard `service_account` key with
+an unencrypted RSA private key and a valid service-account email.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
@@ -37,12 +47,16 @@ For CI, prefer a secret file created by the CI platform and point
 `STOREHELPER_HUAWEI_CREDENTIALS_FILE` to it. Alternatively, configure all three individual
 environment variables. Never mix the two forms. Apply the same rule independently to Apple file
 and individual environment variables.
+Apply the same mutually exclusive file-or-variable rule to Google Play. Use a dedicated service
+account with access only to the required Play Console apps and release operations. Rotate and
+replace JSON keys according to the organization's key-management policy.
 
 ## Persisted data
 
 Run receipts contain store names, app IDs, package paths and hashes, logical file names, durable
-artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs), configured release IDs,
-review submission IDs, release notes, and state timestamps. They never contain private keys,
+artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs, Google `versionCode`),
+public operation IDs such as a Google App Edit ID, configured release/track/status values, review
+submission IDs, release notes, and state timestamps. They never contain private keys,
 JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
 temporary object IDs, upload URLs, destination URLs, or raw vendor bodies. Receipt files are
 written atomically with owner-only permissions where the platform supports it.
@@ -56,6 +70,14 @@ written atomically with owner-only permissions where the platform supports it.
 - Apple delivery uploads use HTTPS, send only Apple's exact signed headers for the declared byte
   range, never forward the App Store Connect bearer token, and reject redirects or invalid range
   plans before reading the IPA.
+- Google OAuth assertions are sent only to the validated HTTPS `token_uri` from the imported
+  credential (normally Google's official OAuth endpoint). Android Publisher bearer tokens are
+  sent only to the fixed `androidpublisher.googleapis.com` host; redirects are rejected.
+- Google AAB/APK bytes are streamed directly into one App Edit upload request. Media uploads are
+  not automatically replayed after an ambiguous response; track updates and commits recover from
+  their durable Edit ID and `versionCode`.
+- Google commits explicitly use `ERROR_IF_IN_REVIEW` and
+  `changesNotSentForReview=false`; StoreHelper never cancels an existing review implicitly.
 - JWTs and temporary upload values remain inside their store client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
 

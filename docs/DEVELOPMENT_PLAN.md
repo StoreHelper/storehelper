@@ -3,6 +3,21 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.4.0 Google Play task status
+
+- [x] Task 1: Durable App Edit operation context and receipt schema v4.
+- [x] Task 2: Strict Google package/track/draft-or-completed configuration.
+- [x] Task 3: Dedicated service-account credential sources and keyring namespace.
+- [x] Task 4: RS256 OAuth assertion, token exchange, and in-memory cache.
+- [x] Task 5: Read-only application/track verification and lifecycle status mapping.
+- [x] Task 6: Streamed AAB/APK upload with exact SHA-256 and `versionCode` validation.
+- [x] Task 7: Safe, idempotent Track preparation with optional localized notes.
+- [x] Task 8: Explicit Edit validation/commit and lifecycle reconciliation.
+- [x] Task 9: Registry, runtime, CLI, JSON output, and store-aware credential commands.
+- [x] Task 10: End-to-end interruption, recovery, migration, and security regression suite.
+- [x] Task 11: Google Play documentation, examples, and v0.4.0 versioning.
+- [ ] Task 12: Clean build, coverage, exact-wheel smoke tests, and final secret review.
+
 ## v0.3.0 Apple App Store task status
 
 - [x] Task 1: Store-neutral credential and receipt schema v3 preparation.
@@ -134,6 +149,7 @@ Checkboxes are updated only after the related implementation and verification su
 ## Later milestones
 
 - [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
-- [ ] Additional Android store adapters.
+- [ ] Complete the Google Play v0.4.0 verification and distribution milestone.
+- [ ] Add Xiaomi, OPPO, vivo, and Honor Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.
