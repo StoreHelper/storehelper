@@ -207,13 +207,13 @@ class AppleArtifactInfo(ArtifactInfo):
 def validate_ipa(path: Path) -> AppleArtifactInfo: ...
 ```
 
-- [ ] Add test builders for XML and binary plists inside IPA ZIPs.
-- [ ] Write failing tests for valid IPA metadata/digest/name, wrong extension, empty/corrupt ZIP,
+- [x] Add test builders for XML and binary plists inside IPA ZIPs.
+- [x] Write failing tests for valid IPA metadata/digest/name, wrong extension, empty/corrupt ZIP,
   traversal, missing/multiple top-level apps, invalid plist, and missing required keys.
-- [ ] Run the tests and verify the module is absent.
-- [ ] Implement safe ZIP/plist inspection without extraction and stream SHA-256.
-- [ ] Run package tests and confirm `Path.read_bytes` is never used.
-- [ ] Commit: `feat: validate Apple IPA artifacts`.
+- [x] Run the tests and verify the module is absent.
+- [x] Implement safe ZIP/plist inspection without extraction and stream SHA-256.
+- [x] Run package tests and confirm `Path.read_bytes` is never used.
+- [x] Commit: `feat: validate Apple IPA artifacts`.
 
 ### Task 5: Safe Apple JSON:API client and target verification
 

@@ -10,6 +10,7 @@ import httpx
 
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.credentials.models import CredentialError, HuaweiServiceAccount, StoreCredential
+from storehelper.stores.apple.package import validate_ipa
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
@@ -17,7 +18,7 @@ from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
-from storehelper.stores.huawei.package import PackageError, validate_package
+from storehelper.stores.huawei.package import validate_package
 from storehelper.stores.models import (
     CredentialKind,
     StoreCapabilities,
@@ -35,13 +36,6 @@ class AdapterRegistration:
     capabilities: StoreCapabilities
     validator: ArtifactValidator
     factory: AdapterFactory | None
-
-
-def _apple_validator_pending(path: Path) -> ArtifactInfo:
-    raise PackageError(
-        "APPLE_IPA_VALIDATOR_UNAVAILABLE",
-        "Apple IPA validation is not available in this development increment.",
-    )
 
 
 def _huawei_factory(
@@ -105,7 +99,7 @@ _REGISTRATIONS = {
             requires_release_notes=False,
             supports_review_status=True,
         ),
-        validator=_apple_validator_pending,
+        validator=validate_ipa,
         factory=None,
     ),
 }
