@@ -126,6 +126,29 @@ class AppleClient:
             raise self._protocol_error("App Store Connect returned an invalid JSON response.")
         return value
 
+    async def request_empty(
+        self,
+        method: str,
+        path: str,
+        *,
+        expected_status: int,
+        **kwargs: Any,
+    ) -> None:
+        response = await self._send_authenticated(method, path, **kwargs)
+        if response.is_redirect:
+            raise self._network_error(
+                "APPLE_REDIRECT",
+                "App Store Connect returned an unexpected redirect.",
+            )
+        if response.is_error:
+            try:
+                value: object = response.json()
+            except (ValueError, UnicodeDecodeError):
+                value = None
+            raise parse_apple_errors(value, status_code=response.status_code)
+        if response.status_code != expected_status:
+            raise self._protocol_error("App Store Connect returned an unexpected success status.")
+
     @staticmethod
     def _resource(
         payload: Mapping[str, object],
@@ -517,3 +540,76 @@ class AppleClient:
                 "include": "build",
             },
         )
+
+    async def attach_build(self, *, release_id: str, build_id: str) -> None:
+        await self.request_empty(
+            "PATCH",
+            f"/v1/appStoreVersions/{quote(release_id, safe='')}/relationships/build",
+            expected_status=204,
+            json={"data": {"type": "builds", "id": build_id}},
+        )
+
+    async def update_whats_new(
+        self,
+        *,
+        release_id: str,
+        language: str,
+        release_notes: str,
+    ) -> None:
+        payload = await self.request_json(
+            "GET",
+            f"/v1/appStoreVersions/{quote(release_id, safe='')}/appStoreVersionLocalizations",
+            params={
+                "filter[locale]": language,
+                "fields[appStoreVersionLocalizations]": "locale",
+                "limit": 200,
+            },
+        )
+        resources = self._resource_list(
+            payload,
+            resource_type="appStoreVersionLocalizations",
+        )
+        matches: list[Mapping[str, object]] = []
+        for resource in resources:
+            attributes = resource.get("attributes")
+            if isinstance(attributes, Mapping) and attributes.get("locale") == language:
+                matches.append(resource)
+        if len(matches) != 1:
+            raise AppleVendorError(
+                "APPLE_LOCALIZATION_NOT_UNIQUE",
+                "The configured Apple locale must match exactly one version localization.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        localization_id = str(matches[0]["id"])
+        await self.request_json(
+            "PATCH",
+            f"/v1/appStoreVersionLocalizations/{quote(localization_id, safe='')}",
+            json={
+                "data": {
+                    "type": "appStoreVersionLocalizations",
+                    "id": localization_id,
+                    "attributes": {"whatsNew": release_notes},
+                }
+            },
+        )
+
+    async def prepare_release(
+        self,
+        *,
+        target: StoreTarget,
+        build_id: str,
+        release_notes: str | None,
+    ) -> None:
+        if target.release_id is None:
+            raise AppleVendorError(
+                "APPLE_TARGET_INVALID",
+                "Apple target requires an App Store version ID.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        await self.attach_build(release_id=target.release_id, build_id=build_id)
+        if release_notes is not None:
+            await self.update_whats_new(
+                release_id=target.release_id,
+                language=target.language,
+                release_notes=release_notes,
+            )

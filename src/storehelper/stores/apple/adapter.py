@@ -139,7 +139,18 @@ class AppleAdapter:
         artifact_id: str,
         release_notes: str | None,
     ) -> None:
-        raise self._pending()
+        notes = release_notes.strip() if release_notes is not None else None
+        if notes is not None and not 1 <= len(notes) <= 4000:
+            raise AppleVendorError(
+                "APPLE_RELEASE_NOTES_INVALID",
+                "Apple What's New text must contain 1 to 4000 characters.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        await self._client.prepare_release(
+            target=target,
+            build_id=artifact_id,
+            release_notes=notes,
+        )
 
     async def submit(self, *, target: StoreTarget, artifact_id: str) -> str:
         raise self._pending()

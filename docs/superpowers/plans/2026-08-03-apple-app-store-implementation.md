@@ -324,13 +324,13 @@ async def prepare_release(
 ) -> None: ...
 ```
 
-- [ ] Write failing tests for exact build relationship PATCH, notes omitted, unique locale lookup,
+- [x] Write failing tests for exact build relationship PATCH, notes omitted, unique locale lookup,
   locale missing/duplicate, 1/4000 boundaries, and a PATCH containing only `whatsNew`.
-- [ ] Run tests and verify no release preparation exists.
-- [ ] Implement build attachment first, then optional localized notes.
-- [ ] Preserve every unrelated version/localization field.
-- [ ] Run Apple release and Huawei/Harmony notes regression tests.
-- [ ] Commit: `feat: prepare Apple App Store versions`.
+- [x] Run tests and verify no release preparation exists.
+- [x] Implement build attachment first, then optional localized notes.
+- [x] Preserve every unrelated version/localization field.
+- [x] Run Apple release and Huawei/Harmony notes regression tests.
+- [x] Commit: `feat: prepare Apple App Store versions`.
 
 ### Task 9: Review reconciliation, submission, and status
 
