@@ -507,3 +507,13 @@ class AppleClient:
         await self.transfer_upload(artifact=artifact, reservation=reservation)
         await self.commit_upload_file(reservation=reservation, artifact=artifact)
         return UploadedArtifact(artifact_id=reservation.upload_id)
+
+    async def build_upload_status(self, upload_id: str) -> Mapping[str, object]:
+        return await self.request_json(
+            "GET",
+            f"/v1/buildUploads/{quote(upload_id, safe='')}",
+            params={
+                "fields[buildUploads]": "state,build",
+                "include": "build",
+            },
+        )

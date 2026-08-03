@@ -2,17 +2,81 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from storehelper.artifacts.models import AppleArtifactInfo, ArtifactInfo
+from storehelper.domain.errors import redact
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.errors import AppleVendorError
 from storehelper.stores.models import (
+    ProcessingState,
     ProcessingStatus,
     ReviewStatus,
     StoreTarget,
     UploadedArtifact,
     VerifiedApplication,
 )
+
+
+def _state_reason(value: object) -> str | None:
+    if not isinstance(value, list):
+        return None
+    reasons: list[str] = []
+    for raw in value[:3]:
+        if not isinstance(raw, Mapping):
+            continue
+        fields: list[str] = []
+        for name in ("code", "description"):
+            field = raw.get(name)
+            if isinstance(field, (str, int)):
+                cleaned = redact(str(field)).replace("\r", " ").replace("\n", " ").strip()
+                if cleaned:
+                    fields.append(cleaned[:300])
+        if fields:
+            reasons.append(": ".join(fields))
+    return "; ".join(reasons)[:500] or None
+
+
+def parse_build_upload_status(payload: Mapping[str, object]) -> ProcessingStatus:
+    data = payload.get("data")
+    if not isinstance(data, Mapping) or data.get("type") != "buildUploads":
+        raise AppleVendorError(
+            "APPLE_BUILD_UPLOAD_STATE_INVALID",
+            "App Store Connect returned an invalid build upload state.",
+            ExitCode.VENDOR_REJECTION,
+        )
+    attributes = data.get("attributes")
+    state_info = attributes.get("state") if isinstance(attributes, Mapping) else None
+    state = state_info.get("state") if isinstance(state_info, Mapping) else None
+    if state in {"AWAITING_UPLOAD", "PROCESSING"}:
+        return ProcessingStatus(state=ProcessingState.PROCESSING)
+    if state == "FAILED":
+        errors = state_info.get("errors") if isinstance(state_info, Mapping) else None
+        return ProcessingStatus(
+            state=ProcessingState.FAILED,
+            reason=_state_reason(errors),
+        )
+    if state == "COMPLETE":
+        relationships = data.get("relationships")
+        build = relationships.get("build") if isinstance(relationships, Mapping) else None
+        related = build.get("data") if isinstance(build, Mapping) else None
+        if (
+            isinstance(related, Mapping)
+            and related.get("type") == "builds"
+            and isinstance(related.get("id"), str)
+            and related.get("id")
+        ):
+            return ProcessingStatus(
+                state=ProcessingState.READY,
+                artifact_id=str(related["id"]),
+            )
+        return ProcessingStatus(state=ProcessingState.PROCESSING)
+    raise AppleVendorError(
+        "APPLE_BUILD_UPLOAD_STATE_INVALID",
+        "App Store Connect returned an unknown build upload state.",
+        ExitCode.VENDOR_REJECTION,
+    )
 
 
 class AppleAdapter:
@@ -65,7 +129,8 @@ class AppleAdapter:
         target: StoreTarget,
         artifact_id: str,
     ) -> ProcessingStatus:
-        raise self._pending()
+        payload = await self._client.build_upload_status(artifact_id)
+        return parse_build_upload_status(payload)
 
     async def prepare_release(
         self,

@@ -8,7 +8,7 @@ from storehelper.stores.apple.adapter import AppleAdapter
 from storehelper.stores.apple.auth import AppleAuth
 from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.errors import AppleVendorError
-from storehelper.stores.models import StoreName, StoreTarget
+from storehelper.stores.models import ProcessingState, StoreName, StoreTarget
 
 
 def _target(**updates: object) -> StoreTarget:
@@ -150,6 +150,42 @@ async def test_refreshes_jwt_once_after_401(p256_private_key: str) -> None:
         await adapter.verify(target=_target())
 
     assert attempts == 3
+
+
+@pytest.mark.asyncio
+async def test_fetches_build_upload_state_and_returns_final_build_id(
+    p256_private_key: str,
+) -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "type": "buildUploads",
+                    "id": "upload-456",
+                    "attributes": {"state": {"state": "COMPLETE"}},
+                    "relationships": {"build": {"data": {"type": "builds", "id": "build-999"}}},
+                }
+            },
+        )
+
+    adapter, http = _adapter(p256_private_key, httpx.MockTransport(handler))
+    async with http:
+        status = await adapter.processing_status(
+            target=_target(),
+            artifact_id="upload-456",
+        )
+
+    assert status.state is ProcessingState.READY
+    assert status.artifact_id == "build-999"
+    assert requests[0].url.path == "/v1/buildUploads/upload-456"
+    assert dict(requests[0].url.params) == {
+        "fields[buildUploads]": "state,build",
+        "include": "build",
+    }
 
 
 @pytest.mark.asyncio

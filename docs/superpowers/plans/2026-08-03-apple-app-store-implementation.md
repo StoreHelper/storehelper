@@ -301,13 +301,13 @@ def parse_build_upload_status(payload: Mapping[str, object]) -> ProcessingStatus
     ...
 ```
 
-- [ ] Write failing tests for AWAITING_UPLOAD, PROCESSING, FAILED state details, COMPLETE with Build
+- [x] Write failing tests for AWAITING_UPLOAD, PROCESSING, FAILED state details, COMPLETE with Build
   ID, COMPLETE without Build ID, and unknown states.
-- [ ] Add a publisher test proving build-upload ID is atomically replaced by Build ID.
-- [ ] Run focused tests and verify failures.
-- [ ] Implement `GET /v1/buildUploads/{id}?include=build` parsing and safe state messages.
-- [ ] Run timeout/resume tests proving no file reservation or upload repeats after commit.
-- [ ] Commit: `feat: resolve Apple build processing`.
+- [x] Add a publisher test proving build-upload ID is atomically replaced by Build ID.
+- [x] Run focused tests and verify failures.
+- [x] Implement `GET /v1/buildUploads/{id}?include=build` parsing and safe state messages.
+- [x] Run timeout/resume tests proving no file reservation or upload repeats after commit.
+- [x] Commit: `feat: resolve Apple build processing`.
 
 ### Task 8: Build attachment and localized What's New
 
