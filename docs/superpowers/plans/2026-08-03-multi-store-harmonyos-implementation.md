@@ -233,14 +233,14 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - v3 app-submit and app-info operations.
 - Generic processing and review states.
 
-- [ ] Add table-driven failing tests for missing/empty/populated package info, recognized processing/failure fields, unknown explicit states, and bounded failure reason.
-- [ ] Add failing HTTP contract tests proving no application metadata beyond release notes is sent.
-- [ ] Add submit success, package-still-processing translation, rejection, and review-state mapping tests.
-- [ ] Run new tests and verify missing methods fail.
-- [ ] Implement conservative response parsing and generic `ArtifactStillProcessingError` translation.
-- [ ] Implement only release notes, formal full-release submission, and read-only review status.
-- [ ] Run all HarmonyOS and Huawei adapter tests.
-- [ ] Commit: `feat: complete HarmonyOS review submission operations`.
+- [x] Add table-driven failing tests for missing/empty/populated package info, recognized processing/failure fields, unknown explicit states, and bounded failure reason.
+- [x] Add failing HTTP contract tests proving no application metadata beyond release notes is sent.
+- [x] Add submit success, package-still-processing translation, rejection, and review-state mapping tests.
+- [x] Run new tests and verify missing methods fail.
+- [x] Implement conservative response parsing and generic `ArtifactStillProcessingError` translation.
+- [x] Implement only release notes, formal full-release submission, and read-only review status.
+- [x] Run all HarmonyOS and Huawei adapter tests.
+- [x] Commit: `feat: complete HarmonyOS review submission operations`.
 
 ### Task 9: Static adapter registry, runtime factory, and CLI integration
 
