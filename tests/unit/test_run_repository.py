@@ -156,7 +156,7 @@ def test_loads_v1_receipt_and_rewrites_it_as_v4(tmp_path: Path) -> None:
                 "run_id": run_id,
                 "created_at": "2026-07-30T10:00:00Z",
                 "updated_at": "2026-07-30T10:00:00Z",
-                "store": "huawei",
+                "store": "google_play",
                 "state": "package_compiling",
                 "app_alias": "demo",
                 "app_id": "123",
@@ -195,7 +195,7 @@ def test_loads_v2_v3_receipts_and_adds_v4_context(
     tmp_path: Path,
     schema_version: int,
 ) -> None:
-    receipt = sample_receipt()
+    receipt = sample_receipt(store="google_play", app_id="com.example.app")
     payload = receipt.model_dump(mode="json")
     payload["schema_version"] = schema_version
     payload.pop("operation_id")
@@ -207,7 +207,8 @@ def test_loads_v2_v3_receipts_and_adds_v4_context(
     path = tmp_path / f"{receipt.run_id}.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
 
-    loaded = RunRepository(tmp_path).get(receipt.run_id)
+    repository = RunRepository(tmp_path)
+    loaded = repository.get(receipt.run_id)
 
     assert loaded.schema_version == 4
     assert loaded.operation_id is None
@@ -215,6 +216,13 @@ def test_loads_v2_v3_receipts_and_adds_v4_context(
     assert loaded.release_status is None
     assert loaded.release_id == (None if schema_version == 2 else "release-7")
     assert loaded.submission_id == (None if schema_version == 2 else "submission-8")
+    repository.save(loaded)
+    rewritten = json.loads(path.read_text(encoding="utf-8"))
+    assert rewritten["schema_version"] == 4
+    assert rewritten["store"] == "google_play"
+    assert rewritten["operation_id"] is None
+    assert rewritten["track"] is None
+    assert rewritten["release_status"] is None
 
 
 def test_rejects_unknown_future_receipt_version(tmp_path: Path) -> None:

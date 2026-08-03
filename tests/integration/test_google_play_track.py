@@ -217,6 +217,33 @@ async def test_identical_existing_release_makes_retry_idempotent(
 
 
 @pytest.mark.asyncio
+async def test_expired_edit_before_track_preparation_is_actionable(
+    rsa_private_key: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "oauth2.googleapis.com":
+            return _token()
+        return httpx.Response(
+            404,
+            json={"error": {"status": "NOT_FOUND", "message": "expired edit"}},
+        )
+
+    adapter, http = _adapter(rsa_private_key, httpx.MockTransport(handler))
+    async with http:
+        with pytest.raises(GoogleVendorError) as raised:
+            await adapter.prepare_release(
+                target=_target(),
+                artifact_id="42",
+                operation_id="edit-123",
+                release_notes=None,
+            )
+
+    assert raised.value.code == "GOOGLE_EDIT_EXPIRED"
+    assert raised.value.resumable is False
+    assert "start a new publish" in raised.value.message
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("artifact_id", "operation_id", "notes", "code"),
     [

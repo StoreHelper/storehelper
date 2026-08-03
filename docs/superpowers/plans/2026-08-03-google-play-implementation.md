@@ -186,10 +186,10 @@ v1/v2/v3 receipt migration and v4 rewrite
 no Google key, assertion, token, or raw error in output/receipt
 ```
 
-- [ ] Implement all scenarios with generated keys, fake IDs, injected clock/sleeper, and mocked HTTP.
-- [ ] Apply only production corrections revealed by the tests.
-- [ ] Run the complete suite and non-test secret scan.
-- [ ] Commit: `test: cover Google Play recovery and security`.
+- [x] Implement all scenarios with generated keys, fake IDs, injected clock/sleeper, and mocked HTTP.
+- [x] Apply only production corrections revealed by the tests.
+- [x] Run the complete suite and non-test secret scan.
+- [x] Commit: `test: cover Google Play recovery and security`.
 
 ### Task 11: Documentation and v0.4.0 versioning
 

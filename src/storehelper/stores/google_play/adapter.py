@@ -195,7 +195,12 @@ class GooglePlayAdapter:
         )
 
         edit_id = operation_id.strip()
-        await self._client.get_edit(package_name=package_name, edit_id=edit_id)
+        try:
+            await self._client.get_edit(package_name=package_name, edit_id=edit_id)
+        except GoogleVendorError as error:
+            if error.status_code == 404:
+                raise self._expired_edit_error() from None
+            raise
         existing = await self._client.get_track(
             package_name=package_name,
             edit_id=edit_id,

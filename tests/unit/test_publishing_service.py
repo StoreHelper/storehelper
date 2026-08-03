@@ -394,8 +394,14 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("configured_track", "configured_status"),
+    [("production", "draft"), ("internal", "completed")],
+)
 async def test_resume_rejects_changed_track_or_release_status_before_network(
     tmp_path: Path,
+    configured_track: str,
+    configured_status: str,
 ) -> None:
     repo = RunRepository(tmp_path / "runs")
     receipt = repo.create(
@@ -416,8 +422,8 @@ async def test_resume_rejects_changed_track_or_release_status_before_network(
     publisher = _publisher(
         adapter=adapter,
         repository=repo,
-        track="production",
-        release_status="completed",
+        track=configured_track,
+        release_status=configured_status,
     )
 
     with pytest.raises(StoreHelperError) as raised:
