@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
@@ -15,7 +16,8 @@ from pydantic import ValidationError
 
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.runs.models import RunReceipt, RunState
+from storehelper.runs.models import RunReceipt, RunState, migrate_receipt_payload
+from storehelper.stores.models import StoreName
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
@@ -45,6 +47,7 @@ class RunRepository:
     def create(
         self,
         *,
+        store: StoreName,
         app_alias: str,
         app_id: str,
         package_name: str,
@@ -60,6 +63,7 @@ class RunRepository:
             run_id=self._new_run_id(now),
             created_at=now,
             updated_at=now,
+            store=store,
             state=RunState.CREATED,
             app_alias=app_alias,
             app_id=app_id,
@@ -106,8 +110,9 @@ class RunRepository:
         if not path.exists():
             raise StateError("STATE_NOT_FOUND", f"Publishing run not found: {run_id}")
         try:
-            return RunReceipt.model_validate_json(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, ValidationError, ValueError):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            return RunReceipt.model_validate(migrate_receipt_payload(raw))
+        except (OSError, UnicodeError, json.JSONDecodeError, ValidationError, ValueError):
             raise StateError(
                 "STATE_CORRUPT",
                 f"Publishing run is unreadable or invalid: {run_id}",

@@ -226,7 +226,7 @@ async def test_timeout_is_resumable_without_reupload(tmp_path: Path) -> None:
     assert result.stage is PublishStage.TIMED_OUT
     assert result.next_action is not None
     assert "storehelper resume" in result.next_action.command
-    assert publisher.repository.get(result.run_id or "").pkg_version == "42"
+    assert publisher.repository.get(result.run_id or "").artifact_id == "42"
 
 
 @pytest.mark.asyncio
@@ -270,6 +270,7 @@ async def test_resume_from_timeout_starts_at_compile(tmp_path: Path) -> None:
 async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Path) -> None:
     repo = RunRepository(tmp_path / "runs")
     receipt = repo.create(
+        store="huawei",
         app_alias="demo",
         app_id="123",
         package_name="com.example.app",

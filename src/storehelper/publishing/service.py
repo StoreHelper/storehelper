@@ -108,6 +108,7 @@ class Publisher:
                 )
 
         receipt = self.repository.create(
+            store=request.store,
             app_alias=request.app_alias,
             app_id=self._huawei.app_id,
             package_name=self._application.package_name,
@@ -190,7 +191,7 @@ class Publisher:
                 receipt = self._transition(
                     receipt,
                     RunState.PACKAGE_BOUND,
-                    pkg_version=bound.artifact_id,
+                    artifact_id=bound.artifact_id,
                 )
 
             if receipt.state in {
@@ -199,10 +200,10 @@ class Publisher:
                 RunState.TIMED_OUT,
                 RunState.INTERRUPTED,
             }:
-                if not receipt.pkg_version:
+                if not receipt.artifact_id:
                     raise PublishingError(
                         "RUN_PACKAGE_VERSION_MISSING",
-                        "The run cannot resume because pkgVersion is missing.",
+                        "The run cannot resume because its artifact ID is missing.",
                         ExitCode.LOCAL_STATE,
                     )
                 receipt = self._transition(receipt, RunState.PACKAGE_COMPILING)
@@ -283,10 +284,10 @@ class Publisher:
                 stage=PublishStage.INTERRUPTED,
                 run_id=interrupted.run_id,
                 message="Publishing was interrupted.",
-                resumable=interrupted.pkg_version is not None,
+                resumable=interrupted.artifact_id is not None,
             )
         except StoreHelperError as error:
-            if error.resumable and receipt.pkg_version:
+            if error.resumable and receipt.artifact_id:
                 resumable = self._transition(receipt, RunState.TIMED_OUT)
                 return OperationResult.failure(
                     stage=PublishStage.TIMED_OUT,
@@ -305,12 +306,12 @@ class Publisher:
         poll_interval: float,
         wait_timeout: float,
     ) -> bool:
-        assert receipt.pkg_version is not None
+        assert receipt.artifact_id is not None
         started = self._clock()
         while True:
             status = await self._adapter.processing_status(
                 app_id=receipt.app_id,
-                artifact_id=receipt.pkg_version,
+                artifact_id=receipt.artifact_id,
             )
             if status.state is ProcessingState.READY:
                 return True

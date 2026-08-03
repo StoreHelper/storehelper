@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from storehelper.stores.models import StoreName
 
 
 class RunState(StrEnum):
@@ -44,11 +47,11 @@ class RunReceipt(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     run_id: str = Field(min_length=1)
     created_at: datetime
     updated_at: datetime
-    store: Literal["huawei"] = "huawei"
+    store: StoreName
     state: RunState
     app_alias: str = Field(min_length=1)
     app_id: str = Field(min_length=1)
@@ -56,7 +59,7 @@ class RunReceipt(BaseModel):
     package_path: str = Field(min_length=1)
     package_sha256: str = Field(min_length=1)
     logical_name: str = Field(min_length=1)
-    pkg_version: str | None = None
+    artifact_id: str | None = None
     language: str = Field(min_length=1)
     release_notes: str | None = None
     submit: bool = True
@@ -64,3 +67,19 @@ class RunReceipt(BaseModel):
     @property
     def resumable(self) -> bool:
         return self.state in RESUMABLE_STATES
+
+
+def migrate_receipt_payload(payload: object) -> Mapping[str, object]:
+    """Convert the one supported legacy receipt shape to schema version 2."""
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("receipt must be a JSON object")
+    version = payload.get("schema_version")
+    if version == 2:
+        return payload
+    if version != 1:
+        raise ValueError("unsupported receipt schema version")
+    migrated = dict(payload)
+    migrated["schema_version"] = 2
+    migrated["artifact_id"] = migrated.pop("pkg_version", None)
+    return migrated

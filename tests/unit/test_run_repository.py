@@ -14,6 +14,7 @@ from storehelper.runs.repository import RunRepository, StateError
 
 def sample_receipt(
     *,
+    store: str = "huawei",
     app_id: str = "123",
     sha256: str = "abc",
     state: RunState = RunState.PACKAGE_COMPILING,
@@ -23,6 +24,7 @@ def sample_receipt(
         run_id="20260730T100000Z-a1b2c3d4",
         created_at=now,
         updated_at=now,
+        store=store,
         state=state,
         app_alias="demo",
         app_id=app_id,
@@ -30,7 +32,7 @@ def sample_receipt(
         package_path="/build/release.apk",
         package_sha256=sha256,
         logical_name="release.apk",
-        pkg_version="42",
+        artifact_id="42",
         language="zh-CN",
         release_notes="Fixes",
         submit=True,
@@ -62,6 +64,7 @@ def test_create_generates_sortable_unique_run_ids(tmp_path: Path) -> None:
     repo = RunRepository(tmp_path)
 
     first = repo.create(
+        store="huawei",
         app_alias="demo",
         app_id="123",
         package_name="com.example.app",
@@ -73,6 +76,7 @@ def test_create_generates_sortable_unique_run_ids(tmp_path: Path) -> None:
         submit=True,
     )
     second = repo.create(
+        store="huawei",
         app_alias="demo",
         app_id="123",
         package_name="com.example.app",
@@ -131,3 +135,55 @@ def test_save_replaces_complete_json_not_partial_content(tmp_path: Path) -> None
     payload = json.loads((tmp_path / f"{receipt.run_id}.json").read_text())
     assert payload["state"] == "package_ready"
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_loads_v1_receipt_and_rewrites_it_as_v2(tmp_path: Path) -> None:
+    run_id = "20260730T100000Z-legacy01"
+    path = tmp_path / f"{run_id}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_id,
+                "created_at": "2026-07-30T10:00:00Z",
+                "updated_at": "2026-07-30T10:00:00Z",
+                "store": "huawei",
+                "state": "package_compiling",
+                "app_alias": "demo",
+                "app_id": "123",
+                "package_name": "com.example.app",
+                "package_path": "/build/release.apk",
+                "package_sha256": "abc",
+                "logical_name": "release.apk",
+                "pkg_version": "42",
+                "language": "zh-CN",
+                "release_notes": "Fixes",
+                "submit": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    repo = RunRepository(tmp_path)
+
+    receipt = repo.get(run_id)
+
+    assert receipt.schema_version == 2
+    assert receipt.artifact_id == "42"
+    repo.save(receipt)
+    rewritten = json.loads(path.read_text(encoding="utf-8"))
+    assert rewritten["schema_version"] == 2
+    assert rewritten["artifact_id"] == "42"
+    assert "pkg_version" not in rewritten
+
+
+def test_rejects_unknown_future_receipt_version(tmp_path: Path) -> None:
+    path = tmp_path / "future.json"
+    payload = sample_receipt().model_dump(mode="json")
+    payload["run_id"] = "future"
+    payload["schema_version"] = 99
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(StateError) as raised:
+        RunRepository(tmp_path).get("future")
+
+    assert raised.value.code == "STATE_CORRUPT"

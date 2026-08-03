@@ -178,6 +178,7 @@ def test_runs_list_show_and_delete(tmp_path: Path, monkeypatch) -> None:
         run_id="run-1",
         created_at=now,
         updated_at=now,
+        store="huawei",
         state=RunState.PACKAGE_COMPILING,
         app_alias="wallet",
         app_id="123",
@@ -185,7 +186,7 @@ def test_runs_list_show_and_delete(tmp_path: Path, monkeypatch) -> None:
         package_path="/build/wallet.apk",
         package_sha256="abc",
         logical_name="wallet.apk",
-        pkg_version="42",
+        artifact_id="42",
         language="zh-CN",
         release_notes="Fixes",
     )
@@ -202,7 +203,7 @@ def test_runs_list_show_and_delete(tmp_path: Path, monkeypatch) -> None:
 
     assert json.loads(listed.stdout)["runs"][0]["run_id"] == "run-1"
     assert "run-1  wallet  package_compiling" in listed_text.stdout
-    assert json.loads(shown.stdout)["pkg_version"] == "42"
+    assert json.loads(shown.stdout)["artifact_id"] == "42"
     assert "Package: wallet.apk" in shown_text.stdout
     assert deleted.exit_code == 0
     assert json.loads(deleted.stdout)["deleted"] is True

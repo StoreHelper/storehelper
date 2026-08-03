@@ -122,14 +122,14 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Version 1 input migrates `pkg_version` to `artifact_id`.
 - `OperationResult` and `PublishRequest` accept registered store names while operation JSON remains schema version 1.
 
-- [ ] Add failing tests that load a literal v1 JSON receipt, expose `artifact_id`, and rewrite v2 atomically.
-- [ ] Add failing tests for HarmonyOS operation-result JSON, success/failure factories, and next-action output.
-- [ ] Run the focused tests and verify model validation failures.
-- [ ] Implement an explicit v1 migration function rather than accepting arbitrary aliases silently.
-- [ ] Ensure migration rejects future versions, invalid store names, missing durable fields, and secret-like extra data.
-- [ ] Change duplicate detection to `(store, app_id, artifact_sha256)` and repository creation to require `store`.
-- [ ] Run `python -m pytest tests/unit/test_run_repository.py tests/unit/test_domain.py tests/unit/test_renderers.py -q`.
-- [ ] Commit: `feat: migrate publishing receipts to generic schema v2`.
+- [x] Add failing tests that load a literal v1 JSON receipt, expose `artifact_id`, and rewrite v2 atomically.
+- [x] Add failing tests for HarmonyOS operation-result JSON, success/failure factories, and next-action output.
+- [x] Run the focused tests and verify model validation failures.
+- [x] Implement an explicit v1 migration function rather than accepting arbitrary aliases silently.
+- [x] Ensure migration rejects future versions, invalid store names, missing durable fields, and secret-like extra data.
+- [x] Change duplicate detection to `(store, app_id, artifact_sha256)` and repository creation to require `store`.
+- [x] Run `python -m pytest tests/unit/test_run_repository.py tests/unit/test_domain.py tests/unit/test_renderers.py -q`.
+- [x] Commit: `feat: migrate publishing receipts to generic schema v2`.
 
 ### Task 4: Store-neutral publishing state machine
 

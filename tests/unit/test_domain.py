@@ -4,6 +4,7 @@ from pydantic import ValidationError
 from storehelper.domain.errors import StoreHelperError, redact
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
+from storehelper.stores.models import StoreName
 
 
 def test_operation_result_serializes_stable_schema() -> None:
@@ -77,3 +78,15 @@ def test_publish_timeout_cannot_be_shorter_than_poll_interval() -> None:
             poll_interval_seconds=30,
             wait_timeout_seconds=10,
         )
+
+
+def test_harmonyos_operation_result_keeps_public_schema_version_one() -> None:
+    result = OperationResult.success(
+        store=StoreName.HARMONYOS,
+        stage=PublishStage.SUBMITTED,
+        run_id="run-harmony",
+    )
+
+    payload = result.model_dump(mode="json")
+    assert payload["schema_version"] == 1
+    assert payload["store"] == "harmonyos"

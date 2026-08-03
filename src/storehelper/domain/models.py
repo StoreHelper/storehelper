@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from storehelper.stores.models import StoreName
+
 
 class PublishStage(StrEnum):
     CREATED = "created"
@@ -45,7 +47,7 @@ class OperationResult(BaseModel):
     schema_version: Literal[1] = 1
     ok: bool
     run_id: str | None = None
-    store: Literal["huawei"] = "huawei"
+    store: StoreName = StoreName.HUAWEI
     stage: PublishStage
     resumable: bool = False
     message: str
@@ -56,6 +58,7 @@ class OperationResult(BaseModel):
     def success(
         cls,
         *,
+        store: StoreName = StoreName.HUAWEI,
         stage: PublishStage,
         run_id: str | None,
         message: str | None = None,
@@ -66,12 +69,13 @@ class OperationResult(BaseModel):
                 if stage is PublishStage.SUBMITTED
                 else "Operation completed successfully."
             )
-        return cls(ok=True, stage=stage, run_id=run_id, message=message)
+        return cls(ok=True, store=store, stage=stage, run_id=run_id, message=message)
 
     @classmethod
     def failure(
         cls,
         *,
+        store: StoreName = StoreName.HUAWEI,
         stage: PublishStage,
         run_id: str | None,
         message: str,
@@ -86,6 +90,7 @@ class OperationResult(BaseModel):
         )
         return cls(
             ok=False,
+            store=store,
             stage=stage,
             run_id=run_id,
             resumable=resumable,
@@ -101,7 +106,7 @@ class PublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     app_alias: str
-    store: Literal["huawei"] = "huawei"
+    store: StoreName = StoreName.HUAWEI
     file: Path
     release_notes: str | None = None
     submit: bool = True
