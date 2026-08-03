@@ -136,7 +136,7 @@ class AppleStoreConfig(BaseModel):
 - [x] Run focused tests and confirm `apple` is rejected.
 - [x] Add the strict Apple model and `resolve_store_target` mapping to `release_id`/`platform`.
 - [x] Add registry metadata for `.ipa`, Apple credentials, processing poll, optional notes, and status.
-- [ ] Generalize registry factory typing to a tagged `StoreCredential` union without casts at call sites.
+- [x] Generalize registry factory typing to a tagged `StoreCredential` union without casts at call sites.
 - [x] Update only fake values in the example YAML.
 - [x] Run configuration/registry tests and static checks.
 - [x] Commit: `feat: configure Apple App Store targets`.
@@ -177,15 +177,15 @@ class CredentialProvider:
     ) -> StoreCredential: ...
 ```
 
-- [ ] Write failing tests for team/individual JSON, issuer rules, EC P-256 enforcement, type-tagged
+- [x] Write failing tests for team/individual JSON, issuer rules, EC P-256 enforcement, type-tagged
   storage, Huawei legacy storage, Apple environment precedence/conflicts, and redacted repr/errors.
-- [ ] Write deterministic JWT tests that decode headers/claims and verify ES256 signatures.
-- [ ] Run tests and confirm Apple types/imports are missing.
-- [ ] Implement typed storage envelopes while accepting legacy untagged Huawei profiles.
-- [ ] Add Apple file/env/keyring/prompt resolution with mutually exclusive sources.
-- [ ] Generate ten-minute cached team (`iss`) and individual (`sub=user`) JWTs.
-- [ ] Run all credential/Huawei auth tests and secret scans.
-- [ ] Commit: `feat: secure Apple API key credentials`.
+- [x] Write deterministic JWT tests that decode headers/claims and verify ES256 signatures.
+- [x] Run tests and confirm Apple types/imports are missing.
+- [x] Implement typed storage envelopes while accepting legacy untagged Huawei profiles.
+- [x] Add Apple file/env/keyring/prompt resolution with mutually exclusive sources.
+- [x] Generate ten-minute cached team (`iss`) and individual (`sub=user`) JWTs.
+- [x] Run all credential/Huawei auth tests and secret scans.
+- [x] Commit: `feat: secure Apple API key credentials`.
 
 ### Task 4: IPA artifact inspection
 

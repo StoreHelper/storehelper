@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from keyring.errors import KeyringError
 
-from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.credentials.models import AppleApiKey, AppleKeyType, HuaweiServiceAccount
 from storehelper.credentials.providers import (
     CredentialError,
     CredentialProvider,
@@ -16,6 +16,7 @@ from storehelper.credentials.providers import (
     load_service_account_file,
 )
 from storehelper.credentials.service import CredentialService
+from storehelper.stores.models import CredentialKind
 
 
 def account_json(private_key: str, *, key_id: str = "kid-1") -> str:
@@ -26,6 +27,58 @@ def account_json(private_key: str, *, key_id: str = "kid-1") -> str:
             "private_key": private_key,
         }
     )
+
+
+def apple_json(
+    private_key: str,
+    *,
+    key_type: str = "team",
+    issuer_id: str | None = "issuer-1",
+) -> str:
+    value: dict[str, str] = {
+        "key_type": key_type,
+        "key_id": "APPLEKEY1",
+        "private_key": private_key,
+    }
+    if issuer_id is not None:
+        value["issuer_id"] = issuer_id
+    return json.dumps(value)
+
+
+def test_apple_team_and_individual_credentials_are_strict(p256_private_key: str) -> None:
+    team = AppleApiKey.model_validate_json(apple_json(p256_private_key))
+    individual = AppleApiKey.model_validate_json(
+        apple_json(p256_private_key, key_type="individual", issuer_id=None)
+    )
+
+    assert team.key_type is AppleKeyType.TEAM
+    assert team.issuer_id == "issuer-1"
+    assert individual.key_type is AppleKeyType.INDIVIDUAL
+    assert individual.issuer_id is None
+
+    with pytest.raises(CredentialError):
+        AppleApiKey.model_validate_json(
+            apple_json(p256_private_key, key_type="team", issuer_id=None)
+        )
+    with pytest.raises(CredentialError):
+        AppleApiKey.model_validate_json(
+            apple_json(p256_private_key, key_type="individual", issuer_id="forbidden")
+        )
+
+
+def test_apple_rejects_non_p256_private_key_without_echoing_it(rsa_private_key: str) -> None:
+    with pytest.raises(CredentialError) as raised:
+        AppleApiKey.model_validate_json(apple_json(rsa_private_key))
+
+    assert rsa_private_key not in str(raised.value)
+
+
+def test_apple_secret_repr_and_dump_are_redacted(p256_private_key: str) -> None:
+    credential = AppleApiKey.model_validate_json(apple_json(p256_private_key))
+
+    assert p256_private_key not in repr(credential)
+    assert p256_private_key not in str(credential.model_dump())
+    assert credential.private_key.get_secret_value() == p256_private_key
 
 
 @pytest.mark.usefixtures("clean_huawei_env")
@@ -70,6 +123,94 @@ def test_reads_named_keyring_profile(rsa_private_key: str) -> None:
     resolved = CredentialProvider(keyring).resolve("company", interactive=False)
 
     assert resolved.key_id == "kid-1"
+
+
+@pytest.mark.usefixtures("clean_apple_env")
+def test_reads_type_tagged_apple_keyring_profile(p256_private_key: str) -> None:
+    keyring = MemoryKeyring()
+    credential = AppleApiKey.model_validate_json(apple_json(p256_private_key))
+    keyring.set(
+        "company",
+        credential.to_storage_json(),
+        CredentialKind.APPLE_API_KEY,
+    )
+
+    resolved = CredentialProvider(keyring).resolve(
+        "company",
+        CredentialKind.APPLE_API_KEY,
+        interactive=False,
+    )
+
+    assert isinstance(resolved, AppleApiKey)
+    assert resolved.key_id == "APPLEKEY1"
+
+
+@pytest.mark.usefixtures("clean_apple_env")
+def test_apple_environment_file_conflicts_with_individual_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    p256_private_key: str,
+) -> None:
+    path = tmp_path / "apple.json"
+    path.write_text(apple_json(p256_private_key), encoding="utf-8")
+    monkeypatch.setenv("STOREHELPER_APPLE_CREDENTIALS_FILE", str(path))
+    monkeypatch.setenv("STOREHELPER_APPLE_KEY_ID", "duplicate")
+
+    with pytest.raises(CredentialError) as raised:
+        CredentialProvider(MemoryKeyring()).resolve(
+            "company",
+            CredentialKind.APPLE_API_KEY,
+            interactive=False,
+        )
+
+    assert raised.value.code == "CREDENTIAL_SOURCE_CONFLICT"
+
+
+@pytest.mark.usefixtures("clean_apple_env")
+@pytest.mark.parametrize(
+    ("key_type", "issuer_id"),
+    [("team", "issuer-1"), ("individual", None)],
+)
+def test_resolves_complete_apple_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+    p256_private_key: str,
+    key_type: str,
+    issuer_id: str | None,
+) -> None:
+    monkeypatch.setenv("STOREHELPER_APPLE_KEY_TYPE", key_type)
+    monkeypatch.setenv("STOREHELPER_APPLE_KEY_ID", "APPLEKEY1")
+    monkeypatch.setenv("STOREHELPER_APPLE_PRIVATE_KEY", p256_private_key)
+    if issuer_id is not None:
+        monkeypatch.setenv("STOREHELPER_APPLE_ISSUER_ID", issuer_id)
+
+    resolved = CredentialProvider(MemoryKeyring()).resolve(
+        "ignored",
+        CredentialKind.APPLE_API_KEY,
+        interactive=False,
+    )
+
+    assert isinstance(resolved, AppleApiKey)
+    assert resolved.key_type.value == key_type
+    assert resolved.issuer_id == issuer_id
+
+
+def test_wrong_stored_credential_kind_is_rejected(
+    rsa_private_key: str,
+    p256_private_key: str,
+) -> None:
+    keyring = MemoryKeyring()
+    apple = AppleApiKey.model_validate_json(apple_json(p256_private_key))
+    keyring.set("shared", apple.to_storage_json(), CredentialKind.HUAWEI_SERVICE_ACCOUNT)
+
+    with pytest.raises(CredentialError) as raised:
+        CredentialProvider(keyring, environment={}).resolve(
+            "shared",
+            CredentialKind.HUAWEI_SERVICE_ACCOUNT,
+            interactive=False,
+        )
+
+    assert raised.value.code == "CREDENTIAL_KIND_MISMATCH"
+    assert rsa_private_key not in str(raised.value)
 
 
 @pytest.mark.usefixtures("clean_huawei_env")
@@ -122,6 +263,21 @@ def test_import_lists_and_deletes_profile(tmp_path: Path, rsa_private_key: str) 
     assert service.list_profiles() == []
 
 
+def test_imports_apple_profile_in_an_independent_namespace(
+    tmp_path: Path,
+    p256_private_key: str,
+) -> None:
+    source = tmp_path / "apple.json"
+    source.write_text(apple_json(p256_private_key), encoding="utf-8")
+    keyring = MemoryKeyring()
+    service = CredentialService(keyring)
+
+    service.import_file("company", source, CredentialKind.APPLE_API_KEY)
+
+    assert service.list_profiles(CredentialKind.APPLE_API_KEY) == ["company"]
+    assert service.list_profiles(CredentialKind.HUAWEI_SERVICE_ACCOUNT) == []
+
+
 @pytest.mark.usefixtures("clean_huawei_env")
 def test_environment_credential_file_is_loaded(
     tmp_path: Path,
@@ -163,7 +319,8 @@ def test_interactive_provider_uses_prompt(rsa_private_key: str) -> None:
     account = HuaweiServiceAccount.model_validate_json(account_json(rsa_private_key))
 
     class Prompt:
-        def prompt(self) -> HuaweiServiceAccount:
+        def prompt(self, kind: CredentialKind) -> HuaweiServiceAccount:
+            assert kind is CredentialKind.HUAWEI_SERVICE_ACCOUNT
             return account
 
     resolved = CredentialProvider(

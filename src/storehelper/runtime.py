@@ -8,7 +8,7 @@ import httpx
 
 from storehelper.config.loader import resolve_store_target
 from storehelper.config.models import ApplicationConfig
-from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.credentials.models import StoreCredential
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.publishing.service import ArtifactValidator
@@ -42,7 +42,7 @@ def resolve_runtime(
 def build_runtime(
     application: ApplicationConfig,
     store: StoreName,
-    account: HuaweiServiceAccount,
+    account: StoreCredential,
     http: httpx.AsyncClient,
 ) -> StoreRuntime:
     registration = get_registration(store)

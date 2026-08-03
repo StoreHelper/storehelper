@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 
 from storehelper.artifacts.models import ArtifactInfo
-from storehelper.credentials.models import HuaweiServiceAccount
+from storehelper.credentials.models import CredentialError, HuaweiServiceAccount, StoreCredential
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
@@ -25,7 +25,7 @@ from storehelper.stores.models import (
 )
 
 ArtifactValidator = Callable[[Path], ArtifactInfo]
-AdapterFactory = Callable[[HuaweiServiceAccount, httpx.AsyncClient], StoreAdapter]
+AdapterFactory = Callable[[StoreCredential, httpx.AsyncClient], StoreAdapter]
 
 
 @dataclass(frozen=True)
@@ -45,16 +45,26 @@ def _apple_validator_pending(path: Path) -> ArtifactInfo:
 
 
 def _huawei_factory(
-    account: HuaweiServiceAccount,
+    account: StoreCredential,
     http: httpx.AsyncClient,
 ) -> StoreAdapter:
+    if not isinstance(account, HuaweiServiceAccount):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "Huawei publishing requires a Huawei Service Account profile.",
+        )
     return HuaweiAndroidAdapter(HuaweiClient(auth=HuaweiAuth(account), http=http))
 
 
 def _harmonyos_factory(
-    account: HuaweiServiceAccount,
+    account: StoreCredential,
     http: httpx.AsyncClient,
 ) -> StoreAdapter:
+    if not isinstance(account, HuaweiServiceAccount):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "HarmonyOS publishing requires a Huawei Service Account profile.",
+        )
     return HarmonyOSAdapter(HarmonyOSClient(auth=HuaweiAuth(account), http=http))
 
 
