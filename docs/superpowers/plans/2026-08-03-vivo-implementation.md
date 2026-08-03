@@ -67,15 +67,15 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** vivo client/adapter/package modules and upload/submission/status tests.
 
-- [ ] Write failing multipart tests for exact method/fields/logical filename, streamed APK, MD5,
+- [x] Write failing multipart tests for exact method/fields/logical filename, streamed APK, MD5,
   valid upload result, redirects, cancellation, and zero upload retries.
-- [ ] Write failing adapter tests for higher version code, allowed/conflicting statuses, fresh query,
+- [x] Write failing adapter tests for higher version code, allowed/conflicting statuses, fresh query,
   in-memory staged context, exact seven final fields, and no listing mutation.
-- [ ] Write failing tests for final success/rejection/redirect/response loss/cancellation, zero final
+- [x] Write failing tests for final success/rejection/redirect/response loss/cancellation, zero final
   retries, and all status mappings including unknown.
-- [ ] Implement staged upload/final submission and review status.
-- [ ] Run focused tests, Ruff, and mypy.
-- [ ] Commit: `feat: submit vivo updates for review`.
+- [x] Implement staged upload/final submission and review status.
+- [x] Run focused tests, Ruff, and mypy.
+- [x] Commit: `feat: submit vivo updates for review`.
 
 ### Task 6: Registry, runtime, CLI, and end-to-end safety
 

@@ -6,11 +6,13 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 
 import httpx
+from pydantic import SecretStr
 
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.vivo.auth import VivoAuth
 from storehelper.stores.vivo.errors import VivoVendorError, parse_vivo_error
-from storehelper.stores.vivo.models import VivoApplicationInfo
+from storehelper.stores.vivo.models import VivoApplicationInfo, VivoUploadedApk
+from storehelper.stores.vivo.package import VivoArtifactInfo
 
 DEFAULT_API_URL = "https://developer-api.vivo.com.cn/router/rest"
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -188,3 +190,106 @@ class VivoClient:
             version_code=version_code,
             status=status,
         )
+
+    async def upload_apk(
+        self,
+        *,
+        package_name: str,
+        artifact: VivoArtifactInfo,
+    ) -> VivoUploadedApk:
+        """Stream one APK through vivo's fixed multipart upload method exactly once."""
+
+        params = self._auth.signed_params(
+            "app.upload.apk.app.64",
+            {"packageName": package_name, "fileMd5": artifact.md5},
+        )
+        try:
+            with artifact.path.open("rb") as package:
+                response = await self._http.post(
+                    DEFAULT_API_URL,
+                    data=params,
+                    files={
+                        "file": (
+                            artifact.logical_name,
+                            package,
+                            "application/vnd.android.package-archive",
+                        )
+                    },
+                    follow_redirects=False,
+                )
+        except OSError:
+            raise VivoVendorError(
+                "VIVO_LOCAL_FILE_ERROR",
+                "The vivo APK became unreadable before upload.",
+                ExitCode.PACKAGE_VALIDATION,
+            ) from None
+        except httpx.HTTPError:
+            raise self._network_error(
+                "VIVO_NETWORK_ERROR",
+                "The vivo APK upload response was not received.",
+            ) from None
+        if response.is_redirect:
+            raise self._network_error(
+                "VIVO_REDIRECT",
+                "vivo publishing returned an unexpected redirect.",
+            )
+        payload = self._response_payload(response)
+        data = payload.get("data")
+        if not isinstance(data, Mapping):
+            raise self._protocol_error(
+                "VIVO_UPLOAD_RESULT_INVALID",
+                "vivo returned an incomplete APK upload result.",
+            )
+        serialnumber = data.get("serialnumber")
+        returned_md5 = data.get("fileMd5", artifact.md5)
+        if (
+            not isinstance(serialnumber, str)
+            or not serialnumber.strip()
+            or len(serialnumber.strip()) > 512
+            or not isinstance(returned_md5, str)
+            or returned_md5.lower() != artifact.md5
+        ):
+            raise self._protocol_error(
+                "VIVO_UPLOAD_RESULT_INVALID",
+                "vivo returned an incomplete APK upload result.",
+            )
+        return VivoUploadedApk(
+            serialnumber=SecretStr(serialnumber.strip()),
+            md5=SecretStr(artifact.md5),
+        )
+
+    async def submit_update(
+        self,
+        *,
+        package_name: str,
+        version_code: int,
+        uploaded: VivoUploadedApk,
+        release_notes: str,
+    ) -> str:
+        """Perform the single non-retryable vivo review-submission mutation."""
+
+        try:
+            response = await self._post(
+                "app.sync.update.app",
+                business={
+                    "packageName": package_name,
+                    "versionCode": str(version_code),
+                    "apk": uploaded.serialnumber.get_secret_value(),
+                    "fileMd5": uploaded.md5.get_secret_value(),
+                    "onlineType": "1",
+                    "compatibleDevice": "1",
+                    "updateDesc": release_notes,
+                },
+                retry_transient=False,
+            )
+        except VivoVendorError as error:
+            if error.code == "VIVO_NETWORK_ERROR":
+                raise VivoVendorError(
+                    "VIVO_SUBMISSION_UNCERTAIN",
+                    "The vivo final submission response was not received; "
+                    "inspect the vivo console.",
+                    ExitCode.NETWORK,
+                ) from None
+            raise
+        self._response_payload(response)
+        return package_name
