@@ -166,15 +166,121 @@ class GooglePlayClient:
             f"/androidpublisher/v3/applications/{package_segment}/edits",
             json={},
         )
+        return self._validate_edit(payload)
+
+    def _validate_edit(
+        self,
+        payload: Mapping[str, object],
+        *,
+        expected_id: str | None = None,
+    ) -> str:
         edit_id = payload.get("id")
         expiry = payload.get("expiryTimeSeconds")
         try:
             expiry_seconds = int(str(expiry))
         except (TypeError, ValueError):
             expiry_seconds = 0
-        if not isinstance(edit_id, str) or not edit_id or expiry_seconds <= 0:
+        if (
+            not isinstance(edit_id, str)
+            or not edit_id
+            or (expected_id is not None and edit_id != expected_id)
+            or expiry_seconds <= 0
+        ):
             raise self._protocol_error("Google Play returned an invalid App Edit.")
         return edit_id
+
+    async def get_edit(self, *, package_name: str, edit_id: str) -> Mapping[str, object]:
+        package_segment = quote(package_name, safe="")
+        edit_segment = quote(edit_id, safe="")
+        payload = await self.request_json(
+            "GET",
+            f"/androidpublisher/v3/applications/{package_segment}/edits/{edit_segment}",
+        )
+        self._validate_edit(payload, expected_id=edit_id)
+        return payload
+
+    @staticmethod
+    def _validate_track_payload(
+        payload: Mapping[str, object],
+        *,
+        expected_track: str,
+    ) -> list[dict[str, object]]:
+        if payload.get("track") != expected_track:
+            raise GooglePlayClient._protocol_error(
+                "Google Play returned a different track identifier."
+            )
+        raw_releases = payload.get("releases", [])
+        if not isinstance(raw_releases, list):
+            raise GooglePlayClient._protocol_error("Google Play returned an invalid edit track.")
+        releases: list[dict[str, object]] = []
+        for raw_release in raw_releases:
+            if not isinstance(raw_release, Mapping):
+                raise GooglePlayClient._protocol_error(
+                    "Google Play returned an invalid edit release."
+                )
+            status = raw_release.get("status")
+            version_codes = raw_release.get("versionCodes")
+            if (
+                not isinstance(status, str)
+                or not isinstance(version_codes, list)
+                or not version_codes
+                or not all(
+                    isinstance(value, str) and value.isdigit() and int(value) > 0
+                    for value in version_codes
+                )
+            ):
+                raise GooglePlayClient._protocol_error(
+                    "Google Play returned an invalid edit release."
+                )
+            releases.append(dict(raw_release))
+        return releases
+
+    async def get_track(
+        self,
+        *,
+        package_name: str,
+        edit_id: str,
+        track: str,
+    ) -> list[dict[str, object]]:
+        package_segment = quote(package_name, safe="")
+        edit_segment = quote(edit_id, safe="")
+        track_segment = quote(track, safe="")
+        payload = await self.request_json(
+            "GET",
+            f"/androidpublisher/v3/applications/{package_segment}/edits/"
+            f"{edit_segment}/tracks/{track_segment}",
+        )
+        return self._validate_track_payload(payload, expected_track=track)
+
+    async def update_track(
+        self,
+        *,
+        package_name: str,
+        edit_id: str,
+        track: str,
+        releases: list[dict[str, object]],
+        expected_version_code: str,
+    ) -> None:
+        package_segment = quote(package_name, safe="")
+        edit_segment = quote(edit_id, safe="")
+        track_segment = quote(track, safe="")
+        payload = await self.request_json(
+            "PUT",
+            f"/androidpublisher/v3/applications/{package_segment}/edits/"
+            f"{edit_segment}/tracks/{track_segment}",
+            json={"track": track, "releases": releases},
+        )
+        updated = self._validate_track_payload(payload, expected_track=track)
+        confirmed = False
+        for release in updated:
+            version_codes = release.get("versionCodes")
+            if isinstance(version_codes, list) and expected_version_code in version_codes:
+                confirmed = True
+                break
+        if not confirmed:
+            raise self._protocol_error(
+                "Google Play track update did not confirm the uploaded version."
+            )
 
     async def upload_artifact(
         self,

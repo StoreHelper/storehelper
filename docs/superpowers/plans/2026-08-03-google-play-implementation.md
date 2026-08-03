@@ -127,12 +127,12 @@ async def submit(
 - Modify: `src/storehelper/stores/google_play/adapter.py`
 - Create: `tests/integration/test_google_play_track.py`
 
-- [ ] Add failing tests for missing operation ID, Edit existence, track GET, staged/halted rejection,
+- [x] Add failing tests for missing operation ID, Edit existence, track GET, staged/halted rejection,
   draft preservation, completed replacement, exact version code, locale, optional notes, 1-500
   length, no unrelated fields, and idempotent retry.
-- [ ] Update only the configured track.
-- [ ] Reject active staged rollouts rather than overwriting them.
-- [ ] Commit: `feat: prepare Google Play track releases`.
+- [x] Update only the configured track.
+- [x] Reject active staged rollouts rather than overwriting them.
+- [x] Commit: `feat: prepare Google Play track releases`.
 
 ### Task 8: Validate, commit, and reconcile submission
 

@@ -122,6 +122,112 @@ class GooglePlayAdapter:
             operation_id=edit_id,
         )
 
+    @staticmethod
+    def _new_release(
+        *,
+        artifact_id: str,
+        release_status: str,
+        language: str,
+        release_notes: str | None,
+    ) -> dict[str, object]:
+        release: dict[str, object] = {
+            "versionCodes": [artifact_id],
+            "status": release_status,
+        }
+        if release_notes is not None:
+            release["releaseNotes"] = [{"language": language, "text": release_notes}]
+        return release
+
+    @staticmethod
+    def _release_matches(
+        release: Mapping[str, object],
+        expected: Mapping[str, object],
+    ) -> bool:
+        if not all(
+            release.get(field) == expected.get(field) for field in ("versionCodes", "status")
+        ):
+            return False
+        expected_notes = expected.get("releaseNotes")
+        release_notes = release.get("releaseNotes")
+        if expected_notes is None:
+            return release_notes in (None, [])
+        return release_notes == expected_notes
+
+    async def prepare_release(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+        release_notes: str | None,
+    ) -> None:
+        package_name, track = self._validate_target(target)
+        if operation_id is None or not operation_id.strip():
+            raise GoogleVendorError(
+                "GOOGLE_EDIT_ID_MISSING",
+                "Google Play release preparation requires the persisted App Edit ID.",
+                ExitCode.LOCAL_STATE,
+            )
+        try:
+            version_code = int(artifact_id)
+        except ValueError:
+            version_code = 0
+        if version_code <= 0:
+            raise GoogleVendorError(
+                "GOOGLE_VERSION_CODE_INVALID",
+                "Google Play release preparation requires a positive version code.",
+                ExitCode.LOCAL_STATE,
+            )
+        normalized_artifact_id = str(version_code)
+        notes = release_notes.strip() if release_notes is not None else None
+        if notes is not None and not 1 <= len(notes) <= 500:
+            raise GoogleVendorError(
+                "GOOGLE_RELEASE_NOTES_INVALID",
+                "Google Play release notes must contain 1 to 500 characters.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        assert target.release_status is not None
+        expected = self._new_release(
+            artifact_id=normalized_artifact_id,
+            release_status=target.release_status,
+            language=target.language,
+            release_notes=notes,
+        )
+
+        edit_id = operation_id.strip()
+        await self._client.get_edit(package_name=package_name, edit_id=edit_id)
+        existing = await self._client.get_track(
+            package_name=package_name,
+            edit_id=edit_id,
+            track=track,
+        )
+        if any(release.get("status") in {"inProgress", "halted"} for release in existing):
+            raise GoogleVendorError(
+                "GOOGLE_ACTIVE_ROLLOUT",
+                "Google Play track has an active staged rollout; StoreHelper will not "
+                "overwrite it.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        for release in existing:
+            version_codes = release.get("versionCodes")
+            if isinstance(version_codes, list) and normalized_artifact_id in version_codes:
+                if self._release_matches(release, expected):
+                    return
+                raise GoogleVendorError(
+                    "GOOGLE_VERSION_CONFLICT",
+                    "The uploaded version already exists in the track with different settings.",
+                    ExitCode.VENDOR_REJECTION,
+                )
+
+        releases = [*existing, expected] if target.release_status == "draft" else [expected]
+        await self._client.update_track(
+            package_name=package_name,
+            edit_id=edit_id,
+            track=track,
+            releases=releases,
+            expected_version_code=normalized_artifact_id,
+        )
+
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         package_name, track = self._validate_target(target)
         payload = await self._client.list_releases(
