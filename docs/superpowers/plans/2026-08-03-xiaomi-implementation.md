@@ -131,13 +131,13 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Create: `tests/integration/test_xiaomi_publish_flow.py`
 - Modify: publishing/repository/output tests where required
 
-- [ ] Cover valid full update, dry-run zero I/O, vendor rejection, lost response, cancellation, start
+- [x] Cover valid full update, dry-run zero I/O, vendor rejection, lost response, cancellation, start
   state after simulated hard crash, same-artifact blocking, no resume, local receipt deletion, and
   subsequent deliberate retry.
-- [ ] Verify no API secret, certificate, SIG, test account, request body, or raw response appears in
+- [x] Verify no API secret, certificate, SIG, test account, request body, or raw response appears in
   text/JSON output or v5 receipts.
-- [ ] Run the complete suite, Ruff, mypy, and non-test secret scan.
-- [ ] Commit: `test: cover Xiaomi atomic publishing safety`.
+- [x] Run the complete suite, Ruff, mypy, and non-test secret scan.
+- [x] Commit: `test: cover Xiaomi atomic publishing safety`.
 
 ### Task 9: Documentation and v0.5.0
 

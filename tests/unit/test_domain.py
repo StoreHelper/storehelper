@@ -71,6 +71,25 @@ def test_redact_removes_aws_authorization_signature_and_object_id() -> None:
         assert secret not in redacted
 
 
+def test_redact_removes_xiaomi_signature_credentials_and_certificate() -> None:
+    value = (
+        "SIG=xiaomi-signature api_secret=xiaomi-secret "
+        "public_key_certificate=certificate-field testAccount=review-account\n"
+        "-----BEGIN CERTIFICATE-----\ncertificate-body\n-----END CERTIFICATE-----"
+    )
+
+    redacted = redact(value)
+
+    for secret in (
+        "xiaomi-signature",
+        "xiaomi-secret",
+        "certificate-field",
+        "review-account",
+        "certificate-body",
+    ):
+        assert secret not in redacted
+
+
 def test_storehelper_error_redacts_message_and_maps_exit_code() -> None:
     error = StoreHelperError(
         code="AUTH_FAILED",
