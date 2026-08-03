@@ -1,7 +1,7 @@
 # StoreHelper Multi-Store Foundation and HarmonyOS Design
 
-**Status:** Approved for implementation  
-**Date:** 2026-08-03  
+**Status:** Approved for implementation
+**Date:** 2026-08-03
 **Target release:** v0.2.0
 
 ## 1. Purpose

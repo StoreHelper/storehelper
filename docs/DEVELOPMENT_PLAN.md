@@ -16,7 +16,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 9: Static adapter registry, runtime factory, and CLI integration.
 - [x] Task 10: End-to-end recovery and security regression suite.
 - [x] Task 11: Documentation and public progress tracking.
-- [ ] Task 12: Full verification and milestone closure.
+- [x] Task 12: Full verification and milestone closure.
 
 ## Implementation task status
 
@@ -113,7 +113,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Poll processing, update only `newFeatures`, submit review, and query review state.
 - [x] Resume timeout and interruption without re-upload and handle `204144727` eventual consistency.
 - [x] Document dual-store setup, shared credentials, security boundaries, and opt-in live checks.
-- [ ] Complete the clean v0.2.0 build, coverage, installed-wheel, smoke, and secret review gates.
+- [x] Complete the clean v0.2.0 build, coverage, installed-wheel, smoke, and secret review gates.
 
 ## Later milestones
 

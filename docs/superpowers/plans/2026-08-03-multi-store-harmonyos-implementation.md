@@ -317,17 +317,17 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Modify only files required by fresh verification findings.
 - Modify: `docs/DEVELOPMENT_PLAN.md` after all gates pass.
 
-- [ ] Run `ruff format --check .`.
-- [ ] Run `ruff check .`.
-- [ ] Run `mypy src`.
-- [ ] Run `python -m pytest --cov=storehelper --cov-report=term-missing --cov-fail-under=90`.
-- [ ] Build source and wheel in a clean output directory.
-- [ ] Install the wheel into a temporary isolated environment.
-- [ ] Run installed `storehelper --help`, `version`, dual-store `config validate`, Huawei dry-run, and HarmonyOS dry-run.
-- [ ] Run `git diff --check` and confirm the worktree contains no generated build/cache artifacts.
-- [ ] Review the complete diff for private-project content, hard-coded credentials, temporary URLs, and vendor payload leakage.
-- [ ] Mark the multi-store foundation and HarmonyOS milestones complete in `docs/DEVELOPMENT_PLAN.md` only after every gate passes.
-- [ ] Commit: `chore: complete HarmonyOS milestone verification`.
+- [x] Run `ruff format --check .`.
+- [x] Run `ruff check .`.
+- [x] Run `mypy src`.
+- [x] Run `python -m pytest --cov=storehelper --cov-report=term-missing --cov-fail-under=90` (209 passed; 90.73%).
+- [x] Build source and wheel in a clean output directory and pass Twine checks.
+- [x] Install the wheel into a temporary isolated environment.
+- [x] Run installed `storehelper --help`, `version`, dual-store `config validate`, Huawei dry-run, and HarmonyOS dry-run.
+- [x] Run `git diff --check` and confirm generated build artifacts are outside the worktree.
+- [x] Review the complete diff for private-project content, hard-coded credentials, temporary URLs, and vendor payload leakage.
+- [x] Mark the multi-store foundation and HarmonyOS milestones complete in `docs/DEVELOPMENT_PLAN.md` only after every gate passes.
+- [x] Commit: `chore: complete HarmonyOS milestone verification`.
 
 ## Completion rule
 
