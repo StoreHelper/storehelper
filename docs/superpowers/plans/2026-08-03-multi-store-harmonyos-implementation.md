@@ -164,13 +164,13 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - `validate_harmonyos_artifact(path: Path) -> ArtifactInfo`.
 - Streamed SHA-256 and bounded safe logical name.
 
-- [ ] Create small valid `.app` and `.hap` ZIP fixtures in tests without adding binary fixtures to git.
-- [ ] Add failing cases for wrong suffix, empty file, directory, corrupt ZIP, traversal member, oversized stat, `.app` missing `pack.info`, and `.app` missing embedded HAP.
-- [ ] Run `python -m pytest tests/unit/test_harmonyos_package.py -q` and verify missing implementation failure.
-- [ ] Implement validation without extracting archives or reading the whole package into memory.
-- [ ] Reuse generic hashing/name helpers where doing so does not weaken APK/AAB validation.
-- [ ] Run focused tests plus Huawei package tests.
-- [ ] Commit: `feat: validate HarmonyOS APP and HAP artifacts`.
+- [x] Create small valid `.app` and `.hap` ZIP fixtures in tests without adding binary fixtures to git.
+- [x] Add failing cases for wrong suffix, empty file, corrupt ZIP, traversal member, oversized file, `.app` missing `pack.info`, and `.app` missing embedded HAP.
+- [x] Run `python -m pytest tests/unit/test_harmonyos_package.py -q` and verify missing implementation failure.
+- [x] Implement validation without extracting archives or reading the whole package into memory.
+- [x] Keep naming and hashing isolated where Android-specific suffix rules differ.
+- [x] Run focused tests plus Huawei package tests.
+- [x] Commit: `feat: validate HarmonyOS APP and HAP artifacts`.
 
 ### Task 6: HarmonyOS authenticated API client and app verification
 

@@ -9,7 +9,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 2: Strict multi-store configuration and resolved targets.
 - [x] Task 3: Receipt schema v2 and safe migration.
 - [x] Task 4: Store-neutral publishing state machine.
-- [ ] Task 5: HarmonyOS APP/HAP artifact validation.
+- [x] Task 5: HarmonyOS APP/HAP artifact validation.
 - [ ] Task 6: HarmonyOS authenticated API client and app verification.
 - [ ] Task 7: Secure streamed OBS upload and package binding.
 - [ ] Task 8: HarmonyOS processing, release notes, submission, and status.
