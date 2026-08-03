@@ -98,12 +98,12 @@ async def submit(
 - Create: `tests/unit/test_google_play_status.py`
 - Create: `tests/integration/test_google_play_verification.py`
 
-- [ ] Add failing tests for sanitized Google error shapes, redirect rejection, retry bounds, JWT
+- [x] Add failing tests for sanitized Google error shapes, redirect rejection, retry bounds, JWT
   refresh, lifecycle mapping, multiple-release priority, package/track encoding, and empty access.
-- [ ] Implement fixed-host authenticated JSON requests and read-only
+- [x] Implement fixed-host authenticated JSON requests and read-only
   `applications.tracks.releases.list` verification/status.
-- [ ] Never create an Edit for credential verification or status.
-- [ ] Commit: `feat: verify Google Play targets and status`.
+- [x] Never create an Edit for credential verification or status.
+- [x] Commit: `feat: verify Google Play targets and status`.
 
 ### Task 6: Streamed APK/AAB upload inside an App Edit
 
