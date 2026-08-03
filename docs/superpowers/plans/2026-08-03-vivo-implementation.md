@@ -55,13 +55,13 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** vivo errors/models/client modules and query integration tests.
 
-- [ ] Write failing tests for the exact gateway/method, form signing, redirect rejection, bounded
+- [x] Write failing tests for the exact gateway/method, form signing, redirect rejection, bounded
   read retries, malformed/oversized JSON, HTTP failures, code/subCode parsing, and redaction.
-- [ ] Write failing tests for exact package match, positive current version, known status, and
+- [x] Write failing tests for exact package match, positive current version, known status, and
   minimal immutable public application data.
-- [ ] Implement the fixed-host client and safe response/error parsing.
-- [ ] Run query/error tests, Ruff, and mypy.
-- [ ] Commit: `feat: verify vivo application access`.
+- [x] Implement the fixed-host client and safe response/error parsing.
+- [x] Run query/error tests, Ruff, and mypy.
+- [x] Commit: `feat: verify vivo application access`.
 
 ### Task 5: Streamed upload, staged final submission, and status
 
