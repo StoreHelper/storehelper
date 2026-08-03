@@ -3,6 +3,19 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.6.0 OPPO task status
+
+- [x] Task 1: Staged non-resumable submission orchestration and uncertainty boundary.
+- [x] Task 2: Strict existing-application configuration, version code, and APK preflight.
+- [x] Task 3: Application-specific credential sources and independent keyring namespace.
+- [x] Task 4: Deterministic HMAC-SHA256 signing and memory-only token cache.
+- [x] Task 5: Fixed-host token/application access verification and safe error mapping.
+- [x] Task 6: Allowlisted dynamic upload host and streamed APK upload with zero mutation retries.
+- [x] Task 7: Fresh-listing staging, exact final update form, and review-status mapping.
+- [x] Task 8: Registry, runtime, CLI, uncertain duplicate blocking, and security regression suite.
+- [x] Task 9: OPPO documentation, examples, and v0.6.0 versioning.
+- [ ] Task 10: Clean build, coverage, exact-wheel six-store smoke tests, and final secret review.
+
 ## v0.5.0 Xiaomi task status
 
 - [x] Task 1: Atomic submission safety and receipt schema v5.
@@ -164,6 +177,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Complete the Apple App Store Connect v0.3.0 implementation milestone.
 - [x] Complete the Google Play v0.4.0 verification and distribution milestone.
 - [x] Complete the Xiaomi v0.5.0 implementation and security milestone.
-- [ ] Add OPPO, vivo, and Honor Android store adapters.
+- [ ] Complete the OPPO v0.6.0 implementation and security milestone.
+- [ ] Add vivo and Honor Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

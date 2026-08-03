@@ -42,9 +42,7 @@ def validate_oppo_artifact(path: Path) -> OppoArtifactInfo:
     try:
         size = path.stat().st_size
     except OSError:
-        raise PackageError(
-            "PACKAGE_NOT_READABLE", "The OPPO APK is not a readable file."
-        ) from None
+        raise PackageError("PACKAGE_NOT_READABLE", "The OPPO APK is not a readable file.") from None
     if size > MAX_OPPO_PACKAGE_SIZE:
         raise PackageError("PACKAGE_TOO_LARGE", "OPPO APKs may not exceed 2 GiB.")
     artifact = validate_package(path)

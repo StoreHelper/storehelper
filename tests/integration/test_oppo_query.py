@@ -162,8 +162,10 @@ async def test_application_query_refreshes_token_once_after_auth_failure() -> No
         (_application(pkg_name="com.attacker.other"), "OPPO_PACKAGE_MISMATCH"),
         (_application(version_code="not-numeric"), "OPPO_APPLICATION_INFO_INVALID"),
         (_application(summary=""), "OPPO_APPLICATION_INCOMPLETE"),
-        ({key: value for key, value in _application().items() if key != "icon_url"},
-         "OPPO_APPLICATION_INCOMPLETE"),
+        (
+            {key: value for key, value in _application().items() if key != "icon_url"},
+            "OPPO_APPLICATION_INCOMPLETE",
+        ),
     ],
 )
 async def test_application_query_rejects_identity_version_and_incomplete_listing(
@@ -195,7 +197,9 @@ async def test_token_and_query_failures_are_bounded_and_fully_redacted(mode: str
         nonlocal info_calls
         if request.url.path == "/developer/v1/token":
             if mode == "redirect":
-                return httpx.Response(302, headers={"location": f"https://attacker.example/{leaked}"})
+                return httpx.Response(
+                    302, headers={"location": f"https://attacker.example/{leaked}"}
+                )
             return httpx.Response(200, json=_token())
         info_calls += 1
         if mode == "non-json":

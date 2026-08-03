@@ -43,6 +43,13 @@ Xiaomi uses a fourth independent namespace:
 3. the Xiaomi keyring namespace selected by `credentials ... --store xiaomi`;
 4. a secure interactive prompt for the three base fields only.
 
+OPPO uses a fifth, application-specific namespace:
+
+1. `STOREHELPER_OPPO_CREDENTIALS_FILE`;
+2. the complete pair `STOREHELPER_OPPO_CLIENT_ID` and `STOREHELPER_OPPO_CLIENT_SECRET`;
+3. the OPPO keyring namespace selected by `credentials ... --store oppo`;
+4. secure interactive prompts for both values.
+
 Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
 secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
 credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
@@ -50,7 +57,8 @@ require an unencrypted P-256 private key. Google requires a standard `service_ac
 an unencrypted RSA private key and a valid service-account email. Xiaomi requires the generated
 automatic-publishing API secret and Xiaomi's X.509 RSA public certificate. Optional structured
 review accounts, passwords/codes, access codes, and audit notes are credentials too; keep them out
-of project YAML and source control.
+of project YAML and source control. OPPO's `client_id` and `client_secret` are both treated as
+secrets, and a profile must be scoped to the application for which the OPPO API client was issued.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
@@ -65,6 +73,8 @@ replace JSON keys according to the organization's key-management policy.
 Apply the rule independently to Xiaomi. Prefer a CI secret file for the multiline certificate and
 nested review accounts. Resetting the Xiaomi API secret invalidates the old value; replace every
 keyring/CI copy together.
+Apply the rule independently to OPPO. Never mix the credential file with either individual
+variable, and do not reuse one application's OPPO client pair for another package.
 
 ## Persisted data
 
@@ -74,13 +84,20 @@ public operation IDs such as a Google App Edit ID, configured release/track/stat
 submission IDs, release notes, and state timestamps. They never contain private keys,
 JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
 temporary object IDs, upload URLs, destination URLs, Xiaomi API secrets/certificates, `SIG`,
-review accounts, RequestData, or raw vendor bodies. Receipt files are written atomically with
+review accounts, RequestData, OPPO client values/tokens/HMAC signatures/upload signs/file URLs,
+listing snapshots, signed forms, or raw vendor bodies. Receipt files are written atomically with
 owner-only permissions where the platform supports it.
 
 Xiaomi receipts may contain `submission_started` or `submission_uncertain`. These states mean the
 atomic upload-and-review request may have reached Xiaomi and are intentionally non-resumable. The
 same app/artifact remains locally blocked until an operator checks Xiaomi's console and explicitly
 deletes the local receipt. Deletion never changes Xiaomi state.
+
+OPPO receipts follow the same local blocking rule only after the final mutation begins. A staging
+failure happens before `submission_started` and is safe for a new confirmed run. A receipt in
+`submission_started` or `submission_uncertain` may represent a completed OPPO review submission;
+it is non-resumable and blocks the same app/artifact until an operator checks `status`, reconciles
+the OPPO console, and deliberately deletes the local receipt. Deletion never changes OPPO state.
 
 ## Network boundary
 
@@ -106,6 +123,15 @@ deletes the local receipt. Deletion never changes Xiaomi state.
   vendor field; durable artifact identity and duplicate detection continue to use SHA-256.
 - Xiaomi has no sandbox or automatic review-status API. `--no-submit`, `status`, and automatic
   resume are rejected instead of simulating safety the vendor does not provide.
+- OPPO API calls use only `https://oop-openapi-cn.heytapmobi.com`; signed reads may retry bounded
+  transient failures, but upload-address allocation, APK upload, and final submission are never
+  replayed automatically.
+- Dynamic OPPO upload URLs must use HTTPS/default port, have no userinfo or fragment, and match an
+  explicit OPPO/HeyTap suffix allowlist. Literal IPs (including private, loopback, link-local, and
+  reserved addresses), suffix lookalikes, and redirects are rejected before upload.
+- OPPO's vendor-required APK MD5 and opaque file URL exist only in memory. SHA-256 remains the
+  durable local identity. `--no-submit` and `resume` are rejected because the upload context is
+  intentionally not persisted.
 - JWTs and temporary upload values remain inside their store client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
 

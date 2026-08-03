@@ -244,15 +244,15 @@ Ruff, mypy, Hatchling/build, Twine.
 **Interfaces:**
 - Produces: bilingual public setup/security/live-verification instructions and version `0.6.0`.
 
-- [ ] Document application API-client creation, application-specific keyring profile, public
+- [x] Document application API-client creation, application-specific keyring profile, public
   version config, APK/note constraints, listing reuse, no-submit/no-resume, status, and uncertain
   reconciliation.
-- [ ] Add an opt-in checklist ordered local config/dry-run → read-only credential/application
+- [x] Add an opt-in checklist ordered local config/dry-run → read-only credential/application
   verification → separately approved publish → status/console reconciliation.
-- [ ] Verify examples use only fake identifiers/placeholders and no secret-like values.
-- [ ] Bump every active version source and lock metadata to `0.6.0`.
-- [ ] Run documentation config tests, version tests, Ruff, mypy, and non-test secret scan.
-- [ ] Commit: `docs: document OPPO publishing`.
+- [x] Verify examples use only fake identifiers/placeholders and no secret-like values.
+- [x] Bump every active version source and lock metadata to `0.6.0`.
+- [x] Run documentation config tests, version tests, Ruff, mypy, and non-test secret scan.
+- [x] Commit: `docs: document OPPO publishing`.
 
 ### Task 10: Full verification and milestone closure
 

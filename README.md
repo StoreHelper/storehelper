@@ -2,10 +2,10 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.5.0` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.6.0` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
-App Store Connect、Google Play 或小米应用商店应用，并提供安全的状态查询、断点恢复或
-原子提交保护。
+App Store Connect、Google Play、小米或 OPPO 软件商店应用，并提供安全的状态查询、
+断点恢复或原子/分阶段提交保护。
 
 > Status: alpha. Store records and release versions must already exist. StoreHelper does not
 > build/sign artifacts or create apps, certificates, versions, pricing, privacy, or rollout policy.
@@ -13,7 +13,7 @@ App Store Connect、Google Play 或小米应用商店应用，并提供安全的
 ## Why StoreHelper?
 
 - One command validates, uploads, prepares a release, and optionally submits it for review on
-  Huawei Android, HarmonyOS, Apple, Google Play, or Xiaomi.
+  Huawei Android, HarmonyOS, Apple, Google Play, Xiaomi, or OPPO.
 - Credentials live in the OS keyring or CI secret store—not in project YAML.
 - Every durable step has a redacted atomic receipt, so compilation timeouts can be resumed
   without uploading the package again.
@@ -31,6 +31,8 @@ App Store Connect、Google Play 或小米应用商店应用，并提供安全的
   standard unencrypted RSA key JSON
 - Xiaomi: an existing package, automatic-publishing API secret, Xiaomi X.509 RSA public
   certificate, a signed APK, and a PNG icon
+- OPPO: an existing mainland-China application, its application-specific Open Platform
+  `client_id`/`client_secret`, and one signed APK with a new version code
 
 Install the isolated CLI with [pipx](https://pipx.pypa.io/):
 
@@ -59,12 +61,12 @@ Create a secret-free project configuration:
 storehelper init
 ```
 
-Edit `storehelper.yaml`. One logical app may configure any subset of the five stores. Android and
+Edit `storehelper.yaml`. One logical app may configure any subset of the six stores. Android and
 Google Play use the application-level package name; HarmonyOS and Apple have their own
 package/bundle identifiers.
 
 编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple、Google
-Play 和小米应用商店中的任意组合；示例中的 ID、包名和配置名都是假的。
+Play、小米和 OPPO 软件商店中的任意组合；示例中的 ID、包名和配置名都是假的。
 
 ```yaml
 version: 1
@@ -99,6 +101,10 @@ apps:
         app_name: Example App
         icon: assets/xiaomi-icon.png
         privacy_url: https://example.com/privacy
+        language: zh-CN
+      oppo:
+        credential_profile: oppo-release
+        version_code: 123
         language: zh-CN
 ```
 
@@ -165,6 +171,27 @@ storehelper credentials list --store xiaomi
 storehelper credentials verify --app my-android-app --store xiaomi
 ```
 
+OPPO uses an application-specific credential pair. Create an API client for the existing app in
+the OPPO Open Platform, keep the pair in a local JSON file outside the repository, and import it
+into the independent OPPO keyring namespace:
+
+```json
+{
+  "client_id": "replace-with-oppo-client-id",
+  "client_secret": "replace-with-oppo-client-secret"
+}
+```
+
+```bash
+storehelper credentials import \
+  --store oppo --profile oppo-release --file ~/Downloads/oppo-api.json
+storehelper credentials list --store oppo
+storehelper credentials verify --app my-android-app --store oppo
+```
+
+The profile is application-specific. Do not reuse it for a different OPPO package. See the
+[OPPO live checklist](docs/OPPO_MANUAL_TEST.md) before any real submission.
+
 Validate locally without credentials or network access:
 
 ```bash
@@ -173,6 +200,7 @@ storehelper publish --app my-android-app --store harmonyos --file build/wallet.a
 storehelper publish --app my-android-app --store apple --file build/Wallet.ipa --dry-run
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --dry-run
 storehelper publish --app my-android-app --store xiaomi --file build/app-release.apk --dry-run
+storehelper publish --app my-android-app --store oppo --file build/app-release.apk --dry-run
 ```
 
 Upload and wait for package readiness without changing metadata or submitting review:
@@ -184,8 +212,9 @@ storehelper publish --app my-android-app --store apple --file build/Wallet.ipa -
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --no-submit
 ```
 
-Xiaomi does not support `--no-submit`: its `/dev/push` endpoint uploads the APK and submits review
-in the same request. Use `--dry-run` for zero-network validation.
+Xiaomi and OPPO do not support `--no-submit`. Xiaomi uploads and submits in one request; OPPO's
+temporary upload URL is deliberately kept only in memory for the immediately following final
+submission. Use `--dry-run` for zero-network validation.
 
 Publish end to end:
 
@@ -249,6 +278,25 @@ Xiaomi has no sandbox, upload-only operation, or automatic review-status API. St
 uses the read-only query API to verify package ownership/update permission, then sends exactly one
 confirmed upload-and-submit request. It supports existing-app, single-APK phone updates only.
 
+Publish an existing OPPO APK update. `version_code` is configured in public YAML and must be
+greater than the current OPPO version. Release notes are required (1–500 characters). StoreHelper
+reuses the app name, categories, descriptions, privacy URL, icon, screenshots, age/copyright, and
+business contact fields returned by OPPO; it does not silently replace missing listing data.
+
+```bash
+storehelper publish \
+  --app my-android-app \
+  --store oppo \
+  --file build/app-release.apk \
+  --release-notes "修复已知问题"
+```
+
+The supported OPPO scope is an existing mainland-China application, one signed APK no larger
+than 2 GiB, and a full online update. StoreHelper verifies the package and current version,
+allocates and streams one temporary upload, then performs one separately confirmed final review
+submission. It never creates or claims an app, changes listing metadata, uploads AAB/multiple APKs,
+or schedules a release.
+
 Interactive text mode shows a confirmation. CI and JSON mode must supply `--yes`:
 
 ```bash
@@ -273,6 +321,7 @@ storehelper runs show 20260730T100000Z-a1b2c3d4 --output json
 storehelper status --app my-android-app --store harmonyos
 storehelper status --app my-android-app --store apple
 storehelper status --app my-android-app --store google_play
+storehelper status --app my-android-app --store oppo
 ```
 
 `resume` derives the store from the receipt, verifies the current local artifact digest, starts
@@ -284,6 +333,13 @@ not resumable and the same app/artifact is blocked. Inspect the Xiaomi console f
 deciding whether another submission is safe should you acknowledge the result with
 `storehelper runs delete RUN_ID` and run a newly confirmed publish. `status --store xiaomi` is
 unsupported because Xiaomi does not expose that API.
+
+OPPO is also non-resumable, but uses a two-phase in-memory safety boundary. Failures before the
+final submission are safe for a newly confirmed run. Once the receipt reaches
+`submission_started`, cancellation, process loss, or a missing response becomes
+`submission_uncertain` and blocks the same app/artifact. Query `status --store oppo`, inspect the
+OPPO console, and delete the local receipt only after a release owner deliberately decides whether
+another submission is safe. Receipt deletion never changes remote OPPO state.
 
 ## CI credentials
 
@@ -355,6 +411,22 @@ export STOREHELPER_XIAOMI_TEST_ACCOUNTS_JSON='{"zh_CN":{"accounts":[],"audit_not
 Do not mix file and individual Xiaomi sources. Avoid putting secrets in shell history; a CI secret
 file is usually safer for the multiline certificate and nested reviewer values.
 
+For OPPO, use either one application-specific secret JSON file:
+
+```bash
+export STOREHELPER_OPPO_CREDENTIALS_FILE="$RUNNER_TEMP/oppo-api.json"
+```
+
+or the complete pair:
+
+```bash
+export STOREHELPER_OPPO_CLIENT_ID="..."
+export STOREHELPER_OPPO_CLIENT_SECRET="..."
+```
+
+Do not mix the OPPO file and individual variables, and do not pass either value on the command
+line. Each application should use a dedicated OPPO profile.
+
 Temporary upload URLs, signed headers, object IDs, JWTs, and raw vendor responses are never
 persisted. See [the security guide](docs/SECURITY_GUIDE.md).
 
@@ -405,13 +477,23 @@ persisted. See [the security guide](docs/SECURITY_GUIDE.md).
   current Xiaomi public certificate, developer email, and whether the secret was reset.
 - `submission_uncertain`: do not retry automatically. Inspect the Xiaomi console and delete only
   the local receipt after a release owner makes a deliberate retry decision.
+- `OPPO_APPLICATION_INCOMPLETE`: complete the existing OPPO listing in the developer console;
+  StoreHelper will not invent required categories, descriptions, media, privacy, copyright, or
+  business contact values.
+- `OPPO_VERSION_CONFLICT` or `OPPO_VERSION_EXISTS`: set a new positive `version_code` greater than
+  the current OPPO version and confirm the signed APK uses that version.
+- `OPPO_UPLOAD_HOST_UNSAFE`: stop and re-check the official OPPO service. StoreHelper accepts only
+  HTTPS upload URLs under its explicit OPPO/HeyTap allowlist and never follows redirects.
+- OPPO `submission_uncertain`: query OPPO status and inspect the console before deleting the local
+  receipt or authorizing another submission.
 
 For the deliberately opt-in production checklist, see
 [`docs/HARMONYOS_MANUAL_TEST.md`](docs/HARMONYOS_MANUAL_TEST.md) or
 [`docs/APPLE_MANUAL_TEST.md`](docs/APPLE_MANUAL_TEST.md), or
 [`docs/GOOGLE_PLAY_MANUAL_TEST.md`](docs/GOOGLE_PLAY_MANUAL_TEST.md), or
-[`docs/XIAOMI_MANUAL_TEST.md`](docs/XIAOMI_MANUAL_TEST.md). Start with local-only
-`--dry-run` and read-only credential verification, then use `--no-submit`; only a separately
+[`docs/XIAOMI_MANUAL_TEST.md`](docs/XIAOMI_MANUAL_TEST.md), or
+[`docs/OPPO_MANUAL_TEST.md`](docs/OPPO_MANUAL_TEST.md). Start with local-only `--dry-run` and
+read-only credential verification. Use `--no-submit` only where supported; only a separately
 confirmed command should commit or submit a review.
 
 ## Development
