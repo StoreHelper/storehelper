@@ -38,12 +38,12 @@ audit submission.
 
 ### Task 3: Credentials and account token
 
-- [ ] Add secret-safe credential model and file/env/keyring/prompt precedence.
-- [ ] Implement fixed-host client-credentials token exchange, expiry cache, one forced refresh, and
+- [x] Add secret-safe credential model and file/env/keyring/prompt precedence.
+- [x] Implement fixed-host client-credentials token exchange, expiry cache, one forced refresh, and
   bounded/safe response parsing.
-- [ ] Cover mixed/partial sources, CLI lifecycle, redaction, redirects, errors, and concurrency.
-- [ ] Run focused tests, Ruff, and mypy.
-- [ ] Commit: `feat: secure HONOR API authentication`.
+- [x] Cover mixed/partial sources, CLI lifecycle, redaction, redirects, errors, and concurrency.
+- [x] Run focused tests, Ruff, and mypy.
+- [x] Commit: `feat: secure HONOR API authentication`.
 
 ### Task 4: Application discovery, detail, release, and status
 

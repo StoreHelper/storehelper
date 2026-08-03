@@ -485,6 +485,72 @@ def test_vivo_credential_import_list_and_delete_use_separate_namespace(
     assert "example-vivo-secret" not in rendered
 
 
+def test_honor_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
+    credential_file = tmp_path / "honor.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "client_id": "example-honor-client",
+                "client_secret": "example-honor-secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "honor",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "honor", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "honor",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "honor",
+    }
+    assert json.loads(profiles.stdout) == {"profiles": ["release"], "store": "honor"}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "honor",
+    }
+    rendered = imported.stdout + profiles.stdout + deleted.stdout
+    assert "example-honor-client" not in rendered
+    assert "example-honor-secret" not in rendered
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 

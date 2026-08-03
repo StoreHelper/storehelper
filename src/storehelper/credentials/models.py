@@ -623,6 +623,48 @@ class VivoApiCredential(BaseModel):
         )
 
 
+class HonorApiCredential(BaseModel):
+    """Account-level HONOR Publish API credentials."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    client_id: SecretStr
+    client_secret: SecretStr
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_and_validate(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if set(normalized).difference({"client_id", "client_secret"}):
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "HONOR credential contains unsupported fields."
+            )
+        for name in ("client_id", "client_secret"):
+            raw = normalized.get(name)
+            if isinstance(raw, SecretStr):
+                raw = raw.get_secret_value()
+            if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 512:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID",
+                    "HONOR client_id and client_secret must contain 1 to 512 characters.",
+                )
+            normalized[name] = raw.strip()
+        return normalized
+
+    def to_storage_json(self) -> str:
+        return json.dumps(
+            {
+                "credential_kind": "honor_api",
+                "credential": {
+                    "client_id": self.client_id.get_secret_value(),
+                    "client_secret": self.client_secret.get_secret_value(),
+                },
+            }
+        )
+
+
 StoreCredential = (
     HuaweiServiceAccount
     | AppleApiKey
@@ -630,4 +672,5 @@ StoreCredential = (
     | XiaomiApiCredential
     | OppoApiCredential
     | VivoApiCredential
+    | HonorApiCredential
 )

@@ -138,3 +138,14 @@ def clean_vivo_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ):
         monkeypatch.delenv(name, raising=False)
     yield
+
+
+@pytest.fixture
+def clean_honor_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    for name in (
+        "STOREHELPER_HONOR_CLIENT_ID",
+        "STOREHELPER_HONOR_CLIENT_SECRET",
+        "STOREHELPER_HONOR_CREDENTIALS_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    yield
