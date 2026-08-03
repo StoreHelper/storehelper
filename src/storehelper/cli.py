@@ -17,7 +17,7 @@ from storehelper import __version__
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.commands.config import initialize, validate
 from storehelper.commands.credentials import delete_profile, import_profile, list_profiles
-from storehelper.config.loader import load_config, select_application
+from storehelper.config.loader import load_config, resolve_store_target, select_application
 from storehelper.config.models import ApplicationConfig
 from storehelper.credentials.providers import CredentialProvider, KeyringStore, SystemKeyring
 from storehelper.domain.errors import StoreHelperError
@@ -30,9 +30,13 @@ from storehelper.stores.base import StoreAdapter
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
+from storehelper.stores.huawei.package import validate_package
 from storehelper.stores.models import (
+    CredentialKind,
     ProcessingStatus,
     ReviewStatus,
+    StoreCapabilities,
+    StoreName,
     UploadedArtifact,
     VerifiedApplication,
 )
@@ -52,6 +56,13 @@ app.add_typer(runs_app, name="runs")
 KEYRING: KeyringStore = SystemKeyring()
 RUNS_ROOT: Path | None = None
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)(s|m|h)?$")
+_HUAWEI_CAPABILITIES = StoreCapabilities(
+    credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
+    artifact_suffixes=(".apk", ".aab"),
+    requires_processing_poll=True,
+    requires_release_notes=True,
+    supports_review_status=True,
+)
 
 
 def _output(value: str) -> OutputFormat:
@@ -130,10 +141,13 @@ def _publisher(
     adapter: StoreAdapter,
     application: ApplicationConfig,
 ) -> Publisher:
+    target = resolve_store_target(application, StoreName.HUAWEI)
     return Publisher(
         adapter=adapter,
         repository=RunRepository(RUNS_ROOT),
-        application=application,
+        target=target,
+        validator=validate_package,
+        capabilities=_HUAWEI_CAPABILITIES,
     )
 
 

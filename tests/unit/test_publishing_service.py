@@ -6,17 +6,21 @@ from pathlib import Path
 import pytest
 
 from storehelper.artifacts.models import ArtifactInfo
-from storehelper.config.models import ApplicationConfig
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.models import PublishRequest, PublishStage
 from storehelper.publishing.service import Publisher
 from storehelper.runs.models import RunState
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.errors import ArtifactStillProcessingError
+from storehelper.stores.huawei.package import validate_package
 from storehelper.stores.models import (
+    CredentialKind,
     ProcessingState,
     ProcessingStatus,
     ReviewStatus,
+    StoreCapabilities,
+    StoreName,
+    StoreTarget,
     UploadedArtifact,
     VerifiedApplication,
 )
@@ -86,18 +90,42 @@ def _package(tmp_path: Path) -> Path:
     return path
 
 
-def _application(app_id: str = "123") -> ApplicationConfig:
-    return ApplicationConfig.model_validate(
-        {
-            "package_name": "com.example.app",
-            "stores": {
-                "huawei": {
-                    "app_id": app_id,
-                    "credential_profile": "default",
-                    "language": "zh-CN",
-                }
-            },
-        }
+def _target(app_id: str = "123") -> StoreTarget:
+    return StoreTarget(
+        store=StoreName.HUAWEI,
+        label="Huawei AppGallery (Android)",
+        app_id=app_id,
+        package_name="com.example.app",
+        credential_profile="default",
+        language="zh-CN",
+    )
+
+
+def _capabilities(*, processing: bool = True) -> StoreCapabilities:
+    return StoreCapabilities(
+        credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
+        artifact_suffixes=(".apk", ".aab"),
+        requires_processing_poll=processing,
+        requires_release_notes=True,
+        supports_review_status=True,
+    )
+
+
+def _publisher(
+    *,
+    adapter: FakeAdapter,
+    repository: RunRepository,
+    app_id: str = "123",
+    processing: bool = True,
+    **kwargs: object,
+) -> Publisher:
+    return Publisher(
+        adapter=adapter,
+        repository=repository,
+        target=_target(app_id),
+        validator=validate_package,
+        capabilities=_capabilities(processing=processing),
+        **kwargs,
     )
 
 
@@ -123,10 +151,9 @@ async def test_publish_uploads_waits_updates_and_submits(tmp_path: Path) -> None
     async def sleeper(seconds: float) -> None:
         sleeps.append(seconds)
 
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
         sleeper=sleeper,
     )
 
@@ -142,10 +169,9 @@ async def test_publish_uploads_waits_updates_and_submits(tmp_path: Path) -> None
 @pytest.mark.asyncio
 async def test_dry_run_has_no_network_calls(tmp_path: Path) -> None:
     adapter = FakeAdapter()
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
     )
 
     result = await publisher.publish(_request(_package(tmp_path), dry_run=True))
@@ -165,17 +191,16 @@ async def test_dry_run_is_not_blocked_by_existing_resumable_run(tmp_path: Path) 
     async def sleeper(seconds: float) -> None:
         return None
 
-    first = Publisher(
+    first = _publisher(
         adapter=first_adapter,
         repository=repo,
-        application=_application(),
         clock=lambda: next(ticks),
         sleeper=sleeper,
     )
     timed_out = await first.publish(_request(package, wait_timeout_seconds=5))
     assert timed_out.resumable
     dry_adapter = FakeAdapter()
-    dry = Publisher(adapter=dry_adapter, repository=repo, application=_application())
+    dry = _publisher(adapter=dry_adapter, repository=repo)
 
     result = await dry.publish(_request(package, dry_run=True))
 
@@ -187,10 +212,9 @@ async def test_dry_run_is_not_blocked_by_existing_resumable_run(tmp_path: Path) 
 @pytest.mark.asyncio
 async def test_no_submit_stops_after_package_ready(tmp_path: Path) -> None:
     adapter = FakeAdapter()
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
     )
 
     result = await publisher.publish(
@@ -203,6 +227,23 @@ async def test_no_submit_stops_after_package_ready(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_store_without_processing_poll_skips_processing_call(tmp_path: Path) -> None:
+    adapter = FakeAdapter()
+    publisher = _publisher(
+        adapter=adapter,
+        repository=RunRepository(tmp_path / "runs"),
+        processing=False,
+    )
+
+    result = await publisher.publish(
+        _request(_package(tmp_path), submit=False, release_notes=None, confirmed=False)
+    )
+
+    assert result.ok is True
+    assert adapter.calls == ["verify", "upload"]
+
+
+@pytest.mark.asyncio
 async def test_timeout_is_resumable_without_reupload(tmp_path: Path) -> None:
     adapter = FakeAdapter([CompileState.PROCESSING])
     ticks = iter([0.0, 0.0, 5.0, 10.0])
@@ -210,10 +251,9 @@ async def test_timeout_is_resumable_without_reupload(tmp_path: Path) -> None:
     async def sleeper(seconds: float) -> None:
         return None
 
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
         clock=lambda: next(ticks),
         sleeper=sleeper,
     )
@@ -233,7 +273,7 @@ async def test_timeout_is_resumable_without_reupload(tmp_path: Path) -> None:
 async def test_duplicate_returns_existing_resume_action(tmp_path: Path) -> None:
     repo = RunRepository(tmp_path / "runs")
     adapter = FakeAdapter([CompileState.PROCESSING])
-    publisher = Publisher(adapter=adapter, repository=repo, application=_application())
+    publisher = _publisher(adapter=adapter, repository=repo)
     package = _package(tmp_path)
     first = await publisher.publish(
         _request(package, wait_timeout_seconds=5),
@@ -252,7 +292,7 @@ async def test_duplicate_returns_existing_resume_action(tmp_path: Path) -> None:
 async def test_resume_from_timeout_starts_at_compile(tmp_path: Path) -> None:
     repo = RunRepository(tmp_path / "runs")
     adapter = FakeAdapter([CompileState.PROCESSING])
-    publisher = Publisher(adapter=adapter, repository=repo, application=_application())
+    publisher = _publisher(adapter=adapter, repository=repo)
     timed_out = await publisher.publish(
         _request(_package(tmp_path), wait_timeout_seconds=5),
     )
@@ -281,10 +321,10 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
         release_notes="Fixes",
         submit=True,
     )
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=FakeAdapter(),
         repository=repo,
-        application=_application(app_id="999"),
+        app_id="999",
     )
 
     with pytest.raises(StoreHelperError) as raised:
@@ -296,10 +336,9 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
 @pytest.mark.asyncio
 async def test_status_uses_normalized_adapter_result(tmp_path: Path) -> None:
     adapter = FakeAdapter()
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
     )
 
     result = await publisher.status()
@@ -312,10 +351,9 @@ async def test_status_uses_normalized_adapter_result(tmp_path: Path) -> None:
 async def test_submit_compiling_rechecks_compile_state_then_retries(tmp_path: Path) -> None:
     adapter = FakeAdapter([CompileState.READY])
     adapter.submit_compiling_once = True
-    publisher = Publisher(
+    publisher = _publisher(
         adapter=adapter,
         repository=RunRepository(tmp_path / "runs"),
-        application=_application(),
     )
 
     result = await publisher.publish(_request(_package(tmp_path)))

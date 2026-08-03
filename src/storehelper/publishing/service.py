@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from storehelper.config.models import ApplicationConfig, HuaweiStoreConfig
+from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
@@ -16,11 +16,11 @@ from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
-from storehelper.stores.huawei.package import validate_package
-from storehelper.stores.models import ProcessingState
+from storehelper.stores.models import ProcessingState, StoreCapabilities, StoreTarget
 
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
+ArtifactValidator = Callable[[Path], ArtifactInfo]
 
 _STAGES = {
     RunState.CREATED: PublishStage.CREATED,
@@ -48,21 +48,19 @@ class Publisher:
         *,
         adapter: StoreAdapter,
         repository: RunRepository,
-        application: ApplicationConfig,
+        target: StoreTarget,
+        validator: ArtifactValidator,
+        capabilities: StoreCapabilities,
         clock: Clock = time.monotonic,
         sleeper: Sleeper = asyncio.sleep,
     ) -> None:
         self._adapter = adapter
         self.repository = repository
-        self._application = application
+        self._target = target
+        self._validator = validator
+        self._capabilities = capabilities
         self._clock = clock
         self._sleeper = sleeper
-
-    @property
-    def _huawei(self) -> HuaweiStoreConfig:
-        config = self._application.stores.huawei
-        assert config is not None
-        return config
 
     def _transition(
         self,
@@ -77,6 +75,12 @@ class Publisher:
         return next_receipt
 
     async def publish(self, request: PublishRequest) -> OperationResult:
+        if request.store is not self._target.store:
+            raise PublishingError(
+                "STORE_TARGET_MISMATCH",
+                "The publish request does not match the resolved store target.",
+                ExitCode.USAGE,
+            )
         if request.submit and not request.dry_run:
             if not request.confirmed:
                 raise PublishingError(
@@ -85,22 +89,23 @@ class Publisher:
                     ExitCode.USAGE,
                 )
             notes = (request.release_notes or "").strip()
-            if not 1 <= len(notes) <= 500:
+            if self._capabilities.requires_release_notes and not 1 <= len(notes) <= 500:
                 raise PublishingError(
                     "RELEASE_NOTES_INVALID",
                     "Release notes must contain 1 to 500 characters.",
                     ExitCode.USAGE,
                 )
 
-        package = validate_package(request.file)
+        package = self._validator(request.file)
         if not request.dry_run:
             duplicate = self.repository.find_resumable(
-                "huawei",
-                self._huawei.app_id,
+                self._target.store.value,
+                self._target.app_id,
                 package.sha256,
             )
             if duplicate is not None:
                 return OperationResult.failure(
+                    store=self._target.store,
                     stage=_STAGES[duplicate.state],
                     run_id=duplicate.run_id,
                     message="An unfinished run already exists for this application and package.",
@@ -110,12 +115,12 @@ class Publisher:
         receipt = self.repository.create(
             store=request.store,
             app_alias=request.app_alias,
-            app_id=self._huawei.app_id,
-            package_name=self._application.package_name,
+            app_id=self._target.app_id,
+            package_name=self._target.package_name,
             package_path=str(package.path),
             package_sha256=package.sha256,
             logical_name=package.logical_name,
-            language=self._huawei.language,
+            language=self._target.language,
             release_notes=request.release_notes.strip() if request.release_notes else None,
             submit=request.submit,
         )
@@ -123,6 +128,7 @@ class Publisher:
         if request.dry_run:
             self._transition(receipt, RunState.COMPLETED)
             return OperationResult.success(
+                store=self._target.store,
                 stage=PublishStage.COMPLETED,
                 run_id=receipt.run_id,
                 message=(
@@ -144,8 +150,9 @@ class Publisher:
     ) -> OperationResult:
         receipt = self.repository.get(run_id)
         if (
-            receipt.app_id != self._huawei.app_id
-            or receipt.package_name != self._application.package_name
+            receipt.store is not self._target.store
+            or receipt.app_id != self._target.app_id
+            or receipt.package_name != self._target.package_name
         ):
             raise PublishingError(
                 "RUN_APP_MISMATCH",
@@ -180,7 +187,7 @@ class Publisher:
                 receipt = self._transition(receipt, RunState.APP_VERIFIED)
 
             if receipt.state is RunState.APP_VERIFIED:
-                package = validate_package(Path(receipt.package_path))
+                package = self._validator(Path(receipt.package_path))
                 if package.sha256 != receipt.package_sha256:
                     raise PublishingError(
                         "PACKAGE_CHANGED",
@@ -194,7 +201,13 @@ class Publisher:
                     artifact_id=bound.artifact_id,
                 )
 
-            if receipt.state in {
+            if (
+                receipt.state is RunState.PACKAGE_BOUND
+                and not self._capabilities.requires_processing_poll
+            ):
+                receipt = self._transition(receipt, RunState.PACKAGE_READY)
+
+            if self._capabilities.requires_processing_poll and receipt.state in {
                 RunState.PACKAGE_BOUND,
                 RunState.PACKAGE_COMPILING,
                 RunState.TIMED_OUT,
@@ -215,9 +228,10 @@ class Publisher:
                 if not ready:
                     receipt = self._transition(receipt, RunState.TIMED_OUT)
                     return OperationResult.failure(
+                        store=self._target.store,
                         stage=PublishStage.TIMED_OUT,
                         run_id=receipt.run_id,
-                        message="Huawei is still compiling the package.",
+                        message=f"{self._target.label} is still processing the artifact.",
                         resumable=True,
                     )
                 receipt = self._transition(receipt, RunState.PACKAGE_READY)
@@ -225,23 +239,27 @@ class Publisher:
             if not receipt.submit and receipt.state is RunState.PACKAGE_READY:
                 self._transition(receipt, RunState.COMPLETED)
                 return OperationResult.success(
+                    store=self._target.store,
                     stage=PublishStage.PACKAGE_READY,
                     run_id=receipt.run_id,
-                    message="Huawei package is ready; review submission was skipped.",
+                    message=(
+                        f"{self._target.label} artifact is ready; review submission was skipped."
+                    ),
                 )
 
             if receipt.state is RunState.PACKAGE_READY:
-                if not receipt.release_notes:
+                if self._capabilities.requires_release_notes and not receipt.release_notes:
                     raise PublishingError(
                         "RELEASE_NOTES_MISSING",
                         "The resumable run does not contain release notes.",
                         ExitCode.LOCAL_STATE,
                     )
-                await self._adapter.update_release_notes(
-                    app_id=receipt.app_id,
-                    language=receipt.language,
-                    release_notes=receipt.release_notes,
-                )
+                if receipt.release_notes:
+                    await self._adapter.update_release_notes(
+                        app_id=receipt.app_id,
+                        language=receipt.language,
+                        release_notes=receipt.release_notes,
+                    )
                 receipt = self._transition(receipt, RunState.METADATA_UPDATED)
 
             if receipt.state is RunState.METADATA_UPDATED:
@@ -257,6 +275,7 @@ class Publisher:
                     if not ready:
                         receipt = self._transition(receipt, RunState.TIMED_OUT)
                         return OperationResult.failure(
+                            store=self._target.store,
                             stage=PublishStage.TIMED_OUT,
                             run_id=receipt.run_id,
                             message=error.message,
@@ -270,8 +289,10 @@ class Publisher:
             if receipt.state is RunState.SUBMITTED:
                 self._transition(receipt, RunState.COMPLETED)
                 return OperationResult.success(
+                    store=self._target.store,
                     stage=PublishStage.SUBMITTED,
                     run_id=receipt.run_id,
+                    message=f"{self._target.label} accepted the review submission.",
                 )
             raise PublishingError(
                 "RUN_STATE_UNSUPPORTED",
@@ -281,6 +302,7 @@ class Publisher:
         except asyncio.CancelledError:
             interrupted = self._transition(receipt, RunState.INTERRUPTED)
             return OperationResult.failure(
+                store=self._target.store,
                 stage=PublishStage.INTERRUPTED,
                 run_id=interrupted.run_id,
                 message="Publishing was interrupted.",
@@ -290,6 +312,7 @@ class Publisher:
             if error.resumable and receipt.artifact_id:
                 resumable = self._transition(receipt, RunState.TIMED_OUT)
                 return OperationResult.failure(
+                    store=self._target.store,
                     stage=PublishStage.TIMED_OUT,
                     run_id=resumable.run_id,
                     message=error.message,
@@ -326,9 +349,16 @@ class Publisher:
             await self._sleeper(poll_interval)
 
     async def status(self) -> OperationResult:
-        state = await self._adapter.review_status(app_id=self._huawei.app_id)
+        if not self._capabilities.supports_review_status:
+            raise PublishingError(
+                "STATUS_UNSUPPORTED",
+                "The selected store does not support review status queries.",
+                ExitCode.USAGE,
+            )
+        state = await self._adapter.review_status(app_id=self._target.app_id)
         return OperationResult.success(
+            store=self._target.store,
             stage=PublishStage.COMPLETED,
             run_id=None,
-            message=f"Huawei review status: {state.value}",
+            message=f"{self._target.label} review status: {state.value}",
         )

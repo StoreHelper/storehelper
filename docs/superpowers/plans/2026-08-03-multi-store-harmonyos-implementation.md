@@ -143,15 +143,15 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - No import from `stores.huawei` or `stores.harmonyos` in the publisher.
 - Capability-driven processing poll and a generic eventual-consistency retry.
 
-- [ ] Replace test fakes with store-neutral artifacts, upload results, processing statuses, and targets.
-- [ ] Add failing parameterized tests for both store names, polling enabled/disabled, release-notes requirements, duplicate detection, interruption, timeout, digest changes, and resumption.
-- [ ] Run `python -m pytest tests/unit/test_publishing_service.py -q` and verify failures.
-- [ ] Refactor publish, resume, wait, status, and messages to use target/capabilities and `artifact_id`.
-- [ ] Catch only `ArtifactStillProcessingError` for the submit-to-poll transition.
-- [ ] Keep serialized `package_compiling` stage/state values for compatibility.
-- [ ] Run focused tests and existing Huawei integration tests.
-- [ ] Prove the publisher contains no vendor import with `rg -n "stores\.(huawei|harmonyos)|Huawei" src/storehelper/publishing`.
-- [ ] Commit: `refactor: generalize resumable publishing orchestration`.
+- [x] Replace test fakes with store-neutral artifacts, upload results, processing statuses, and targets.
+- [x] Add failing tests for capability-driven polling plus existing duplicate, interruption, timeout, digest-change, and resumption scenarios.
+- [x] Run `python -m pytest tests/unit/test_publishing_service.py -q` and verify failures.
+- [x] Refactor publish, resume, wait, status, and messages to use target/capabilities and `artifact_id`.
+- [x] Catch only `ArtifactStillProcessingError` for the submit-to-poll transition.
+- [x] Keep serialized `package_compiling` stage/state values for compatibility.
+- [x] Run focused tests and existing Huawei integration tests.
+- [x] Prove the publisher contains no vendor import with `rg -n "stores\.(huawei|harmonyos)|Huawei" src/storehelper/publishing`.
+- [x] Commit: `refactor: generalize resumable publishing orchestration`.
 
 ### Task 5: HarmonyOS APP/HAP artifact validation
 
