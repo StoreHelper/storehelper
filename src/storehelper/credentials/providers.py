@@ -20,6 +20,7 @@ from storehelper.credentials.models import (
     HuaweiServiceAccount,
     OppoApiCredential,
     StoreCredential,
+    VivoApiCredential,
     XiaomiApiCredential,
 )
 from storehelper.stores.models import CredentialKind
@@ -34,6 +35,7 @@ def _service_name(kind: CredentialKind) -> str:
         CredentialKind.GOOGLE_SERVICE_ACCOUNT: "google_play",
         CredentialKind.XIAOMI_API: "xiaomi",
         CredentialKind.OPPO_API: "oppo",
+        CredentialKind.VIVO_API: "vivo",
     }
     return f"storehelper:{names[kind]}"
 
@@ -225,6 +227,14 @@ class SecurePrompt:
                 },
                 kind,
             )
+        if kind is CredentialKind.VIVO_API:
+            return _parse_credential(
+                {
+                    "access_key": getpass.getpass("vivo access_key: "),
+                    "secret_key": getpass.getpass("vivo secret_key: "),
+                },
+                kind,
+            )
         return _parse_credential(
             {
                 "key_id": input("Huawei key_id: ").strip(),
@@ -280,6 +290,16 @@ def _parse_credential(value: object, kind: CredentialKind) -> StoreCredential:
             raise CredentialError(
                 "CREDENTIAL_INVALID",
                 "OPPO credential must contain client_id and client_secret.",
+            ) from None
+    if kind is CredentialKind.VIVO_API:
+        try:
+            return VivoApiCredential.model_validate(value)
+        except CredentialError:
+            raise
+        except ValidationError:
+            raise CredentialError(
+                "CREDENTIAL_INVALID",
+                "vivo credential must contain access_key and secret_key.",
             ) from None
     try:
         return AppleApiKey.model_validate(value)
@@ -357,6 +377,8 @@ class CredentialProvider:
             return self._resolve_xiaomi(profile, interactive=interactive)
         if kind is CredentialKind.OPPO_API:
             return self._resolve_oppo(profile, interactive=interactive)
+        if kind is CredentialKind.VIVO_API:
+            return self._resolve_vivo(profile, interactive=interactive)
         return self._resolve_huawei(profile, interactive=interactive)
 
     def _resolve_huawei(self, profile: str, *, interactive: bool) -> HuaweiServiceAccount:
@@ -643,4 +665,49 @@ class CredentialProvider:
         raise CredentialError(
             "CREDENTIAL_NOT_FOUND",
             f"OPPO credential profile is not available: {profile}",
+        )
+
+    def _resolve_vivo(self, profile: str, *, interactive: bool) -> VivoApiCredential:
+        names = ("STOREHELPER_VIVO_ACCESS_KEY", "STOREHELPER_VIVO_SECRET_KEY")
+        file_value = self._environment.get("STOREHELPER_VIVO_CREDENTIALS_FILE")
+        values = [self._environment.get(name) for name in names]
+        if file_value and any(value is not None for value in values):
+            raise CredentialError(
+                "CREDENTIAL_SOURCE_CONFLICT",
+                "Use either STOREHELPER_VIVO_CREDENTIALS_FILE or individual vivo values.",
+            )
+        if file_value:
+            credential = load_credential_file(Path(file_value), CredentialKind.VIVO_API)
+            assert isinstance(credential, VivoApiCredential)
+            return credential
+        if any(value is not None for value in values):
+            if not all(values):
+                raise CredentialError(
+                    "CREDENTIAL_ENV_INCOMPLETE",
+                    "Both vivo access_key and secret_key environment values are required.",
+                )
+            credential = _parse_credential(
+                {"access_key": values[0], "secret_key": values[1]},
+                CredentialKind.VIVO_API,
+            )
+            assert isinstance(credential, VivoApiCredential)
+            return credential
+
+        stored = self._keyring.get(profile, CredentialKind.VIVO_API)
+        if stored is not None:
+            try:
+                credential = parse_stored_credential(json.loads(stored), CredentialKind.VIVO_API)
+            except json.JSONDecodeError:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID", f"Credential profile is invalid: {profile}"
+                ) from None
+            assert isinstance(credential, VivoApiCredential)
+            return credential
+        if interactive:
+            credential = self._prompt.prompt(CredentialKind.VIVO_API)
+            assert isinstance(credential, VivoApiCredential)
+            return credential
+        raise CredentialError(
+            "CREDENTIAL_NOT_FOUND",
+            f"vivo credential profile is not available: {profile}",
         )

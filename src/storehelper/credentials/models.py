@@ -581,10 +581,53 @@ class OppoApiCredential(BaseModel):
         )
 
 
+class VivoApiCredential(BaseModel):
+    """Account-level vivo Open Platform credentials."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    access_key: SecretStr
+    secret_key: SecretStr
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_and_validate(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if set(normalized).difference({"access_key", "secret_key"}):
+            raise CredentialError(
+                "CREDENTIAL_INVALID", "vivo credential contains unsupported fields."
+            )
+        for name in ("access_key", "secret_key"):
+            raw = normalized.get(name)
+            if isinstance(raw, SecretStr):
+                raw = raw.get_secret_value()
+            if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 512:
+                raise CredentialError(
+                    "CREDENTIAL_INVALID",
+                    "vivo access_key and secret_key must contain 1 to 512 characters.",
+                )
+            normalized[name] = raw.strip()
+        return normalized
+
+    def to_storage_json(self) -> str:
+        return json.dumps(
+            {
+                "credential_kind": "vivo_api",
+                "credential": {
+                    "access_key": self.access_key.get_secret_value(),
+                    "secret_key": self.secret_key.get_secret_value(),
+                },
+            }
+        )
+
+
 StoreCredential = (
     HuaweiServiceAccount
     | AppleApiKey
     | GoogleServiceAccount
     | XiaomiApiCredential
     | OppoApiCredential
+    | VivoApiCredential
 )

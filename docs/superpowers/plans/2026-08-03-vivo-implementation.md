@@ -43,13 +43,13 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** credential models/providers/service, vivo auth module, CLI foundation tests.
 
-- [ ] Write failing tests for secret-safe credential validation/storage, independent namespace,
+- [x] Write failing tests for secret-safe credential validation/storage, independent namespace,
   file/env/keyring/prompt precedence, mixed/partial sources, and CLI lifecycle.
-- [ ] Write failing HMAC tests for ASCII order, literal values, `sign` exclusion, empty values,
+- [x] Write failing HMAC tests for ASCII order, literal values, `sign` exclusion, empty values,
   UTF-8 lowercase HMAC-SHA256, exact common parameters, and deterministic millisecond timestamps.
-- [ ] Implement `VivoApiCredential`, provider integration, and secret-safe signer.
-- [ ] Run focused credential/auth tests, Ruff, and mypy.
-- [ ] Commit: `feat: secure vivo API authentication`.
+- [x] Implement `VivoApiCredential`, provider integration, and secret-safe signer.
+- [x] Run focused credential/auth tests, Ruff, and mypy.
+- [x] Commit: `feat: secure vivo API authentication`.
 
 ### Task 4: Fixed-host application query and safe errors
 

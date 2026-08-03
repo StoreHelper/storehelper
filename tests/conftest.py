@@ -127,3 +127,14 @@ def clean_oppo_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     ):
         monkeypatch.delenv(name, raising=False)
     yield
+
+
+@pytest.fixture
+def clean_vivo_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    for name in (
+        "STOREHELPER_VIVO_ACCESS_KEY",
+        "STOREHELPER_VIVO_SECRET_KEY",
+        "STOREHELPER_VIVO_CREDENTIALS_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    yield

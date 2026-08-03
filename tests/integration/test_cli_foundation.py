@@ -419,6 +419,72 @@ def test_oppo_credential_import_list_and_delete_use_separate_namespace(
     assert "example-oppo-secret" not in rendered
 
 
+def test_vivo_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
+    credential_file = tmp_path / "vivo.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "access_key": "example-vivo-access",
+                "secret_key": "example-vivo-secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "vivo",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "vivo", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "vivo",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "vivo",
+    }
+    assert json.loads(profiles.stdout) == {"profiles": ["release"], "store": "vivo"}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "vivo",
+    }
+    rendered = imported.stdout + profiles.stdout + deleted.stdout
+    assert "example-vivo-access" not in rendered
+    assert "example-vivo-secret" not in rendered
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 
