@@ -25,3 +25,9 @@ apps:
         track: internal
         release_status: draft
         language: en-US
+      xiaomi:
+        credential_profile: xiaomi-release
+        app_name: Example App
+        icon: assets/xiaomi-icon.png
+        privacy_url: https://example.com/privacy
+        language: zh-CN

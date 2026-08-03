@@ -51,6 +51,12 @@ apps:
         track: internal
         release_status: draft
         language: en-US
+      xiaomi:
+        credential_profile: xiaomi-release
+        app_name: Example App
+        icon: assets/xiaomi-icon.png
+        privacy_url: https://example.com/privacy
+        language: zh-CN
 """
 
 
@@ -103,7 +109,10 @@ def load_config(path: Path) -> StoreHelperConfig:
             f"Secrets are not allowed in storehelper.yaml (field: {dotted}).",
         )
     try:
-        return StoreHelperConfig.model_validate(raw)
+        return StoreHelperConfig.model_validate(
+            raw,
+            context={"config_dir": path.parent.resolve()},
+        )
     except ValidationError as error:
         details = "; ".join(
             f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
@@ -187,21 +196,40 @@ def resolve_store_target(
             platform=apple_config.platform,
         )
 
-    google_config = application.stores.google_play
-    if google_config is None:
+    if store is StoreName.GOOGLE_PLAY:
+        google_config = application.stores.google_play
+        if google_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label=(f"Google Play ({google_config.track}, {google_config.release_status})"),
+            app_id=application.package_name,
+            package_name=application.package_name,
+            credential_profile=google_config.credential_profile,
+            language=google_config.language,
+            track=google_config.track,
+            release_status=google_config.release_status,
+        )
+
+    xiaomi_config = application.stores.xiaomi
+    if xiaomi_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label=(f"Google Play ({google_config.track}, {google_config.release_status})"),
+        label="Xiaomi App Store",
         app_id=application.package_name,
         package_name=application.package_name,
-        credential_profile=google_config.credential_profile,
-        language=google_config.language,
-        track=google_config.track,
-        release_status=google_config.release_status,
+        credential_profile=xiaomi_config.credential_profile,
+        language=xiaomi_config.language,
+        app_name=xiaomi_config.app_name,
+        icon_path=xiaomi_config.icon,
+        privacy_url=xiaomi_config.privacy_url,
     )
 
 

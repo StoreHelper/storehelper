@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,12 +13,14 @@ class StoreName(StrEnum):
     HARMONYOS = "harmonyos"
     APPLE = "apple"
     GOOGLE_PLAY = "google_play"
+    XIAOMI = "xiaomi"
 
 
 class CredentialKind(StrEnum):
     HUAWEI_SERVICE_ACCOUNT = "huawei_service_account"
     APPLE_API_KEY = "apple_api_key"
     GOOGLE_SERVICE_ACCOUNT = "google_service_account"
+    XIAOMI_API = "xiaomi_api"
 
 
 class StoreCapabilities(BaseModel):
@@ -45,6 +48,9 @@ class StoreTarget(BaseModel):
     platform: str | None = Field(default=None, min_length=1)
     track: str | None = Field(default=None, min_length=1)
     release_status: str | None = Field(default=None, min_length=1)
+    app_name: str | None = Field(default=None, min_length=1)
+    icon_path: Path | None = None
+    privacy_url: str | None = Field(default=None, min_length=1)
 
 
 class VerifiedApplication(BaseModel):

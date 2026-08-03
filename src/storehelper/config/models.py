@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 NonEmptyString = Annotated[str, Field(min_length=1)]
 _APP_ALIAS = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -79,6 +81,47 @@ class GooglePlayStoreConfig(BaseModel):
         return value
 
 
+class XiaomiStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    credential_profile: NonEmptyString
+    app_name: NonEmptyString
+    icon: Path
+    privacy_url: NonEmptyString
+    language: NonEmptyString = "zh-CN"
+
+    @field_validator("icon", mode="before")
+    @classmethod
+    def resolve_icon(cls, value: object, info: ValidationInfo) -> Path:
+        if not str(value).strip():
+            raise ValueError("must not be empty")
+        value = Path(str(value))
+        config_dir = (info.context or {}).get("config_dir")
+        if not value.is_absolute() and isinstance(config_dir, Path):
+            value = config_dir / value
+        return value.expanduser().resolve(strict=False)
+
+    @field_validator("privacy_url")
+    @classmethod
+    def validate_privacy_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise ValueError("must be an HTTPS URL without embedded credentials")
+        return value
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        if not _BCP47_LANGUAGE.fullmatch(value):
+            raise ValueError("must be a BCP-47 language tag")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -86,10 +129,11 @@ class StoreConfigs(BaseModel):
     harmonyos: HarmonyOSStoreConfig | None = None
     apple: AppleStoreConfig | None = None
     google_play: GooglePlayStoreConfig | None = None
+    xiaomi: XiaomiStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
-        if not any((self.huawei, self.harmonyos, self.apple, self.google_play)):
+        if not any((self.huawei, self.harmonyos, self.apple, self.google_play, self.xiaomi)):
             raise ValueError("at least one store must be configured")
         return self
 

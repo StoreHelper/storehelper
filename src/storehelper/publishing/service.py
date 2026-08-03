@@ -27,6 +27,7 @@ from storehelper.stores.models import (
 Clock = Callable[[], float]
 Sleeper = Callable[[float], Awaitable[None]]
 ArtifactValidator = Callable[[Path], ArtifactInfo]
+TargetValidator = Callable[[StoreTarget], None]
 
 _STAGES = {
     RunState.CREATED: PublishStage.CREATED,
@@ -59,6 +60,7 @@ class Publisher:
         target: StoreTarget,
         validator: ArtifactValidator,
         capabilities: StoreCapabilities,
+        target_validator: TargetValidator | None = None,
         clock: Clock = time.monotonic,
         sleeper: Sleeper = asyncio.sleep,
     ) -> None:
@@ -67,6 +69,7 @@ class Publisher:
         self._target = target
         self._validator = validator
         self._capabilities = capabilities
+        self._target_validator = target_validator
         self._clock = clock
         self._sleeper = sleeper
 
@@ -111,6 +114,8 @@ class Publisher:
                     ExitCode.USAGE,
                 )
 
+        if self._target_validator is not None:
+            self._target_validator(self._target)
         package = self._validator(request.file)
         if not request.dry_run:
             if self._capabilities.atomic_submission:

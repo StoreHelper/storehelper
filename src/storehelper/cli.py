@@ -148,6 +148,7 @@ def _publisher(
         target=runtime.target,
         validator=runtime.validator,
         capabilities=runtime.capabilities,
+        target_validator=runtime.target_validator,
     )
 
 

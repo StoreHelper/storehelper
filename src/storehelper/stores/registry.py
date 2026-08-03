@@ -36,10 +36,13 @@ from storehelper.stores.models import (
     CredentialKind,
     StoreCapabilities,
     StoreName,
+    StoreTarget,
 )
+from storehelper.stores.xiaomi.package import validate_xiaomi_artifact, validate_xiaomi_target
 
 ArtifactValidator = Callable[[Path], ArtifactInfo]
 AdapterFactory = Callable[[StoreCredential, httpx.AsyncClient], StoreAdapter]
+TargetValidator = Callable[[StoreTarget], None]
 
 
 @dataclass(frozen=True)
@@ -49,6 +52,7 @@ class AdapterRegistration:
     capabilities: StoreCapabilities
     validator: ArtifactValidator
     factory: AdapterFactory | None
+    target_validator: TargetValidator | None = None
 
 
 def _huawei_factory(
@@ -152,6 +156,22 @@ _REGISTRATIONS = {
         ),
         validator=validate_google_play_artifact,
         factory=_google_factory,
+    ),
+    StoreName.XIAOMI: AdapterRegistration(
+        store=StoreName.XIAOMI,
+        label="Xiaomi App Store",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.XIAOMI_API,
+            artifact_suffixes=(".apk",),
+            requires_processing_poll=False,
+            requires_release_notes=True,
+            supports_review_status=False,
+            atomic_submission=True,
+            supports_no_submit=False,
+        ),
+        validator=validate_xiaomi_artifact,
+        factory=None,
+        target_validator=validate_xiaomi_target,
     ),
 }
 

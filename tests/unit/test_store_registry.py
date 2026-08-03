@@ -62,6 +62,21 @@ def test_google_registration_declares_audited_android_capabilities() -> None:
     assert google.factory is not None
 
 
+def test_xiaomi_registration_declares_atomic_update_capabilities() -> None:
+    xiaomi = get_registration(StoreName.XIAOMI)
+
+    assert xiaomi.label == "Xiaomi App Store"
+    assert xiaomi.capabilities.credential_kind is CredentialKind.XIAOMI_API
+    assert xiaomi.capabilities.artifact_suffixes == (".apk",)
+    assert xiaomi.capabilities.requires_release_notes is True
+    assert xiaomi.capabilities.requires_processing_poll is False
+    assert xiaomi.capabilities.supports_review_status is False
+    assert xiaomi.capabilities.atomic_submission is True
+    assert xiaomi.capabilities.supports_no_submit is False
+    assert xiaomi.target_validator is not None
+    assert xiaomi.factory is None
+
+
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,

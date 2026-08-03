@@ -40,13 +40,13 @@ reviewable commit. Automated tests never contact Xiaomi.
 - Modify: `examples/storehelper.yaml`
 - Modify: configuration/registry/runtime tests
 
-- [ ] Add failing tests for `xiaomi`, existing package, app name, credential profile, HTTPS privacy
+- [x] Add failing tests for `xiaomi`, existing package, app name, credential profile, HTTPS privacy
   URL, relative icon resolution, readable PNG preflight, unknown fields, and prior configurations.
-- [ ] Add optional target fields and a store-local preflight callable used by normal and dry-run
+- [x] Add optional target fields and a store-local preflight callable used by normal and dry-run
   publishers.
-- [ ] Enforce APK-only, 2 GiB, release notes required, atomic submission, no no-submit, and no
+- [x] Enforce APK-only, 2 GiB, release notes required, atomic submission, no no-submit, and no
   review-status capability.
-- [ ] Commit: `feat: configure Xiaomi update targets`.
+- [x] Commit: `feat: configure Xiaomi update targets`.
 
 ### Task 3: Xiaomi credentials and structured review accounts
 

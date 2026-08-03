@@ -39,6 +39,9 @@ def test_store_target_serializes_a_harmonyos_identity() -> None:
         "platform": None,
         "track": None,
         "release_status": None,
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
     }
 
 

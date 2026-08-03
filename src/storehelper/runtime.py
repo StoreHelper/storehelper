@@ -11,7 +11,7 @@ from storehelper.config.models import ApplicationConfig
 from storehelper.credentials.models import StoreCredential
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
-from storehelper.publishing.service import ArtifactValidator
+from storehelper.publishing.service import ArtifactValidator, TargetValidator
 from storehelper.stores.base import StoreAdapter
 from storehelper.stores.models import StoreCapabilities, StoreName, StoreTarget
 from storehelper.stores.registry import get_registration
@@ -23,6 +23,7 @@ class StoreRuntime:
     target: StoreTarget
     validator: ArtifactValidator
     capabilities: StoreCapabilities
+    target_validator: TargetValidator | None
 
 
 def resolve_runtime(
@@ -36,6 +37,7 @@ def resolve_runtime(
         target=resolve_store_target(application, store),
         validator=registration.validator,
         capabilities=registration.capabilities,
+        target_validator=registration.target_validator,
     )
 
 

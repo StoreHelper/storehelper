@@ -48,6 +48,14 @@ GOOGLE_PLAY = """      google_play:
         language: en-US
 """
 
+XIAOMI = """      xiaomi:
+        credential_profile: xiaomi-release
+        app_name: Example Wallet
+        icon: assets/xiaomi-icon.png
+        privacy_url: https://example.com/privacy
+        language: zh-CN
+"""
+
 
 def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, HARMONYOS))
@@ -67,6 +75,9 @@ def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) ->
         "platform": None,
         "track": None,
         "release_status": None,
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
     }
 
 
@@ -98,6 +109,9 @@ def test_loads_apple_only_application_and_resolves_release_target(tmp_path: Path
         "platform": "IOS",
         "track": None,
         "release_status": None,
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
     }
 
 
@@ -125,7 +139,49 @@ def test_loads_google_play_target_from_android_package_name(tmp_path: Path) -> N
         "platform": None,
         "track": "internal",
         "release_status": "draft",
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
     }
+
+
+def test_loads_xiaomi_update_target_and_resolves_relative_icon(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, XIAOMI)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.XIAOMI)
+
+    assert target.model_dump(mode="json") == {
+        "store": "xiaomi",
+        "label": "Xiaomi App Store",
+        "app_id": "com.example.wallet",
+        "package_name": "com.example.wallet",
+        "credential_profile": "xiaomi-release",
+        "language": "zh-CN",
+        "release_id": None,
+        "platform": None,
+        "track": None,
+        "release_status": None,
+        "app_name": "Example Wallet",
+        "icon_path": str((tmp_path / "assets/xiaomi-icon.png").resolve()),
+        "privacy_url": "https://example.com/privacy",
+    }
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        XIAOMI.replace("credential_profile: xiaomi-release", "credential_profile: ' '"),
+        XIAOMI.replace("app_name: Example Wallet", "app_name: ' '"),
+        XIAOMI.replace("icon: assets/xiaomi-icon.png", "icon: ' '"),
+        XIAOMI.replace("https://example.com/privacy", "http://example.com/privacy"),
+        XIAOMI.replace("https://example.com/privacy", "https://user:pass@example.com/privacy"),
+        XIAOMI.replace("language: zh-CN", "language: zh_CN"),
+        XIAOMI + "        unexpected: true\n",
+    ],
+)
+def test_xiaomi_configuration_is_strict(tmp_path: Path, invalid: str) -> None:
+    with pytest.raises(ConfigError, match="xiaomi"):
+        load_config(_write(tmp_path, invalid))
 
 
 def test_google_play_completed_release_is_explicit(tmp_path: Path) -> None:

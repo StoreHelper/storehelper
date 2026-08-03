@@ -64,6 +64,38 @@ apps:
     return config, package
 
 
+def _xiaomi_project(tmp_path: Path, *, valid_icon: bool = True) -> tuple[Path, Path]:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    icon = assets / "xiaomi.png"
+    icon.write_bytes(
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        if valid_icon
+        else b"not-a-png"
+    )
+    config = tmp_path / "storehelper.yaml"
+    config.write_text(
+        """version: 1
+apps:
+  wallet:
+    package_name: com.example.wallet
+    stores:
+      xiaomi:
+        credential_profile: xiaomi-release
+        app_name: Example Wallet
+        icon: assets/xiaomi.png
+        privacy_url: https://example.com/privacy
+        language: zh-CN
+""",
+        encoding="utf-8",
+    )
+    package = tmp_path / "wallet.apk"
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("AndroidManifest.xml", b"manifest")
+        archive.writestr("META-INF/CERT.RSA", b"signature")
+    return config, package
+
+
 def test_noninteractive_submit_requires_yes(tmp_path: Path) -> None:
     config, package = _project(tmp_path)
 
@@ -173,6 +205,62 @@ def test_harmonyos_dry_run_uses_selected_store_without_credentials(
     assert payload["store"] == "harmonyos"
     receipt = RunRepository(tmp_path / "runs").list()[0]
     assert receipt.store.value == "harmonyos"
+
+
+def test_xiaomi_dry_run_validates_relative_icon_without_credentials_or_network(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config, package = _xiaomi_project(tmp_path)
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--app",
+            "wallet",
+            "--store",
+            "xiaomi",
+            "--file",
+            str(package),
+            "--release-notes",
+            "Fixes",
+            "--dry-run",
+            "--output",
+            "json",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["store"] == "xiaomi"
+
+
+def test_xiaomi_dry_run_rejects_invalid_icon_locally(tmp_path: Path, monkeypatch) -> None:
+    config, package = _xiaomi_project(tmp_path, valid_icon=False)
+    monkeypatch.setattr(cli_module, "RUNS_ROOT", tmp_path / "runs")
+
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--store",
+            "xiaomi",
+            "--file",
+            str(package),
+            "--dry-run",
+            "--output",
+            "json",
+            "--config",
+            str(config),
+        ],
+    )
+
+    assert result.exit_code == 4
+    assert json.loads(result.stdout)["code"] == "XIAOMI_ICON_INVALID"
+    assert RunRepository(tmp_path / "runs").list() == []
 
 
 def test_no_submit_does_not_require_release_notes(
@@ -303,7 +391,7 @@ def test_publish_rejects_unsupported_store_and_conflicting_notes(tmp_path: Path)
 
     unsupported = runner.invoke(
         cli_module.app,
-        ["publish", "--file", str(package), "--store", "xiaomi", "--dry-run"],
+        ["publish", "--file", str(package), "--store", "oppo", "--dry-run"],
     )
     conflict = runner.invoke(
         cli_module.app,
