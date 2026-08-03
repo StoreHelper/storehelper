@@ -3,6 +3,22 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.3.0 Apple App Store task status
+
+- [x] Task 1: Store-neutral credential and receipt schema v3 preparation.
+- [x] Task 2: Strict Apple target configuration and resolution.
+- [x] Task 3: Team/individual App Store Connect API-key handling and ES256 JWTs.
+- [x] Task 4: Safe IPA validation and metadata inspection.
+- [x] Task 5: Read-only app/version/bundle/platform verification.
+- [x] Task 6: Native Build Upload reservation, streamed range transfer, and commit.
+- [x] Task 7: Processing polling and durable Build-ID recovery.
+- [x] Task 8: Build attachment and optional localized `whatsNew` update.
+- [x] Task 9: Modern review-submission reconciliation and status mapping.
+- [x] Task 10: Store-aware CLI and Apple credential commands.
+- [x] Task 11: End-to-end interruption, recovery, and security regression suite.
+- [x] Task 12: Apple documentation, examples, and v0.3.0 versioning.
+- [ ] Task 13: Clean build, coverage, installed-wheel smoke, and final secret review.
+
 ## v0.2.0 multi-store and HarmonyOS task status
 
 - [x] Task 1: Store-neutral models, errors, and Huawei compatibility.
@@ -117,7 +133,7 @@ Checkboxes are updated only after the related implementation and verification su
 
 ## Later milestones
 
-- [ ] Apple App Store Connect adapter.
+- [ ] Complete and release the Apple App Store Connect v0.3.0 milestone.
 - [ ] Additional Android store adapters.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

@@ -428,13 +428,13 @@ no Apple secret or delivery value in output/error/receipt
 - Modify: `src/storehelper/__init__.py`
 - Modify: version test expectations
 
-- [ ] Document native API prerequisites, team/individual credentials, existing app/version IDs,
+- [x] Document native API prerequisites, team/individual credentials, existing app/version IDs,
   IPA commands, optional notes, no-submit, recovery, status, JSON, and security boundaries.
-- [ ] Add a live checklist ordered read-only verify → dry-run → no-submit → separately confirmed review.
-- [ ] Verify every command against installed help and keep all examples fake.
-- [ ] Bump package version to `0.3.0` consistently.
-- [ ] Mark Apple tasks complete only after their verification succeeds.
-- [ ] Commit: `docs: document Apple App Store publishing`.
+- [x] Add a live checklist ordered read-only verify → dry-run → no-submit → separately confirmed review.
+- [x] Verify every command against installed help and keep all examples fake.
+- [x] Bump package version to `0.3.0` consistently.
+- [x] Mark Apple tasks complete only after their verification succeeds.
+- [x] Commit: `docs: document Apple App Store publishing`.
 
 ### Task 13: Full verification and milestone closure
 

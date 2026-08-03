@@ -9,7 +9,7 @@ StoreHelper 采用本地优先模式：发布凭据只保存在操作者系统�
 
 ## Credential sources
 
-Credential resolution uses this fixed precedence:
+Credential resolution uses this fixed precedence for the selected store:
 
 1. `STOREHELPER_HUAWEI_CREDENTIALS_FILE`;
 2. the complete set of `STOREHELPER_HUAWEI_KEY_ID`,
@@ -17,22 +17,34 @@ Credential resolution uses this fixed precedence:
 3. the operating-system keyring profile;
 4. a secure prompt, only in an interactive terminal.
 
-Do not commit Service Account JSON. StoreHelper refuses secret-looking fields in
-`storehelper.yaml`, has no private-key CLI option, and has no plaintext credential fallback.
+Apple uses the equivalent store-specific sources:
+
+1. `STOREHELPER_APPLE_CREDENTIALS_FILE`;
+2. `STOREHELPER_APPLE_KEY_TYPE`, `STOREHELPER_APPLE_KEY_ID`,
+   `STOREHELPER_APPLE_PRIVATE_KEY`, plus `STOREHELPER_APPLE_ISSUER_ID` for team keys;
+3. the Apple keyring namespace selected by `credentials ... --store apple`;
+4. the Apple secure prompt in an interactive terminal.
+
+Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
+secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
+credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
+require an unencrypted P-256 private key.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
 
 For CI, prefer a secret file created by the CI platform and point
 `STOREHELPER_HUAWEI_CREDENTIALS_FILE` to it. Alternatively, configure all three individual
-environment variables. Never mix the two forms.
+environment variables. Never mix the two forms. Apply the same rule independently to Apple file
+and individual environment variables.
 
 ## Persisted data
 
 Run receipts contain store names, app IDs, package paths and hashes, logical file names, durable
-artifact IDs (`pkgVersion` or `packageId`), release notes, and state timestamps. They never
-contain private keys, JWTs, authorization headers, upload `authCode`, OBS signed headers,
-temporary object IDs, upload URLs, destination URLs, or raw Huawei bodies. Receipt files are
+artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs), configured release IDs,
+review submission IDs, release notes, and state timestamps. They never contain private keys,
+JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
+temporary object IDs, upload URLs, destination URLs, or raw vendor bodies. Receipt files are
 written atomically with owner-only permissions where the platform supports it.
 
 ## Network boundary
@@ -41,8 +53,14 @@ written atomically with owner-only permissions where the platform supports it.
 - Authenticated Huawei redirects are disabled.
 - File uploads accept HTTPS URLs only and do not forward Huawei API authorization headers.
 - HarmonyOS OBS uploads send only Huawei's exact signed upload headers and disable redirects.
-- JWTs and temporary upload values remain inside the Huawei client.
+- Apple delivery uploads use HTTPS, send only Apple's exact signed headers for the declared byte
+  range, never forward the App Store Connect bearer token, and reject redirects or invalid range
+  plans before reading the IPA.
+- JWTs and temporary upload values remain inside their store client.
 - 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
+
+Apple uploads use the native `buildUploads` and `buildUploadFiles` resources. StoreHelper does not
+invoke Xcode, Transporter, or `altool`, and never falls back to another uploader automatically.
 
 ## Reporting a vulnerability
 
