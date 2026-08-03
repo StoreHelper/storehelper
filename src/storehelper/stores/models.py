@@ -15,6 +15,7 @@ class StoreName(StrEnum):
     GOOGLE_PLAY = "google_play"
     XIAOMI = "xiaomi"
     OPPO = "oppo"
+    VIVO = "vivo"
 
 
 class CredentialKind(StrEnum):
@@ -23,6 +24,7 @@ class CredentialKind(StrEnum):
     GOOGLE_SERVICE_ACCOUNT = "google_service_account"
     XIAOMI_API = "xiaomi_api"
     OPPO_API = "oppo_api"
+    VIVO_API = "vivo_api"
 
 
 class StoreCapabilities(BaseModel):

@@ -88,6 +88,22 @@ def test_oppo_contract_extensions_are_store_neutral() -> None:
     assert target.version_code == 123
 
 
+def test_vivo_contract_extensions_reuse_store_neutral_version_target() -> None:
+    target = StoreTarget(
+        store=StoreName.VIVO,
+        label="vivo App Store",
+        app_id="com.example.wallet",
+        package_name="com.example.wallet",
+        credential_profile="vivo-wallet",
+        language="zh-CN",
+        version_code=124,
+    )
+
+    assert StoreName.VIVO.value == "vivo"
+    assert CredentialKind.VIVO_API.value == "vivo_api"
+    assert target.version_code == 124
+
+
 def test_capabilities_describe_orchestration_without_vendor_fields() -> None:
     capabilities = StoreCapabilities(
         credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,

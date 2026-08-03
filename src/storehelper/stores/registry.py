@@ -44,6 +44,7 @@ from storehelper.stores.oppo.adapter import OppoAdapter
 from storehelper.stores.oppo.auth import OppoAuth
 from storehelper.stores.oppo.client import OppoClient
 from storehelper.stores.oppo.package import validate_oppo_artifact
+from storehelper.stores.vivo.package import validate_vivo_artifact
 from storehelper.stores.xiaomi.adapter import XiaomiAdapter
 from storehelper.stores.xiaomi.auth import XiaomiAuth
 from storehelper.stores.xiaomi.client import XiaomiClient
@@ -233,6 +234,22 @@ _REGISTRATIONS = {
         ),
         validator=validate_oppo_artifact,
         factory=_oppo_factory,
+    ),
+    StoreName.VIVO: AdapterRegistration(
+        store=StoreName.VIVO,
+        label="vivo App Store",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.VIVO_API,
+            artifact_suffixes=(".apk",),
+            requires_processing_poll=False,
+            requires_release_notes=True,
+            supports_review_status=True,
+            atomic_submission=True,
+            staged_submission=True,
+            supports_no_submit=False,
+        ),
+        validator=validate_vivo_artifact,
+        factory=None,
     ),
 }
 

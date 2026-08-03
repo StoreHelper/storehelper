@@ -15,12 +15,14 @@ from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.models import StoreName, StoreTarget
 
 _SECRET_KEYS = {
+    "access_key",
     "access_token",
     "authcode",
     "client_secret",
     "password",
     "private_key",
     "secret",
+    "secret_key",
     "token",
 }
 
@@ -60,6 +62,10 @@ apps:
       oppo:
         credential_profile: oppo-release
         version_code: 123
+        language: zh-CN
+      vivo:
+        credential_profile: vivo-release
+        version_code: 124
         language: zh-CN
 """
 
@@ -237,20 +243,37 @@ def resolve_store_target(
             privacy_url=xiaomi_config.privacy_url,
         )
 
-    oppo_config = application.stores.oppo
-    if oppo_config is None:
+    if store is StoreName.OPPO:
+        oppo_config = application.stores.oppo
+        if oppo_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="OPPO Software Store",
+            app_id=application.package_name,
+            package_name=application.package_name,
+            credential_profile=oppo_config.credential_profile,
+            language=oppo_config.language,
+            version_code=oppo_config.version_code,
+        )
+
+    vivo_config = application.stores.vivo
+    if vivo_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label="OPPO Software Store",
+        label="vivo App Store",
         app_id=application.package_name,
         package_name=application.package_name,
-        credential_profile=oppo_config.credential_profile,
-        language=oppo_config.language,
-        version_code=oppo_config.version_code,
+        credential_profile=vivo_config.credential_profile,
+        language=vivo_config.language,
+        version_code=vivo_config.version_code,
     )
 
 

@@ -41,7 +41,15 @@ def test_loads_one_huawei_application_with_default_language(tmp_path: Path) -> N
 
 @pytest.mark.parametrize(
     "secret_key",
-    ["private_key", "client_secret", "access_token", "password", "authCode"],
+    [
+        "private_key",
+        "client_secret",
+        "access_key",
+        "secret_key",
+        "access_token",
+        "password",
+        "authCode",
+    ],
 )
 def test_rejects_secret_fields_anywhere(tmp_path: Path, secret_key: str) -> None:
     path = write_config(tmp_path, valid_config(extra_huawei=f"        {secret_key}: leaked\n"))
@@ -111,3 +119,4 @@ def test_example_config_is_valid_and_secret_free(tmp_path: Path) -> None:
     assert "client_secret" not in contents
     assert config.apps["my-app"].stores.google_play.release_status == "draft"
     assert config.apps["my-app"].stores.oppo.version_code == 123
+    assert config.apps["my-app"].stores.vivo.version_code == 124

@@ -31,13 +31,13 @@ upload, and one final update request protected by the existing uncertainty bound
 
 **Files:** config models/loader, store models/registry, example YAML, vivo package module, and tests.
 
-- [ ] Write failing tests for `StoreName.VIVO`, `CredentialKind.VIVO_API`, strict target fields,
+- [x] Write failing tests for `StoreName.VIVO`, `CredentialKind.VIVO_API`, strict target fields,
   dotted package identity, BCP-47 locale, secret/unknown rejection, and previous examples.
-- [ ] Write failing tests for APK-only, structure, 3 GiB boundary, streamed MD5, 5–200 character
-  notes, staged submission, no no-submit/resume, and status capability.
-- [ ] Implement the strict config, target mapping, registry metadata, and validator.
-- [ ] Run focused config/package/registry tests, Ruff, and mypy.
-- [ ] Commit: `feat: configure vivo update targets`.
+- [x] Write failing tests for APK-only, structure, 3 GiB boundary, streamed MD5, the release-notes
+  requirement, staged submission, no no-submit/resume, and status capability.
+- [x] Implement the strict config, target mapping, registry metadata, and validator.
+- [x] Run focused config/package/registry tests, Ruff, and mypy.
+- [x] Commit: `feat: configure vivo update targets`.
 
 ### Task 3: Credentials and deterministic HMAC authentication
 

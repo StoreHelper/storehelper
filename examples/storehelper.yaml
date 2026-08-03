@@ -35,3 +35,7 @@ apps:
         credential_profile: oppo-release
         version_code: 123
         language: zh-CN
+      vivo:
+        credential_profile: vivo-release
+        version_code: 124
+        language: zh-CN

@@ -98,6 +98,21 @@ def test_oppo_registration_declares_staged_update_capabilities() -> None:
     assert oppo.factory is not None
 
 
+def test_vivo_registration_declares_staged_update_capabilities() -> None:
+    vivo = get_registration(StoreName.VIVO)
+
+    assert vivo.label == "vivo App Store"
+    assert vivo.capabilities.credential_kind is CredentialKind.VIVO_API
+    assert vivo.capabilities.artifact_suffixes == (".apk",)
+    assert vivo.capabilities.requires_release_notes is True
+    assert vivo.capabilities.requires_processing_poll is False
+    assert vivo.capabilities.supports_review_status is True
+    assert vivo.capabilities.atomic_submission is True
+    assert vivo.capabilities.staged_submission is True
+    assert vivo.capabilities.supports_no_submit is False
+    assert vivo.factory is None
+
+
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,

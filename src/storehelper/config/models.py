@@ -138,6 +138,21 @@ class OppoStoreConfig(BaseModel):
         return value
 
 
+class VivoStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    credential_profile: NonEmptyString
+    version_code: StrictPositiveInt
+    language: NonEmptyString = "zh-CN"
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        if not _BCP47_LANGUAGE.fullmatch(value):
+            raise ValueError("must be a BCP-47 language tag")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -147,11 +162,20 @@ class StoreConfigs(BaseModel):
     google_play: GooglePlayStoreConfig | None = None
     xiaomi: XiaomiStoreConfig | None = None
     oppo: OppoStoreConfig | None = None
+    vivo: VivoStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
         if not any(
-            (self.huawei, self.harmonyos, self.apple, self.google_play, self.xiaomi, self.oppo)
+            (
+                self.huawei,
+                self.harmonyos,
+                self.apple,
+                self.google_play,
+                self.xiaomi,
+                self.oppo,
+                self.vivo,
+            )
         ):
             raise ValueError("at least one store must be configured")
         return self
