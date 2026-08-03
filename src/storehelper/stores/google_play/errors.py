@@ -23,7 +23,9 @@ class GoogleVendorError(StoreVendorError):
         *,
         resumable: bool | None = None,
         vendor_code: str | None = None,
+        status_code: int | None = None,
     ) -> None:
+        self.status_code = status_code
         super().__init__(
             code,
             message,
@@ -70,4 +72,5 @@ def parse_google_error(payload: object, *, status_code: int) -> GoogleVendorErro
         message,
         exit_code,
         vendor_code=vendor_code,
+        status_code=status_code,
     )

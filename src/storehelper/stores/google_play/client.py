@@ -159,6 +159,66 @@ class GooglePlayClient:
             f"/androidpublisher/v3/applications/{package_segment}/tracks/{track_segment}/releases",
         )
 
+    @staticmethod
+    def _version_visible(payload: Mapping[str, object], version_code: int) -> bool:
+        raw_releases = payload.get("releases", [])
+        if not isinstance(raw_releases, list):
+            raise GooglePlayClient._protocol_error(
+                "Google Play returned an invalid lifecycle release list."
+            )
+        for release in raw_releases:
+            if not isinstance(release, Mapping):
+                raise GooglePlayClient._protocol_error(
+                    "Google Play returned an invalid lifecycle release."
+                )
+            raw_artifacts = release.get("activeArtifacts", [])
+            if not isinstance(raw_artifacts, list):
+                raise GooglePlayClient._protocol_error(
+                    "Google Play returned invalid lifecycle artifacts."
+                )
+            for artifact in raw_artifacts:
+                raw_version = artifact.get("versionCode") if isinstance(artifact, Mapping) else None
+                if (
+                    not isinstance(raw_version, int)
+                    or isinstance(raw_version, bool)
+                    or raw_version <= 0
+                ):
+                    raise GooglePlayClient._protocol_error(
+                        "Google Play returned an invalid lifecycle version code."
+                    )
+                if raw_version == version_code:
+                    return True
+        return False
+
+    async def is_version_visible(
+        self,
+        *,
+        package_name: str,
+        track: str,
+        version_code: int,
+    ) -> bool:
+        payload = await self.list_releases(package_name=package_name, track=track)
+        return self._version_visible(payload, version_code)
+
+    async def reconcile_version(
+        self,
+        *,
+        package_name: str,
+        track: str,
+        version_code: int,
+        attempts: int = 3,
+    ) -> bool:
+        for attempt in range(attempts):
+            if await self.is_version_visible(
+                package_name=package_name,
+                track=track,
+                version_code=version_code,
+            ):
+                return True
+            if attempt + 1 < attempts:
+                await self._sleeper(float(attempt + 1))
+        return False
+
     async def create_edit(self, *, package_name: str) -> str:
         package_segment = quote(package_name, safe="")
         payload = await self.request_json(
@@ -198,6 +258,29 @@ class GooglePlayClient:
         )
         self._validate_edit(payload, expected_id=edit_id)
         return payload
+
+    async def validate_edit(self, *, package_name: str, edit_id: str) -> None:
+        package_segment = quote(package_name, safe="")
+        edit_segment = quote(edit_id, safe="")
+        payload = await self.request_json(
+            "POST",
+            f"/androidpublisher/v3/applications/{package_segment}/edits/{edit_segment}:validate",
+        )
+        self._validate_edit(payload, expected_id=edit_id)
+
+    async def commit_edit(self, *, package_name: str, edit_id: str) -> None:
+        package_segment = quote(package_name, safe="")
+        edit_segment = quote(edit_id, safe="")
+        payload = await self.request_json(
+            "POST",
+            f"/androidpublisher/v3/applications/{package_segment}/edits/{edit_segment}:commit",
+            retry_transient=False,
+            params={
+                "changesNotSentForReview": "false",
+                "changesInReviewBehavior": "ERROR_IF_IN_REVIEW",
+            },
+        )
+        self._validate_edit(payload, expected_id=edit_id)
 
     @staticmethod
     def _validate_track_payload(

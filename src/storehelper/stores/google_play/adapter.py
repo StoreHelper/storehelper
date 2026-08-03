@@ -228,6 +228,121 @@ class GooglePlayAdapter:
             expected_version_code=normalized_artifact_id,
         )
 
+    @staticmethod
+    def _expired_edit_error() -> GoogleVendorError:
+        return GoogleVendorError(
+            "GOOGLE_EDIT_EXPIRED",
+            "The Google Play App Edit expired before it could be committed; start a new publish.",
+            ExitCode.LOCAL_STATE,
+            resumable=False,
+        )
+
+    async def _reconcile_missing_edit(
+        self,
+        *,
+        package_name: str,
+        track: str,
+        version_code: int,
+    ) -> bool:
+        return await self._client.reconcile_version(
+            package_name=package_name,
+            track=track,
+            version_code=version_code,
+        )
+
+    async def submit(
+        self,
+        *,
+        target: StoreTarget,
+        artifact_id: str,
+        operation_id: str | None = None,
+    ) -> str:
+        package_name, track = self._validate_target(target)
+        if operation_id is None or not operation_id.strip():
+            raise GoogleVendorError(
+                "GOOGLE_EDIT_ID_MISSING",
+                "Google Play submission requires the persisted App Edit ID.",
+                ExitCode.LOCAL_STATE,
+            )
+        try:
+            version_code = int(artifact_id)
+        except ValueError:
+            version_code = 0
+        if version_code <= 0:
+            raise GoogleVendorError(
+                "GOOGLE_VERSION_CODE_INVALID",
+                "Google Play submission requires a positive version code.",
+                ExitCode.LOCAL_STATE,
+            )
+        normalized_artifact_id = str(version_code)
+        edit_id = operation_id.strip()
+
+        if await self._client.is_version_visible(
+            package_name=package_name,
+            track=track,
+            version_code=version_code,
+        ):
+            return normalized_artifact_id
+
+        try:
+            await self._client.get_edit(package_name=package_name, edit_id=edit_id)
+            await self._client.validate_edit(package_name=package_name, edit_id=edit_id)
+        except GoogleVendorError as error:
+            if error.status_code != 404:
+                raise
+            if await self._reconcile_missing_edit(
+                package_name=package_name,
+                track=track,
+                version_code=version_code,
+            ):
+                return normalized_artifact_id
+            raise self._expired_edit_error() from None
+
+        try:
+            await self._client.commit_edit(package_name=package_name, edit_id=edit_id)
+        except GoogleVendorError as error:
+            if error.vendor_code == "FAILED_PRECONDITION":
+                raise GoogleVendorError(
+                    "GOOGLE_CHANGES_IN_REVIEW",
+                    "Google Play already has changes in review; wait for that review to finish "
+                    "and resume this run.",
+                    ExitCode.VENDOR_REJECTION,
+                    resumable=True,
+                    vendor_code=error.vendor_code,
+                    status_code=error.status_code,
+                ) from None
+            should_reconcile = (
+                error.resumable
+                or error.status_code in {404, 409}
+                or error.code == "GOOGLE_RESPONSE_INVALID"
+            )
+            if not should_reconcile:
+                raise
+            try:
+                visible = await self._reconcile_missing_edit(
+                    package_name=package_name,
+                    track=track,
+                    version_code=version_code,
+                )
+            except GoogleVendorError:
+                raise error from None
+            if visible:
+                return normalized_artifact_id
+            if error.status_code == 404:
+                raise self._expired_edit_error() from None
+            if error.status_code == 409:
+                raise GoogleVendorError(
+                    "GOOGLE_EDIT_CONFLICT",
+                    "Google Play rejected the App Edit because of a concurrent update; "
+                    "start a new publish.",
+                    ExitCode.LOCAL_STATE,
+                    resumable=False,
+                    vendor_code=error.vendor_code,
+                    status_code=409,
+                ) from None
+            raise
+        return normalized_artifact_id
+
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         package_name, track = self._validate_target(target)
         payload = await self._client.list_releases(

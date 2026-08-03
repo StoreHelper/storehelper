@@ -141,12 +141,12 @@ async def submit(
 - Modify: `src/storehelper/stores/google_play/adapter.py`
 - Create: `tests/integration/test_google_play_submission.py`
 
-- [ ] Add failing tests for validate-before-commit, explicit `ERROR_IF_IN_REVIEW`,
+- [x] Add failing tests for validate-before-commit, explicit `ERROR_IF_IN_REVIEW`,
   `changesNotSentForReview=false`, already-visible version, lost commit response, bounded lifecycle
   reconciliation, expired Edit, 409 conflict, and no second upload.
-- [ ] Treat a lifecycle-visible version as successful commit reconciliation.
-- [ ] Never use Google's cancel-existing-review default.
-- [ ] Commit: `feat: commit Google Play releases safely`.
+- [x] Treat a lifecycle-visible version as successful commit reconciliation.
+- [x] Never use Google's cancel-existing-review default.
+- [x] Commit: `feat: commit Google Play releases safely`.
 
 ### Task 9: Registry, runtime, and CLI integration
 
