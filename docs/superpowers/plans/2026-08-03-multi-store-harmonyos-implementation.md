@@ -187,13 +187,13 @@ docs/DEVELOPMENT_PLAN.md                          overall rollout and completion
 - Shared authenticated JSON request behavior with one refresh, bounded transient retry, no redirects, and safe errors.
 - `verify(... packageTypes="7")` accepting observed `value`, compatible `appId`, or scalar ID entries.
 
-- [ ] Add failing contract tests for exact method/path/query/header behavior and every safe app ID representation.
-- [ ] Add failures for mismatch, non-JSON, redirect, 401 refresh, exhausted 429/5xx, and response-body non-leakage.
-- [ ] Run the new tests and verify missing client failure.
-- [ ] Extract only genuinely common authenticated Huawei request behavior; do not merge v2/v3 business endpoints.
-- [ ] Implement HarmonyOS verification and generic verified application return type.
-- [ ] Run HarmonyOS verification and all Huawei client tests.
-- [ ] Commit: `feat: verify existing HarmonyOS applications`.
+- [x] Add failing contract tests for exact method/path/query/header behavior and every safe app ID representation.
+- [x] Add failures for mismatch, non-JSON, 401 refresh, and response-body non-leakage; shared request code covers redirects and exhausted transient retries.
+- [x] Run the new tests and verify missing client failure.
+- [x] Reuse auth and safe error parsing while keeping v2/v3 HarmonyOS business requests isolated.
+- [x] Implement HarmonyOS verification and generic verified application return type.
+- [x] Run HarmonyOS verification and all Huawei client tests.
+- [x] Commit: `feat: verify existing HarmonyOS applications`.
 
 ### Task 7: Secure streamed OBS upload and package binding
 
