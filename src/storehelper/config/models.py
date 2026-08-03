@@ -153,6 +153,21 @@ class VivoStoreConfig(BaseModel):
         return value
 
 
+class HonorStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    credential_profile: NonEmptyString
+    version_code: StrictPositiveInt
+    language: NonEmptyString = "zh-CN"
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        if not _BCP47_LANGUAGE.fullmatch(value):
+            raise ValueError("must be a BCP-47 language tag")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -163,6 +178,7 @@ class StoreConfigs(BaseModel):
     xiaomi: XiaomiStoreConfig | None = None
     oppo: OppoStoreConfig | None = None
     vivo: VivoStoreConfig | None = None
+    honor: HonorStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
@@ -175,6 +191,7 @@ class StoreConfigs(BaseModel):
                 self.xiaomi,
                 self.oppo,
                 self.vivo,
+                self.honor,
             )
         ):
             raise ValueError("at least one store must be configured")

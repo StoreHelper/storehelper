@@ -39,3 +39,7 @@ apps:
         credential_profile: vivo-release
         version_code: 124
         language: zh-CN
+      honor:
+        credential_profile: honor-release
+        version_code: 125
+        language: zh-CN

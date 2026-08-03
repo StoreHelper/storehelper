@@ -16,6 +16,7 @@ class StoreName(StrEnum):
     XIAOMI = "xiaomi"
     OPPO = "oppo"
     VIVO = "vivo"
+    HONOR = "honor"
 
 
 class CredentialKind(StrEnum):
@@ -25,6 +26,7 @@ class CredentialKind(StrEnum):
     XIAOMI_API = "xiaomi_api"
     OPPO_API = "oppo_api"
     VIVO_API = "vivo_api"
+    HONOR_API = "honor_api"
 
 
 class StoreCapabilities(BaseModel):

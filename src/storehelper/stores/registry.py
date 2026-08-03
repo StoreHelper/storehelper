@@ -31,6 +31,7 @@ from storehelper.stores.google_play.package import validate_google_play_artifact
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
+from storehelper.stores.honor.package import validate_honor_artifact
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
@@ -266,6 +267,20 @@ _REGISTRATIONS = {
         ),
         validator=validate_vivo_artifact,
         factory=_vivo_factory,
+    ),
+    StoreName.HONOR: AdapterRegistration(
+        store=StoreName.HONOR,
+        label="HONOR App Market",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.HONOR_API,
+            artifact_suffixes=(".apk",),
+            requires_processing_poll=False,
+            requires_release_notes=True,
+            supports_review_status=True,
+            supports_no_submit=False,
+        ),
+        validator=validate_honor_artifact,
+        factory=None,
     ),
 }
 

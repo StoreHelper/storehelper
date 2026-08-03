@@ -116,6 +116,20 @@ def test_vivo_registration_declares_staged_update_capabilities() -> None:
     assert vivo.factory is not None
 
 
+def test_honor_registration_declares_resumable_update_capabilities() -> None:
+    honor = get_registration(StoreName.HONOR)
+
+    assert honor.label == "HONOR App Market"
+    assert honor.capabilities.credential_kind is CredentialKind.HONOR_API
+    assert honor.capabilities.artifact_suffixes == (".apk",)
+    assert honor.capabilities.requires_release_notes is True
+    assert honor.capabilities.requires_processing_poll is False
+    assert honor.capabilities.supports_review_status is True
+    assert honor.capabilities.atomic_submission is False
+    assert honor.capabilities.supports_no_submit is False
+    assert honor.factory is None
+
+
 def test_registry_builds_the_selected_adapter(
     rsa_private_key: str,
     p256_private_key: str,

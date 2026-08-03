@@ -29,12 +29,12 @@ audit submission.
 
 ### Task 2: Strict target configuration and APK validation
 
-- [ ] Add `StoreName.HONOR`, `CredentialKind.HONOR_API`, target config/resolution, registry metadata,
+- [x] Add `StoreName.HONOR`, `CredentialKind.HONOR_API`, target config/resolution, registry metadata,
   and secret-free examples.
-- [ ] Enforce existing-package, positive version, BCP-47 locale, APK-only, and strict `<4 GiB`.
-- [ ] Reject `--no-submit` while retaining standard resume/status capabilities.
-- [ ] Test first; run focused tests, Ruff, and mypy.
-- [ ] Commit: `feat: configure HONOR update targets`.
+- [x] Enforce existing-package, positive version, BCP-47 locale, APK-only, and strict `<4 GiB`.
+- [x] Reject `--no-submit` while retaining standard resume/status capabilities.
+- [x] Test first; run focused tests, Ruff, and mypy.
+- [x] Commit: `feat: configure HONOR update targets`.
 
 ### Task 3: Credentials and account token
 

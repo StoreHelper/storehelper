@@ -120,3 +120,4 @@ def test_example_config_is_valid_and_secret_free(tmp_path: Path) -> None:
     assert config.apps["my-app"].stores.google_play.release_status == "draft"
     assert config.apps["my-app"].stores.oppo.version_code == 123
     assert config.apps["my-app"].stores.vivo.version_code == 124
+    assert config.apps["my-app"].stores.honor.version_code == 125

@@ -68,6 +68,12 @@ VIVO = """      vivo:
         language: zh-CN
 """
 
+HONOR = """      honor:
+        credential_profile: honor-wallet
+        version_code: 125
+        language: zh-CN
+"""
+
 
 def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, HARMONYOS))
@@ -229,6 +235,46 @@ def test_loads_vivo_update_target_from_android_package_name(tmp_path: Path) -> N
     }
 
 
+def test_loads_honor_update_target_from_android_package_name(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, HONOR)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.HONOR)
+
+    assert target.model_dump(mode="json") == {
+        "store": "honor",
+        "label": "HONOR App Market",
+        "app_id": "com.example.wallet",
+        "package_name": "com.example.wallet",
+        "credential_profile": "honor-wallet",
+        "language": "zh-CN",
+        "release_id": None,
+        "platform": None,
+        "track": None,
+        "release_status": None,
+        "app_name": None,
+        "icon_path": None,
+        "privacy_url": None,
+        "version_code": 125,
+    }
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        HONOR.replace("credential_profile: honor-wallet", "credential_profile: ' '"),
+        HONOR.replace("version_code: 125", "version_code: 0"),
+        HONOR.replace("version_code: 125", "version_code: -1"),
+        HONOR.replace("version_code: 125", "version_code: '125'"),
+        HONOR.replace("version_code: 125", "version_code: true"),
+        HONOR.replace("language: zh-CN", "language: zh_CN"),
+        HONOR + "        unexpected: true\n",
+    ],
+)
+def test_honor_configuration_is_strict(tmp_path: Path, invalid: str) -> None:
+    with pytest.raises(ConfigError, match="honor"):
+        load_config(_write(tmp_path, invalid))
+
+
 @pytest.mark.parametrize(
     "invalid",
     [
@@ -316,9 +362,9 @@ def test_google_play_coexists_with_existing_store_targets(tmp_path: Path) -> Non
     assert resolve_store_target(application, StoreName.GOOGLE_PLAY).track == "internal"
 
 
-def test_vivo_coexists_with_every_existing_store_target(tmp_path: Path) -> None:
+def test_honor_coexists_with_every_existing_store_target(tmp_path: Path) -> None:
     application = load_config(
-        _write(tmp_path, HUAWEI + HARMONYOS + APPLE + GOOGLE_PLAY + XIAOMI + OPPO + VIVO)
+        _write(tmp_path, HUAWEI + HARMONYOS + APPLE + GOOGLE_PLAY + XIAOMI + OPPO + VIVO + HONOR)
     ).apps["wallet"]
 
     assert resolve_store_target(application, StoreName.HUAWEI).app_id == "100000001"
@@ -328,6 +374,7 @@ def test_vivo_coexists_with_every_existing_store_target(tmp_path: Path) -> None:
     assert resolve_store_target(application, StoreName.XIAOMI).app_name == "Example Wallet"
     assert resolve_store_target(application, StoreName.OPPO).version_code == 123
     assert resolve_store_target(application, StoreName.VIVO).version_code == 124
+    assert resolve_store_target(application, StoreName.HONOR).version_code == 125
 
 
 @pytest.mark.parametrize(

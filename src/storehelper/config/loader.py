@@ -67,6 +67,10 @@ apps:
         credential_profile: vivo-release
         version_code: 124
         language: zh-CN
+      honor:
+        credential_profile: honor-release
+        version_code: 125
+        language: zh-CN
 """
 
 
@@ -260,20 +264,37 @@ def resolve_store_target(
             version_code=oppo_config.version_code,
         )
 
-    vivo_config = application.stores.vivo
-    if vivo_config is None:
+    if store is StoreName.VIVO:
+        vivo_config = application.stores.vivo
+        if vivo_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="vivo App Store",
+            app_id=application.package_name,
+            package_name=application.package_name,
+            credential_profile=vivo_config.credential_profile,
+            language=vivo_config.language,
+            version_code=vivo_config.version_code,
+        )
+
+    honor_config = application.stores.honor
+    if honor_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label="vivo App Store",
+        label="HONOR App Market",
         app_id=application.package_name,
         package_name=application.package_name,
-        credential_profile=vivo_config.credential_profile,
-        language=vivo_config.language,
-        version_code=vivo_config.version_code,
+        credential_profile=honor_config.credential_profile,
+        language=honor_config.language,
+        version_code=honor_config.version_code,
     )
 
 

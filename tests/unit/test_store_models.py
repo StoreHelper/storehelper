@@ -104,6 +104,22 @@ def test_vivo_contract_extensions_reuse_store_neutral_version_target() -> None:
     assert target.version_code == 124
 
 
+def test_honor_contract_extensions_reuse_store_neutral_version_target() -> None:
+    target = StoreTarget(
+        store=StoreName.HONOR,
+        label="HONOR App Market",
+        app_id="com.example.wallet",
+        package_name="com.example.wallet",
+        credential_profile="honor-wallet",
+        language="zh-CN",
+        version_code=125,
+    )
+
+    assert StoreName.HONOR.value == "honor"
+    assert CredentialKind.HONOR_API.value == "honor_api"
+    assert target.version_code == 125
+
+
 def test_capabilities_describe_orchestration_without_vendor_fields() -> None:
     capabilities = StoreCapabilities(
         credential_kind=CredentialKind.HUAWEI_SERVICE_ACCOUNT,
