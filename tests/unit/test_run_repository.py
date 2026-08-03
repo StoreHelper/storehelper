@@ -54,9 +54,13 @@ def test_receipt_round_trip_and_duplicate_lookup(tmp_path: Path) -> None:
     assert mode & 0o077 == 0
 
 
-def test_receipt_rejects_secret_fields() -> None:
+@pytest.mark.parametrize(
+    "field",
+    ["access_token", "private_key", "jwt", "uploadOperations", "requestHeaders"],
+)
+def test_receipt_rejects_secret_fields(field: str) -> None:
     payload = sample_receipt().model_dump(mode="json")
-    payload["access_token"] = "secret"
+    payload[field] = "known-secret-marker"
 
     with pytest.raises(ValidationError):
         RunReceipt.model_validate(payload)

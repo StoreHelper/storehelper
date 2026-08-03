@@ -9,11 +9,12 @@ import pytest
 
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.errors import StoreHelperError
+from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import PublishRequest, PublishStage
 from storehelper.publishing.service import Publisher
 from storehelper.runs.models import RunState
 from storehelper.runs.repository import RunRepository
-from storehelper.stores.errors import ArtifactStillProcessingError
+from storehelper.stores.errors import ArtifactStillProcessingError, StoreVendorError
 from storehelper.stores.huawei.package import validate_package
 from storehelper.stores.models import (
     CredentialKind,
@@ -36,6 +37,7 @@ class FakeAdapter:
         self.compile_states = compile_states or [CompileState.READY]
         self.calls: list[str] = []
         self.submit_compiling_once = False
+        self.submit_network_failure_once = False
         self.processing_artifact_id: str | None = None
 
     async def verify(self, *, target: StoreTarget) -> VerifiedApplication:
@@ -79,6 +81,14 @@ class FakeAdapter:
                 "HUAWEI_PACKAGE_COMPILING",
                 "Package is still compiling.",
                 vendor_code="204144727",
+            )
+        if self.submit_network_failure_once:
+            self.submit_network_failure_once = False
+            raise StoreVendorError(
+                "STORE_NETWORK_ERROR",
+                "Submission response was lost.",
+                ExitCode.NETWORK,
+                resumable=True,
             )
         return "submission-123"
 
@@ -463,3 +473,25 @@ async def test_submit_compiling_rechecks_compile_state_then_retries(tmp_path: Pa
         "compile",
         "submit",
     ]
+
+
+@pytest.mark.asyncio
+async def test_submission_network_failure_preserves_metadata_stage_for_resume(
+    tmp_path: Path,
+) -> None:
+    adapter = FakeAdapter()
+    adapter.processing_artifact_id = "processed-build-id"
+    adapter.submit_network_failure_once = True
+    publisher = _publisher(adapter=adapter, repository=RunRepository(tmp_path / "runs"))
+
+    interrupted = await publisher.publish(_request(_package(tmp_path)))
+
+    receipt = publisher.repository.get(interrupted.run_id or "")
+    assert interrupted.stage is PublishStage.TIMED_OUT
+    assert receipt.state is RunState.METADATA_UPDATED
+    adapter.calls.clear()
+
+    resumed = await publisher.resume(receipt.run_id)
+
+    assert resumed.stage is PublishStage.SUBMITTED
+    assert adapter.calls == ["submit"]

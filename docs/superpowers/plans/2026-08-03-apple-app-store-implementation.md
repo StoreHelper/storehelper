@@ -409,11 +409,11 @@ v1/v2 receipt migration and v3 rewrite
 no Apple secret or delivery value in output/error/receipt
 ```
 
-- [ ] Write the mocked scenarios with injected clock/sleeper and known secret markers.
-- [ ] Run the new file and record each gap.
-- [ ] Apply only minimal production corrections.
-- [ ] Run all unit/integration tests and scan non-test files for fixture secrets.
-- [ ] Commit: `test: cover Apple publishing recovery and security`.
+- [x] Write the mocked scenarios with injected clock/sleeper and known secret markers.
+- [x] Run the new file and record each gap.
+- [x] Apply only minimal production corrections.
+- [x] Run all unit/integration tests and scan non-test files for fixture secrets.
+- [x] Commit: `test: cover Apple publishing recovery and security`.
 
 ### Task 12: Documentation, versioning, and release checklist
 

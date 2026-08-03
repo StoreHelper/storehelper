@@ -339,17 +339,27 @@ class Publisher:
                 ExitCode.LOCAL_STATE,
             )
         except asyncio.CancelledError:
-            interrupted = self._transition(receipt, RunState.INTERRUPTED)
+            # Preserve the last completed stage. Retrying that stage is how each adapter
+            # reconciles remote state after a response is lost (including uploads and submits).
+            interrupted = self._transition(receipt, receipt.state)
             return OperationResult.failure(
                 store=self._target.store,
                 stage=PublishStage.INTERRUPTED,
                 run_id=interrupted.run_id,
                 message="Publishing was interrupted.",
-                resumable=interrupted.artifact_id is not None,
+                resumable=interrupted.resumable,
             )
         except StoreHelperError as error:
             if error.resumable and receipt.artifact_id:
-                resumable = self._transition(receipt, RunState.TIMED_OUT)
+                # Once a processed build is attached or ready for submission, its artifact_id
+                # is a build ID rather than an upload ID. Preserve that completed stage so
+                # resume retries the idempotent prepare/submit operation instead of repolling.
+                recovery_state = (
+                    receipt.state
+                    if receipt.state in {RunState.PACKAGE_READY, RunState.METADATA_UPDATED}
+                    else RunState.TIMED_OUT
+                )
+                resumable = self._transition(receipt, recovery_state)
                 return OperationResult.failure(
                     store=self._target.store,
                     stage=PublishStage.TIMED_OUT,

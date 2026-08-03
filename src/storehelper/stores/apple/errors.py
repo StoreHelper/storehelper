@@ -13,6 +13,23 @@ from storehelper.stores.errors import StoreVendorError
 class AppleVendorError(StoreVendorError):
     """A safe App Store Connect failure with stable StoreHelper semantics."""
 
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        exit_code: ExitCode,
+        *,
+        resumable: bool | None = None,
+        vendor_code: str | None = None,
+    ) -> None:
+        super().__init__(
+            code,
+            message,
+            exit_code,
+            resumable=exit_code is ExitCode.NETWORK if resumable is None else resumable,
+            vendor_code=vendor_code,
+        )
+
 
 _VENDOR_CODE = re.compile(r"^[A-Za-z0-9_.-]{1,200}$")
 
