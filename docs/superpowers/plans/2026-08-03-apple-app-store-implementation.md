@@ -379,14 +379,14 @@ def build_runtime(
 ) -> StoreRuntime: ...
 ```
 
-- [ ] Write failing CLI tests for `apple` help choices, credential import/verify, dry-run, no-submit,
+- [x] Write failing CLI tests for `apple` help choices, credential import/verify, dry-run, no-submit,
   full JSON submit, prompt, timeout, resume-derived store, status, and wrong credential kind.
-- [ ] Run focused tests and verify the current CLI rejects Apple.
-- [ ] Add `--store` to credential import/delete/list semantics without breaking legacy Huawei use.
-- [ ] Resolve credential kind from the selected registry entry and construct the Apple runtime.
-- [ ] Keep noninteractive confirmation and output/exit-code contracts unchanged.
-- [ ] Run all CLI tests, Ruff, and mypy.
-- [ ] Commit: `feat: expose Apple publishing through the CLI`.
+- [x] Run focused tests and verify the current CLI rejects Apple.
+- [x] Add `--store` to credential import/delete/list semantics without breaking legacy Huawei use.
+- [x] Resolve credential kind from the selected registry entry and construct the Apple runtime.
+- [x] Keep noninteractive confirmation and output/exit-code contracts unchanged.
+- [x] Run all CLI tests, Ruff, and mypy.
+- [x] Commit: `feat: expose Apple publishing through the CLI`.
 
 ### Task 11: End-to-end recovery and security regression
 

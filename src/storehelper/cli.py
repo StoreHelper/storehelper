@@ -27,6 +27,7 @@ from storehelper.publishing.service import Publisher, PublishingError
 from storehelper.runs.repository import RunRepository
 from storehelper.runtime import StoreRuntime, build_runtime, resolve_runtime
 from storehelper.stores.models import (
+    CredentialKind,
     ProcessingStatus,
     ReviewStatus,
     StoreName,
@@ -34,6 +35,7 @@ from storehelper.stores.models import (
     UploadedArtifact,
     VerifiedApplication,
 )
+from storehelper.stores.registry import get_registration
 
 app = typer.Typer(
     name="storehelper",
@@ -41,7 +43,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 config_app = typer.Typer(help="Validate project configuration.")
-credentials_app = typer.Typer(help="Manage Huawei Service Account profiles securely.")
+credentials_app = typer.Typer(help="Manage app-store credential profiles securely.")
 runs_app = typer.Typer(help="Inspect and delete redacted local publishing runs.")
 app.add_typer(config_app, name="config")
 app.add_typer(credentials_app, name="credentials")
@@ -74,6 +76,10 @@ def _duration(value: str) -> float:
 
 def _interactive(output: OutputFormat) -> bool:
     return output == "text" and sys.stdin.isatty()
+
+
+def _credential_kind(store: StoreName) -> CredentialKind:
+    return get_registration(store).capabilities.credential_kind
 
 
 def _result_exit_code(result: OperationResult) -> int:
@@ -154,6 +160,7 @@ async def _publish_operation(
         return await _publisher(runtime=runtime).publish(request)
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
+        _credential_kind(request.store),
         interactive=interactive,
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
@@ -178,6 +185,7 @@ async def _resume_operation(
     target = resolve_store_target(application, receipt.store)
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
+        _credential_kind(receipt.store),
         interactive=interactive,
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
@@ -203,6 +211,7 @@ async def _status_operation(
     target = resolve_store_target(application, store)
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
+        _credential_kind(store),
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
@@ -223,6 +232,7 @@ async def _verify_credentials_operation(
     target = resolve_store_target(application, store)
     account = CredentialProvider(KEYRING).resolve(
         profile or target.credential_profile,
+        _credential_kind(store),
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
@@ -299,32 +309,42 @@ def config_validate(
 def credentials_import(
     profile: Annotated[str, typer.Option("--profile")],
     file: Annotated[Path, typer.Option("--file", exists=True, dir_okay=False)],
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
     output: Annotated[str, typer.Option("--output")] = "text",
 ) -> None:
-    """Import Service Account JSON into the operating-system keyring."""
+    """Import a store credential JSON file into the operating-system keyring."""
 
     output_format = _output(output)
     try:
-        imported = import_profile(KEYRING, profile, file)
+        imported = import_profile(KEYRING, profile, file, _credential_kind(store))
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
-        typer.echo(json.dumps({"ok": True, "profile": imported}, separators=(",", ":")))
+        payload: dict[str, object] = {"ok": True, "profile": imported}
+        if store is not StoreName.HUAWEI:
+            payload["store"] = store.value
+        typer.echo(json.dumps(payload, separators=(",", ":")))
     else:
-        typer.echo(f"Imported Huawei credential profile: {imported}")
+        typer.echo(f"Imported {store.value} credential profile: {imported}")
 
 
 @credentials_app.command("list")
-def credentials_list(output: Annotated[str, typer.Option("--output")] = "text") -> None:
+def credentials_list(
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
+    output: Annotated[str, typer.Option("--output")] = "text",
+) -> None:
     """List profile names without reading secret values."""
 
     output_format = _output(output)
     try:
-        profiles = list_profiles(KEYRING)
+        profiles = list_profiles(KEYRING, _credential_kind(store))
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
-        typer.echo(json.dumps({"profiles": profiles}, separators=(",", ":")))
+        payload: dict[str, object] = {"profiles": profiles}
+        if store is not StoreName.HUAWEI:
+            payload["store"] = store.value
+        typer.echo(json.dumps(payload, separators=(",", ":")))
     else:
         typer.echo("\n".join(profiles) if profiles else "No credential profiles.")
 
@@ -332,6 +352,7 @@ def credentials_list(output: Annotated[str, typer.Option("--output")] = "text") 
 @credentials_app.command("delete")
 def credentials_delete(
     profile: Annotated[str, typer.Option("--profile")],
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
     yes: Annotated[bool, typer.Option("--yes")] = False,
     output: Annotated[str, typer.Option("--output")] = "text",
 ) -> None:
@@ -343,13 +364,16 @@ def credentials_delete(
     ):
         raise typer.Exit(code=2)
     try:
-        delete_profile(KEYRING, profile)
+        delete_profile(KEYRING, profile, _credential_kind(store))
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
-        typer.echo(json.dumps({"ok": True, "profile": profile}, separators=(",", ":")))
+        payload: dict[str, object] = {"ok": True, "profile": profile}
+        if store is not StoreName.HUAWEI:
+            payload["store"] = store.value
+        typer.echo(json.dumps(payload, separators=(",", ":")))
     else:
-        typer.echo(f"Deleted Huawei credential profile: {profile}")
+        typer.echo(f"Deleted {store.value} credential profile: {profile}")
 
 
 @credentials_app.command("verify")
@@ -360,7 +384,7 @@ def credentials_verify(
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
-    """Verify credentials and app access using a read-only Huawei request."""
+    """Verify credentials and app access using a read-only store request."""
 
     output_format = _output(output)
     _run_operation(
@@ -432,7 +456,8 @@ def publish(
         if not typer.confirm(f"Upload, update release notes, and submit to {store.value} review?"):
             raise typer.Exit(code=int(ExitCode.USAGE))
         yes = True
-    if submit and release_notes is None:
+    requires_release_notes = get_registration(store).capabilities.requires_release_notes
+    if submit and release_notes is None and requires_release_notes:
         if interactive:
             release_notes = typer.prompt("Release notes (1-500 characters)")
         else:

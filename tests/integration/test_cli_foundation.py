@@ -130,6 +130,83 @@ def test_credential_import_list_and_delete(
     assert deleted.exit_code == 0
 
 
+def test_apple_credential_import_list_and_delete_use_separate_namespace(
+    tmp_path: Path,
+    p256_private_key: str,
+    monkeypatch,
+) -> None:
+    keyring = MemoryKeyring()
+    monkeypatch.setattr(cli_module, "KEYRING", keyring)
+    credential_file = tmp_path / "apple.json"
+    credential_file.write_text(
+        json.dumps(
+            {
+                "key_type": "team",
+                "key_id": "APPLEKEY1",
+                "issuer_id": "issuer-1",
+                "private_key": p256_private_key,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    imported = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "import",
+            "--store",
+            "apple",
+            "--profile",
+            "release",
+            "--file",
+            str(credential_file),
+            "--output",
+            "json",
+        ],
+    )
+    apple_profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--store", "apple", "--output", "json"],
+    )
+    huawei_profiles = runner.invoke(
+        cli_module.app,
+        ["credentials", "list", "--output", "json"],
+    )
+    deleted = runner.invoke(
+        cli_module.app,
+        [
+            "credentials",
+            "delete",
+            "--store",
+            "apple",
+            "--profile",
+            "release",
+            "--yes",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert imported.exit_code == 0
+    assert json.loads(imported.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "apple",
+    }
+    assert json.loads(apple_profiles.stdout) == {
+        "profiles": ["release"],
+        "store": "apple",
+    }
+    assert json.loads(huawei_profiles.stdout) == {"profiles": []}
+    assert json.loads(deleted.stdout) == {
+        "ok": True,
+        "profile": "release",
+        "store": "apple",
+    }
+    assert p256_private_key not in imported.stdout + apple_profiles.stdout + deleted.stdout
+
+
 def test_empty_credential_list_and_delete_confirmation(monkeypatch) -> None:
     monkeypatch.setattr(cli_module, "KEYRING", MemoryKeyring())
 

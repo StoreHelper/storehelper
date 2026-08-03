@@ -637,10 +637,14 @@ async def test_real_cli_operation_factory_uses_harmonyos_adapter(
 
 def test_publish_help_lists_registered_store_choices() -> None:
     result = runner.invoke(cli_module.app, ["publish", "--help"])
+    collapsed = "".join(result.stdout.split())
 
     assert result.exit_code == 0
-    assert "huawei" in result.stdout
-    assert "harmonyos" in result.stdout
+    assert "huawei" in collapsed
+    assert "harmonyos" in collapsed
+    # Rich wraps the final enum value as ``app`` / ``le`` in its fixed-width option column.
+    assert "harmonyos|app" in result.stdout
+    assert "le>" in result.stdout
 
 
 @pytest.mark.asyncio
