@@ -12,6 +12,7 @@ from storehelper.artifacts.models import ArtifactInfo
 from storehelper.credentials.models import (
     AppleApiKey,
     CredentialError,
+    GoogleServiceAccount,
     HuaweiServiceAccount,
     StoreCredential,
 )
@@ -20,6 +21,9 @@ from storehelper.stores.apple.auth import AppleAuth
 from storehelper.stores.apple.client import AppleClient
 from storehelper.stores.apple.package import validate_ipa
 from storehelper.stores.base import StoreAdapter
+from storehelper.stores.google_play.adapter import GooglePlayAdapter
+from storehelper.stores.google_play.auth import GoogleAuth
+from storehelper.stores.google_play.client import GooglePlayClient
 from storehelper.stores.google_play.package import validate_google_play_artifact
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
@@ -83,6 +87,19 @@ def _apple_factory(
     return AppleAdapter(AppleClient(auth=AppleAuth(account), http=http))
 
 
+def _google_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, GoogleServiceAccount):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "Google Play publishing requires a Google service account profile.",
+        )
+    auth = GoogleAuth(account, http)
+    return GooglePlayAdapter(GooglePlayClient(auth=auth, http=http))
+
+
 _REGISTRATIONS = {
     StoreName.HUAWEI: AdapterRegistration(
         store=StoreName.HUAWEI,
@@ -134,7 +151,7 @@ _REGISTRATIONS = {
             supports_review_status=True,
         ),
         validator=validate_google_play_artifact,
-        factory=None,
+        factory=_google_factory,
     ),
 }
 

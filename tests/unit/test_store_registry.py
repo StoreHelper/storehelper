@@ -5,8 +5,14 @@ import asyncio
 import httpx
 import pytest
 
-from storehelper.credentials.models import AppleApiKey, CredentialError, HuaweiServiceAccount
+from storehelper.credentials.models import (
+    AppleApiKey,
+    CredentialError,
+    GoogleServiceAccount,
+    HuaweiServiceAccount,
+)
 from storehelper.stores.apple.adapter import AppleAdapter
+from storehelper.stores.google_play.adapter import GooglePlayAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.models import CredentialKind, StoreName
@@ -18,6 +24,7 @@ def test_registry_exposes_only_audited_builtin_stores() -> None:
         StoreName.HUAWEI,
         StoreName.HARMONYOS,
         StoreName.APPLE,
+        StoreName.GOOGLE_PLAY,
     )
 
 
@@ -43,14 +50,16 @@ def test_apple_registration_declares_native_ios_capabilities() -> None:
     assert apple.capabilities.supports_review_status is True
 
 
-def test_google_registration_exposes_credentials_before_network_adapter() -> None:
+def test_google_registration_declares_audited_android_capabilities() -> None:
     google = get_registration(StoreName.GOOGLE_PLAY)
 
     assert google.label == "Google Play"
     assert google.capabilities.credential_kind is CredentialKind.GOOGLE_SERVICE_ACCOUNT
     assert google.capabilities.artifact_suffixes == (".apk", ".aab")
     assert google.capabilities.requires_release_notes is False
-    assert google.factory is None
+    assert google.capabilities.requires_processing_poll is False
+    assert google.capabilities.supports_review_status is True
+    assert google.factory is not None
 
 
 def test_registry_builds_the_selected_adapter(
@@ -68,6 +77,13 @@ def test_registry_builds_the_selected_adapter(
         issuer_id="issuer-1",
         private_key=p256_private_key,
     )
+    google_key = GoogleServiceAccount(
+        type="service_account",
+        project_id="demo-project",
+        private_key_id="google-key-1",
+        private_key=rsa_private_key,
+        client_email="storehelper@demo-project.iam.gserviceaccount.com",
+    )
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
 
     try:
@@ -76,12 +92,16 @@ def test_registry_builds_the_selected_adapter(
         apple_factory = get_registration(StoreName.APPLE).factory
         assert apple_factory is not None
         apple = apple_factory(apple_key, http)
+        google_factory = get_registration(StoreName.GOOGLE_PLAY).factory
+        assert google_factory is not None
+        google = google_factory(google_key, http)
     finally:
         asyncio.run(http.aclose())
 
     assert isinstance(huawei, HuaweiAndroidAdapter)
     assert isinstance(harmonyos, HarmonyOSAdapter)
     assert isinstance(apple, AppleAdapter)
+    assert isinstance(google, GooglePlayAdapter)
 
 
 def test_registry_rejects_wrong_credential_kind_for_apple(
@@ -99,5 +119,25 @@ def test_registry_rejects_wrong_credential_kind_for_apple(
         assert factory is not None
         with pytest.raises(CredentialError, match="Apple API key"):
             factory(account, http)
+    finally:
+        asyncio.run(http.aclose())
+
+
+def test_registry_rejects_wrong_credential_kind_for_google(
+    p256_private_key: str,
+) -> None:
+    wrong = AppleApiKey(
+        key_type="team",
+        key_id="APPLEKEY1",
+        issuer_id="issuer-1",
+        private_key=p256_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        factory = get_registration(StoreName.GOOGLE_PLAY).factory
+        assert factory is not None
+        with pytest.raises(CredentialError, match="Google service account"):
+            factory(wrong, http)
     finally:
         asyncio.run(http.aclose())

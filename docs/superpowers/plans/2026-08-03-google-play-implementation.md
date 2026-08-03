@@ -157,12 +157,12 @@ async def submit(
 - Create: `tests/integration/test_google_play_cli.py`
 - Modify: existing CLI tests
 
-- [ ] Add failing tests for help choices, credential import/verify, dry-run, no-submit, full JSON
+- [x] Add failing tests for help choices, credential import/verify, dry-run, no-submit, full JSON
   draft/completed publish, confirmation, timeout/recovery, status, and wrong credential kind.
-- [ ] Register the audited adapter and credential kind.
-- [ ] Keep output schemas and prior store defaults unchanged.
-- [ ] Run all CLI tests, Ruff, and mypy.
-- [ ] Commit: `feat: expose Google Play publishing through the CLI`.
+- [x] Register the audited adapter and credential kind.
+- [x] Keep output schemas and prior store defaults unchanged.
+- [x] Run all CLI tests, Ruff, and mypy.
+- [x] Commit: `feat: expose Google Play publishing through the CLI`.
 
 ### Task 10: End-to-end recovery and security regression
 
