@@ -39,6 +39,13 @@ apps:
         package_name: com.example.app.harmony
         credential_profile: default
         language: zh-CN
+      apple:
+        app_id: "1234567890"
+        bundle_id: com.example.app.ios
+        app_store_version_id: 11111111-2222-3333-4444-555555555555
+        credential_profile: apple-release
+        platform: IOS
+        language: en-US
 """
 
 
@@ -141,19 +148,37 @@ def resolve_store_target(
             language=huawei_config.language,
         )
 
-    harmony_config = application.stores.harmonyos
-    if harmony_config is None:
+    if store is StoreName.HARMONYOS:
+        harmony_config = application.stores.harmonyos
+        if harmony_config is None:
+            raise ConfigError(
+                "STORE_NOT_CONFIGURED",
+                f"Store is not configured for the selected application: {store.value}",
+            )
+        return StoreTarget(
+            store=store,
+            label="Huawei AppGallery (HarmonyOS)",
+            app_id=harmony_config.app_id,
+            package_name=harmony_config.package_name,
+            credential_profile=harmony_config.credential_profile,
+            language=harmony_config.language,
+        )
+
+    apple_config = application.stores.apple
+    if apple_config is None:
         raise ConfigError(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
     return StoreTarget(
         store=store,
-        label="Huawei AppGallery (HarmonyOS)",
-        app_id=harmony_config.app_id,
-        package_name=harmony_config.package_name,
-        credential_profile=harmony_config.credential_profile,
-        language=harmony_config.language,
+        label="Apple App Store",
+        app_id=apple_config.app_id,
+        package_name=apple_config.bundle_id,
+        credential_profile=apple_config.credential_profile,
+        language=apple_config.language,
+        release_id=apple_config.app_store_version_id,
+        platform=apple_config.platform,
     )
 
 

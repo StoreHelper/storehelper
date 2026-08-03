@@ -13,3 +13,10 @@ apps:
         package_name: com.example.app.harmony
         credential_profile: default
         language: zh-CN
+      apple:
+        app_id: "1234567890"
+        bundle_id: com.example.app.ios
+        app_store_version_id: 11111111-2222-3333-4444-555555555555
+        credential_profile: apple-release
+        platform: IOS
+        language: en-US

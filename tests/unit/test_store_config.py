@@ -32,6 +32,15 @@ HARMONYOS = """      harmonyos:
         language: en-US
 """
 
+APPLE = """      apple:
+        app_id: '1234567890'
+        bundle_id: com.example.wallet.ios
+        app_store_version_id: version-resource-id
+        credential_profile: apple-team
+        platform: IOS
+        language: zh-Hans
+"""
+
 
 def test_loads_harmonyos_only_application_and_resolves_target(tmp_path: Path) -> None:
     config = load_config(_write(tmp_path, HARMONYOS))
@@ -62,6 +71,45 @@ def test_dual_store_application_keeps_independent_package_names(tmp_path: Path) 
     assert android.package_name == "com.example.wallet"
     assert harmonyos.package_name == "com.example.wallet.harmony"
     assert android.credential_profile == harmonyos.credential_profile == "company"
+
+
+def test_loads_apple_only_application_and_resolves_release_target(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, APPLE)).apps["wallet"]
+
+    target = resolve_store_target(application, StoreName.APPLE)
+
+    assert target.model_dump(mode="json") == {
+        "store": "apple",
+        "label": "Apple App Store",
+        "app_id": "1234567890",
+        "package_name": "com.example.wallet.ios",
+        "credential_profile": "apple-team",
+        "language": "zh-Hans",
+        "release_id": "version-resource-id",
+        "platform": "IOS",
+    }
+
+
+def test_three_store_application_keeps_independent_targets(tmp_path: Path) -> None:
+    application = load_config(_write(tmp_path, HUAWEI + HARMONYOS + APPLE)).apps["wallet"]
+
+    assert resolve_store_target(application, StoreName.HUAWEI).app_id == "100000001"
+    assert resolve_store_target(application, StoreName.HARMONYOS).app_id == "100000002"
+    assert resolve_store_target(application, StoreName.APPLE).release_id == "version-resource-id"
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        APPLE.replace("com.example.wallet.ios", "not-a-bundle"),
+        APPLE.replace("version-resource-id", " "),
+        APPLE.replace("platform: IOS", "platform: MAC_OS"),
+        APPLE + "        unexpected: true\n",
+    ],
+)
+def test_apple_configuration_is_strict(tmp_path: Path, invalid: str) -> None:
+    with pytest.raises(ConfigError, match="apple"):
+        load_config(_write(tmp_path, invalid))
 
 
 def test_stores_requires_at_least_one_configured_store(tmp_path: Path) -> None:

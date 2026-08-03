@@ -12,7 +12,11 @@ from storehelper.stores.registry import get_registration, registered_store_names
 
 
 def test_registry_exposes_only_audited_builtin_stores() -> None:
-    assert registered_store_names() == (StoreName.HUAWEI, StoreName.HARMONYOS)
+    assert registered_store_names() == (
+        StoreName.HUAWEI,
+        StoreName.HARMONYOS,
+        StoreName.APPLE,
+    )
 
 
 def test_huawei_and_harmonyos_share_credentials_but_not_artifact_rules() -> None:
@@ -24,6 +28,17 @@ def test_huawei_and_harmonyos_share_credentials_but_not_artifact_rules() -> None
     assert huawei.capabilities.artifact_suffixes == (".apk", ".aab")
     assert harmonyos.capabilities.artifact_suffixes == (".app", ".hap")
     assert huawei.validator is not harmonyos.validator
+
+
+def test_apple_registration_declares_native_ios_capabilities() -> None:
+    apple = get_registration(StoreName.APPLE)
+
+    assert apple.label == "Apple App Store"
+    assert apple.capabilities.credential_kind is CredentialKind.APPLE_API_KEY
+    assert apple.capabilities.artifact_suffixes == (".ipa",)
+    assert apple.capabilities.requires_processing_poll is True
+    assert apple.capabilities.requires_release_notes is False
+    assert apple.capabilities.supports_review_status is True
 
 
 def test_registry_builds_the_selected_adapter(

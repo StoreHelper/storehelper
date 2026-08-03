@@ -17,7 +17,7 @@ from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
 from storehelper.stores.huawei.client import HuaweiClient
-from storehelper.stores.huawei.package import validate_package
+from storehelper.stores.huawei.package import PackageError, validate_package
 from storehelper.stores.models import (
     CredentialKind,
     StoreCapabilities,
@@ -34,7 +34,14 @@ class AdapterRegistration:
     label: str
     capabilities: StoreCapabilities
     validator: ArtifactValidator
-    factory: AdapterFactory
+    factory: AdapterFactory | None
+
+
+def _apple_validator_pending(path: Path) -> ArtifactInfo:
+    raise PackageError(
+        "APPLE_IPA_VALIDATOR_UNAVAILABLE",
+        "Apple IPA validation is not available in this development increment.",
+    )
 
 
 def _huawei_factory(
@@ -77,6 +84,19 @@ _REGISTRATIONS = {
         ),
         validator=validate_harmonyos_artifact,
         factory=_harmonyos_factory,
+    ),
+    StoreName.APPLE: AdapterRegistration(
+        store=StoreName.APPLE,
+        label="Apple App Store",
+        capabilities=StoreCapabilities(
+            credential_kind=CredentialKind.APPLE_API_KEY,
+            artifact_suffixes=(".ipa",),
+            requires_processing_poll=True,
+            requires_release_notes=False,
+            supports_review_status=True,
+        ),
+        validator=_apple_validator_pending,
+        factory=None,
     ),
 }
 

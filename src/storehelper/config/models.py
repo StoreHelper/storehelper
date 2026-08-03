@@ -36,15 +36,34 @@ class HarmonyOSStoreConfig(BaseModel):
         return value
 
 
+class AppleStoreConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    app_id: NonEmptyString
+    bundle_id: NonEmptyString
+    app_store_version_id: NonEmptyString
+    credential_profile: NonEmptyString
+    platform: Literal["IOS"] = "IOS"
+    language: NonEmptyString = "en-US"
+
+    @field_validator("bundle_id")
+    @classmethod
+    def validate_bundle_id(cls, value: str) -> str:
+        if not _PACKAGE_NAME.fullmatch(value):
+            raise ValueError("must be a dotted Apple bundle ID")
+        return value
+
+
 class StoreConfigs(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     huawei: HuaweiStoreConfig | None = None
     harmonyos: HarmonyOSStoreConfig | None = None
+    apple: AppleStoreConfig | None = None
 
     @model_validator(mode="after")
     def require_one_store(self) -> StoreConfigs:
-        if self.huawei is None and self.harmonyos is None:
+        if self.huawei is None and self.harmonyos is None and self.apple is None:
             raise ValueError("at least one store must be configured")
         return self
 

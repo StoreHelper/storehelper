@@ -78,15 +78,19 @@ class StoreTarget(BaseModel):
     release_id: str | None = None
     platform: str | None = None
 
+
 class ProcessingStatus(BaseModel):
     state: ProcessingState
     reason: str | None = None
     artifact_id: str | None = None
 
+
 class StoreAdapter(Protocol):
     async def verify(self, *, target: StoreTarget) -> VerifiedApplication: ...
     async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact: ...
-    async def processing_status(self, *, target: StoreTarget, artifact_id: str) -> ProcessingStatus: ...
+    async def processing_status(
+        self, *, target: StoreTarget, artifact_id: str
+    ) -> ProcessingStatus: ...
     async def prepare_release(
         self, *, target: StoreTarget, artifact_id: str, release_notes: str | None
     ) -> None: ...
@@ -127,15 +131,15 @@ class AppleStoreConfig(BaseModel):
     language: str = "en-US"
 ```
 
-- [ ] Write failing tests for Apple-only/three-store config, invalid bundle ID, empty version ID,
+- [x] Write failing tests for Apple-only/three-store config, invalid bundle ID, empty version ID,
   unsupported platform, strict extra fields, and resolved target output.
-- [ ] Run focused tests and confirm `apple` is rejected.
-- [ ] Add the strict Apple model and `resolve_store_target` mapping to `release_id`/`platform`.
-- [ ] Add registry metadata for `.ipa`, Apple credentials, processing poll, optional notes, and status.
+- [x] Run focused tests and confirm `apple` is rejected.
+- [x] Add the strict Apple model and `resolve_store_target` mapping to `release_id`/`platform`.
+- [x] Add registry metadata for `.ipa`, Apple credentials, processing poll, optional notes, and status.
 - [ ] Generalize registry factory typing to a tagged `StoreCredential` union without casts at call sites.
-- [ ] Update only fake values in the example YAML.
-- [ ] Run configuration/registry tests and static checks.
-- [ ] Commit: `feat: configure Apple App Store targets`.
+- [x] Update only fake values in the example YAML.
+- [x] Run configuration/registry tests and static checks.
+- [x] Commit: `feat: configure Apple App Store targets`.
 
 ### Task 3: Apple credential profiles and ES256 authentication
 
@@ -156,13 +160,16 @@ class AppleKeyType(StrEnum):
     TEAM = "team"
     INDIVIDUAL = "individual"
 
+
 class AppleApiKey(BaseModel):
     key_type: AppleKeyType
     key_id: str
     issuer_id: str | None
     private_key: SecretStr
 
+
 StoreCredential = HuaweiServiceAccount | AppleApiKey
+
 
 class CredentialProvider:
     def resolve(
@@ -196,6 +203,7 @@ class AppleArtifactInfo(ArtifactInfo):
     build_version: str
     platform: Literal["IOS"] = "IOS"
 
+
 def validate_ipa(path: Path) -> AppleArtifactInfo: ...
 ```
 
@@ -220,8 +228,11 @@ def validate_ipa(path: Path) -> AppleArtifactInfo: ...
 
 ```python
 class AppleClient:
-    async def request_json(self, method: str, path: str, **kwargs: object) -> Mapping[str, object]: ...
+    async def request_json(
+        self, method: str, path: str, **kwargs: object
+    ) -> Mapping[str, object]: ...
     async def verify_target(self, *, target: StoreTarget) -> VerifiedApplication: ...
+
 
 def parse_apple_errors(payload: object) -> AppleVendorError: ...
 ```
@@ -255,6 +266,7 @@ class AppleUploadOperation(BaseModel):
     part_number: int
     headers: dict[str, SecretStr]
     entity_tag: SecretStr | None = None
+
 
 def validate_upload_plan(
     operations: Sequence[Mapping[str, object]], file_size: int, now: datetime
