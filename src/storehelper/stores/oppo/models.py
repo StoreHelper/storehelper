@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 
 class OppoApplicationInfo(BaseModel):
@@ -27,3 +29,50 @@ class OppoApplicationInfo(BaseModel):
     business_username: str = Field(min_length=1)
     business_email: str = Field(min_length=1)
     business_mobile: str = Field(min_length=1)
+
+
+class OppoUploadTarget(BaseModel):
+    """One vendor-issued upload URL/sign pair retained only in memory."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    upload_url: SecretStr
+    upload_sign: SecretStr
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_secrets(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        for name in ("upload_url", "upload_sign"):
+            raw = normalized.get(name)
+            if isinstance(raw, SecretStr):
+                raw = raw.get_secret_value()
+            if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 4096:
+                raise ValueError("OPPO upload allocation is incomplete.")
+            normalized[name] = raw.strip()
+        return normalized
+
+
+class OppoUploadedApk(BaseModel):
+    """Opaque uploaded file reference plus public package MD5."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    file_url: SecretStr
+    md5: str = Field(min_length=32, max_length=32, pattern=r"^[0-9a-f]{32}$")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_file_url(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        raw = normalized.get("file_url")
+        if isinstance(raw, SecretStr):
+            raw = raw.get_secret_value()
+        if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > 4096:
+            raise ValueError("OPPO upload result is incomplete.")
+        normalized["file_url"] = raw.strip()
+        return normalized

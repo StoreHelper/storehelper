@@ -166,16 +166,16 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: `validate_oppo_artifact(path) -> ArtifactInfo`.
 - Produces: `OppoClient.upload_apk(artifact) -> OppoUploadedApk` held only in memory.
 
-- [ ] Write failing tests for APK structure, suffix, 2 GiB boundary, streamed SHA-256 reuse and
+- [x] Write failing tests for APK structure, suffix, 2 GiB boundary, streamed SHA-256 reuse and
   protocol-required streamed MD5.
-- [ ] Write failing tests for upload-address request, multipart `type`/`sign`/`file`, exact logical
+- [x] Write failing tests for upload-address request, multipart `type`/`sign`/`file`, exact logical
   filename, no body buffering, malformed upload result, redirect, and zero upload retries.
-- [ ] Write failing tests rejecting HTTP, userinfo, fragments, non-default ports, literal/private/
+- [x] Write failing tests rejecting HTTP, userinfo, fragments, non-default ports, literal/private/
   reserved hosts, and host suffix lookalikes while accepting explicit OPPO/HeyTap suffixes.
-- [ ] Implement validation, streamed digest, and upload with the returned URL/file URL confined to
+- [x] Implement validation, streamed digest, and upload with the returned URL/file URL confined to
   immutable in-memory objects whose repr is redacted.
-- [ ] Run OPPO package/upload tests plus existing Android validator tests.
-- [ ] Commit: `feat: upload OPPO APKs safely`.
+- [x] Run OPPO package/upload tests plus existing Android validator tests.
+- [x] Commit: `feat: upload OPPO APKs safely`.
 
 ### Task 7: Staged OPPO submission and review status
 

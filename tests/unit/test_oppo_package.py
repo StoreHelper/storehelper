@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import zipfile
 from pathlib import Path
 
@@ -19,6 +20,8 @@ def test_oppo_artifact_accepts_a_valid_signed_apk(tmp_path: Path) -> None:
 
     assert artifact.kind == "apk"
     assert artifact.path == apk.resolve()
+    assert artifact.sha256 == hashlib.sha256(apk.read_bytes()).hexdigest()
+    assert artifact.md5 == hashlib.md5(apk.read_bytes(), usedforsecurity=False).hexdigest()
 
 
 def test_oppo_artifact_rejects_aab_before_archive_inspection(tmp_path: Path) -> None:
