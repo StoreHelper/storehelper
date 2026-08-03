@@ -189,16 +189,16 @@ Ruff, mypy, Hatchling/build, Twine.
 - Produces: `OppoAdapter` implementing `StagedStoreAdapter`.
 - Produces: exact signed `/resource/v1/app/upd` form and `ReviewStatus` mapping.
 
-- [ ] Write failing tests that `verify` requires exact ownership, `version_code` greater than the
+- [x] Write failing tests that `verify` requires exact ownership, `version_code` greater than the
   current value, and complete existing metadata.
-- [ ] Write failing tests for compact one-item `apk_url`, reused listing fields, release-note/test
+- [x] Write failing tests for compact one-item `apk_url`, reused listing fields, release-note/test
   description bounds, `online_type=1`, signed form, successful package submission ID, vendor
   rejection, redirect, cancellation, response loss, and zero final retries.
-- [ ] Write failing tests for every documented audit-status mapping and unknown values.
-- [ ] Implement staging as fresh info query plus upload retained only in memory; final commit must
+- [x] Write failing tests for every documented audit-status mapping and unknown values.
+- [x] Implement staging as fresh info query plus upload retained only in memory; final commit must
   refuse missing/mismatched staged context.
-- [ ] Run OPPO submission/status tests, Ruff, and mypy.
-- [ ] Commit: `feat: submit OPPO updates for review`.
+- [x] Run OPPO submission/status tests, Ruff, and mypy.
+- [x] Commit: `feat: submit OPPO updates for review`.
 
 ### Task 8: Registry, runtime, CLI, and end-to-end safety
 

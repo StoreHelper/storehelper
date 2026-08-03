@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from urllib.parse import urlsplit
 
@@ -412,3 +413,80 @@ class OppoClient:
             return OppoUploadedApk(file_url=SecretStr(file_url), md5=artifact.md5)
         except ValidationError:
             raise self._protocol_error("OPPO upload result is incomplete.") from None
+
+    async def submit_update(
+        self,
+        *,
+        application: OppoApplicationInfo,
+        uploaded: OppoUploadedApk,
+        version_code: int,
+        release_notes: str,
+    ) -> str:
+        """Perform the single non-retryable review submission mutation."""
+
+        apk_url = json.dumps(
+            [
+                {
+                    "url": uploaded.file_url.get_secret_value(),
+                    "md5": uploaded.md5,
+                }
+            ],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        business_params: dict[str, object] = {
+            "pkg_name": application.package_name,
+            "version_code": str(version_code),
+            "apk_url": apk_url,
+            "app_name": application.app_name,
+            "second_category_id": application.second_category_id,
+            "third_category_id": application.third_category_id,
+            "summary": application.summary,
+            "detail_desc": application.detail_desc,
+            "update_desc": release_notes,
+            "privacy_source_url": application.privacy_source_url,
+            "icon_url": application.icon_url,
+            "pic_url": application.pic_url,
+            "online_type": "1",
+            "test_desc": release_notes[:400],
+            "age_level": application.age_level,
+            "adaptive_equipment": application.adaptive_equipment,
+            "copyright_url": application.copyright_url,
+            "business_username": application.business_username,
+            "business_email": application.business_email,
+            "business_mobile": application.business_mobile,
+        }
+        try:
+            params = self._auth.signed_params(business_params)
+        except RuntimeError:
+            raise OppoVendorError(
+                "OPPO_AUTHENTICATION_FAILED",
+                "The OPPO access token expired before final submission.",
+                ExitCode.AUTHENTICATION,
+            ) from None
+        try:
+            response = await self._http.post(
+                f"{DEFAULT_API_BASE}/resource/v1/app/upd",
+                data=params,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                follow_redirects=False,
+            )
+        except (OSError, httpx.HTTPError):
+            raise OppoVendorError(
+                "OPPO_SUBMISSION_UNCERTAIN",
+                "The OPPO final submission response was not received; inspect the OPPO console.",
+                ExitCode.NETWORK,
+            ) from None
+        if response.is_redirect:
+            raise self._network_error(
+                "OPPO_REDIRECT",
+                "OPPO publishing returned an unexpected redirect.",
+            )
+        payload, errno = self._response_payload(response)
+        if errno != 0:
+            raise parse_oppo_error(
+                errno=errno,
+                status_code=response.status_code,
+                vendor_message=payload.get("data"),
+            )
+        return application.package_name
