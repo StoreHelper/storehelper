@@ -22,6 +22,13 @@ class HonorFileInfo(BaseModel):
     sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
+class HonorUploadAllocation(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    object_id: int = Field(gt=0)
+    expires_at: int = Field(gt=0)
+
+
 class HonorApplicationInfo(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

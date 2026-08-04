@@ -7,6 +7,7 @@ from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.honor.client import HonorClient
 from storehelper.stores.honor.errors import HonorVendorError
 from storehelper.stores.honor.models import HonorApplicationInfo, HonorCurrentRelease
+from storehelper.stores.huawei.package import PackageInfo, PackageKind
 from storehelper.stores.models import (
     ProcessingState,
     ProcessingStatus,
@@ -154,10 +155,22 @@ class HonorAdapter:
         return ProcessingStatus(state=ProcessingState.READY, artifact_id=artifact_id)
 
     async def upload(self, *, target: StoreTarget, artifact: ArtifactInfo) -> UploadedArtifact:
-        raise HonorVendorError(
-            "HONOR_UPLOAD_NOT_IMPLEMENTED",
-            "HONOR upload is not available in this implementation stage.",
-            ExitCode.LOCAL_STATE,
+        if not isinstance(artifact, PackageInfo) or artifact.kind is not PackageKind.APK:
+            raise HonorVendorError(
+                "HONOR_ARTIFACT_INVALID",
+                "HONOR publishing requires a validated APK artifact.",
+                ExitCode.PACKAGE_VALIDATION,
+            )
+        app_id, _ = await self._application(target)
+        allocation = await self._client.allocate_upload(app_id=app_id, artifact=artifact)
+        await self._client.upload_file(
+            app_id=app_id,
+            object_id=allocation.object_id,
+            artifact=artifact,
+        )
+        return UploadedArtifact(
+            artifact_id=f"{allocation.object_id}:{artifact.sha256}",
+            operation_id=str(app_id),
         )
 
     async def prepare_release(

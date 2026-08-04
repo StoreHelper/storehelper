@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
@@ -16,17 +17,22 @@ from storehelper.stores.honor.models import (
     HonorCurrentRelease,
     HonorFileInfo,
     HonorLocaleInfo,
+    HonorUploadAllocation,
 )
+from storehelper.stores.huawei.package import PackageInfo
 
 HONOR_API_BASE = "https://appmarket-openapi-drcn.cloud.honor.com"
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 Sleeper = Callable[[float], Awaitable[None]]
+Clock = Callable[[], float]
 
 _ALLOWED_PATHS = frozenset(
     {
         "/openapi/v1/publish/get-app-id",
         "/openapi/v1/publish/get-app-detail",
         "/openapi/v1/publish/get-app-current-release",
+        "/openapi/v1/publish/get-file-upload-url",
+        "/openapi/v1/publish/file-upload",
     }
 )
 
@@ -40,10 +46,12 @@ class HonorClient:
         auth: HonorAuth,
         http: httpx.AsyncClient,
         sleeper: Sleeper = asyncio.sleep,
+        clock: Clock = time.time,
     ) -> None:
         self._auth = auth
         self._http = http
         self._sleeper = sleeper
+        self._clock = clock
 
     def __repr__(self) -> str:
         return "HonorClient(configured=True)"
@@ -69,6 +77,7 @@ class HonorClient:
         *,
         retry_transient: bool,
         resumable_on_error: bool = False,
+        refresh_unauthorized: bool = True,
         **kwargs: Any,
     ) -> object:
         if path not in _ALLOWED_PATHS:
@@ -102,7 +111,7 @@ class HonorClient:
                     ExitCode.NETWORK,
                     resumable=resumable_on_error,
                 ) from None
-            if response.status_code == 401 and not refreshed:
+            if response.status_code == 401 and refresh_unauthorized and not refreshed:
                 refreshed = True
                 force_refresh = True
                 continue
@@ -316,3 +325,79 @@ class HonorClient:
             params={"appId": str(app_id)},
         )
         return self._parse_release(data, expected_app_id=app_id)
+
+    async def allocate_upload(self, *, app_id: int, artifact: PackageInfo) -> HonorUploadAllocation:
+        data = await self.request_json(
+            "POST",
+            "/openapi/v1/publish/get-file-upload-url",
+            retry_transient=False,
+            refresh_unauthorized=False,
+            params={"appId": str(app_id)},
+            json=[
+                {
+                    "fileName": artifact.logical_name,
+                    "fileType": 100,
+                    "fileSize": artifact.size,
+                    "fileSha256": artifact.sha256,
+                }
+            ],
+        )
+        if not isinstance(data, list) or len(data) != 1:
+            raise HonorVendorError(
+                "HONOR_UPLOAD_ALLOCATION_INVALID",
+                "HONOR returned an invalid upload allocation.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        raw = data[0]
+        if not isinstance(raw, Mapping):
+            raise HonorVendorError(
+                "HONOR_UPLOAD_ALLOCATION_INVALID",
+                "HONOR returned an invalid upload allocation.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        file_name = raw.get("fileName")
+        upload_url = raw.get("uploadUrl")
+        object_id = raw.get("objectId")
+        expires_at = raw.get("expireTime")
+        if (
+            file_name != artifact.logical_name
+            or not isinstance(upload_url, str)
+            or not upload_url
+            or not isinstance(object_id, int)
+            or isinstance(object_id, bool)
+            or object_id <= 0
+            or not isinstance(expires_at, int)
+            or isinstance(expires_at, bool)
+            or expires_at <= self._clock()
+        ):
+            raise HonorVendorError(
+                "HONOR_UPLOAD_ALLOCATION_INVALID",
+                "HONOR returned an invalid upload allocation.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        return HonorUploadAllocation(object_id=object_id, expires_at=expires_at)
+
+    async def upload_file(self, *, app_id: int, object_id: int, artifact: PackageInfo) -> None:
+        try:
+            with artifact.path.open("rb") as package:
+                await self.request_json(
+                    "POST",
+                    "/openapi/v1/publish/file-upload",
+                    retry_transient=False,
+                    resumable_on_error=False,
+                    refresh_unauthorized=False,
+                    params={"appId": str(app_id), "objectId": str(object_id)},
+                    files={
+                        "file": (
+                            artifact.logical_name,
+                            package,
+                            "application/vnd.android.package-archive",
+                        )
+                    },
+                )
+        except OSError:
+            raise HonorVendorError(
+                "HONOR_LOCAL_FILE_ERROR",
+                "The HONOR APK became unreadable before upload.",
+                ExitCode.PACKAGE_VALIDATION,
+            ) from None

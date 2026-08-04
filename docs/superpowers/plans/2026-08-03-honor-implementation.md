@@ -56,11 +56,11 @@ audit submission.
 
 ### Task 5: Allocation and streamed APK upload
 
-- [ ] Allocate exactly one `fileType=100` object using logical name, size, and SHA-256.
-- [ ] Stream one multipart `file` to the fixed HONOR upload endpoint with zero mutation retries.
-- [ ] Validate/persist only `APPID` and `objectId:sha256`; ignore dynamic upload URL.
-- [ ] Cover interruption, response loss, redirects, no bearer forwarding, and safe new allocation.
-- [ ] Commit: `feat: upload HONOR application packages`.
+- [x] Allocate exactly one `fileType=100` object using logical name, size, and SHA-256.
+- [x] Stream one multipart `file` to the fixed HONOR upload endpoint with zero mutation retries.
+- [x] Validate/persist only `APPID` and `objectId:sha256`; ignore dynamic upload URL.
+- [x] Cover interruption, response loss, redirects, no bearer forwarding, and safe new allocation.
+- [x] Commit: `feat: upload HONOR application packages`.
 
 ### Task 6: Reconciled binding, notes, and audit submission
 
