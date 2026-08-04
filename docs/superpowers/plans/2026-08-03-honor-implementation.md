@@ -64,12 +64,12 @@ audit submission.
 
 ### Task 6: Reconciled binding, notes, and audit submission
 
-- [ ] Bind only the APK object and reconcile by file type/SHA-256 before replay.
-- [ ] Preserve locale listing fields, update only `newFeature`, and use `setAll=0`.
-- [ ] Submit only non-forced immediate full release fields and reconcile ambiguous results by
+- [x] Bind only the APK object and reconcile by file type/SHA-256 before replay.
+- [x] Preserve locale listing fields, update only `newFeature`, and use `setAll=0`.
+- [x] Submit only non-forced immediate full release fields and reconcile ambiguous results by
   version/release ID without automatic duplicate mutation.
-- [ ] Cover every partial failure, resume boundary, conflict, and status transition.
-- [ ] Commit: `feat: submit HONOR updates for review`.
+- [x] Cover every partial failure, resume boundary, conflict, and status transition.
+- [x] Commit: `feat: submit HONOR updates for review`.
 
 ### Task 7: Registry, runtime, CLI, and end-to-end safety
 

@@ -33,6 +33,9 @@ _ALLOWED_PATHS = frozenset(
         "/openapi/v1/publish/get-app-current-release",
         "/openapi/v1/publish/get-file-upload-url",
         "/openapi/v1/publish/file-upload",
+        "/openapi/v1/publish/update-file-info",
+        "/openapi/v1/publish/update-language-info",
+        "/openapi/v1/publish/submit-audit",
     }
 )
 
@@ -57,8 +60,13 @@ class HonorClient:
         return "HonorClient(configured=True)"
 
     @staticmethod
-    def _protocol_error(message: str) -> HonorVendorError:
-        return HonorVendorError("HONOR_RESPONSE_INVALID", message, ExitCode.VENDOR_REJECTION)
+    def _protocol_error(message: str, *, resumable: bool = False) -> HonorVendorError:
+        return HonorVendorError(
+            "HONOR_RESPONSE_INVALID",
+            message,
+            ExitCode.VENDOR_REJECTION,
+            resumable=resumable,
+        )
 
     @staticmethod
     def _retry_delay(response: httpx.Response | None, attempt: int) -> float:
@@ -132,7 +140,10 @@ class HonorClient:
                     resumable=resumable_on_error,
                 )
             if len(response.content) > MAX_RESPONSE_BYTES:
-                raise self._protocol_error("HONOR returned an oversized JSON response.")
+                raise self._protocol_error(
+                    "HONOR returned an oversized JSON response.",
+                    resumable=resumable_on_error,
+                )
             try:
                 payload = response.json()
             except (ValueError, UnicodeDecodeError):
@@ -142,9 +153,15 @@ class HonorClient:
                         status_code=response.status_code,
                         resumable=resumable_on_error,
                     ) from None
-                raise self._protocol_error("HONOR returned a non-JSON response.") from None
+                raise self._protocol_error(
+                    "HONOR returned a non-JSON response.",
+                    resumable=resumable_on_error,
+                ) from None
             if not isinstance(payload, Mapping):
-                raise self._protocol_error("HONOR returned an invalid JSON object.")
+                raise self._protocol_error(
+                    "HONOR returned an invalid JSON object.",
+                    resumable=resumable_on_error,
+                )
             code = payload.get("code")
             if response.is_error or code != 0:
                 raise parse_honor_error(
@@ -401,3 +418,55 @@ class HonorClient:
                 "The HONOR APK became unreadable before upload.",
                 ExitCode.PACKAGE_VALIDATION,
             ) from None
+
+    async def bind_file(self, *, app_id: int, object_id: int) -> None:
+        await self.request_json(
+            "POST",
+            "/openapi/v1/publish/update-file-info",
+            retry_transient=False,
+            resumable_on_error=True,
+            refresh_unauthorized=False,
+            params={"appId": str(app_id)},
+            json={"bindingFileList": [{"objectId": object_id}]},
+        )
+
+    async def update_language(
+        self,
+        *,
+        app_id: int,
+        locale: HonorLocaleInfo,
+        new_feature: str,
+    ) -> None:
+        language_info: dict[str, object] = {
+            "languageId": locale.language_id,
+            "appName": locale.app_name,
+            "intro": locale.intro,
+            "newFeature": new_feature,
+        }
+        if locale.brief_intro is not None:
+            language_info["briefIntro"] = locale.brief_intro
+        await self.request_json(
+            "POST",
+            "/openapi/v1/publish/update-language-info",
+            retry_transient=False,
+            resumable_on_error=True,
+            refresh_unauthorized=False,
+            params={"appId": str(app_id)},
+            json={"languageInfoList": [language_info], "setAll": 0},
+        )
+
+    async def submit_audit(self, *, app_id: int) -> str:
+        data = await self.request_json(
+            "POST",
+            "/openapi/v1/publish/submit-audit",
+            retry_transient=False,
+            resumable_on_error=True,
+            refresh_unauthorized=False,
+            params={"appId": str(app_id)},
+            json={"forceUpdate": 0, "releaseType": 1},
+        )
+        if not isinstance(data, str) or not data:
+            raise self._protocol_error(
+                "HONOR returned an invalid release identifier.", resumable=True
+            )
+        return data

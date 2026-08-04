@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import re
+from collections.abc import Awaitable, Callable
+
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.stores.honor.client import HonorClient
 from storehelper.stores.honor.errors import HonorVendorError
-from storehelper.stores.honor.models import HonorApplicationInfo, HonorCurrentRelease
+from storehelper.stores.honor.models import (
+    HonorApplicationInfo,
+    HonorCurrentRelease,
+    HonorLocaleInfo,
+)
 from storehelper.stores.huawei.package import PackageInfo, PackageKind
 from storehelper.stores.models import (
     ProcessingState,
@@ -25,6 +33,8 @@ _AUDIT_STATUS = {
     3: ReviewStatus.UNKNOWN,
     4: ReviewStatus.PENDING_REVIEW,
 }
+_RECEIPT_PATTERN = re.compile(r"^([1-9][0-9]*):([0-9a-f]{64})$")
+Sleeper = Callable[[float], Awaitable[None]]
 
 
 def parse_review_status(value: object) -> ReviewStatus:
@@ -34,8 +44,14 @@ def parse_review_status(value: object) -> ReviewStatus:
 
 
 class HonorAdapter:
-    def __init__(self, client: HonorClient) -> None:
+    def __init__(
+        self,
+        client: HonorClient,
+        *,
+        reconcile_sleeper: Sleeper = asyncio.sleep,
+    ) -> None:
         self._client = client
+        self._reconcile_sleeper = reconcile_sleeper
 
     def __repr__(self) -> str:
         return "HonorAdapter(configured=True)"
@@ -60,7 +76,7 @@ class HonorAdapter:
         return target.version_code
 
     @staticmethod
-    def _selected_locale(detail: HonorApplicationInfo, language: str) -> None:
+    def _selected_locale(detail: HonorApplicationInfo, language: str) -> HonorLocaleInfo:
         matches = [locale for locale in detail.locales if locale.language_id == language]
         if len(matches) != 1:
             raise HonorVendorError(
@@ -68,6 +84,46 @@ class HonorAdapter:
                 "The configured HONOR locale must match exactly one existing localization.",
                 ExitCode.VENDOR_REJECTION,
             )
+        return matches[0]
+
+    @staticmethod
+    def _receipt_context(*, artifact_id: str, operation_id: str | None) -> tuple[int, int, str]:
+        match = _RECEIPT_PATTERN.fullmatch(artifact_id)
+        if (
+            match is None
+            or operation_id is None
+            or not operation_id.isascii()
+            or not operation_id.isdigit()
+            or operation_id.startswith("0")
+        ):
+            raise HonorVendorError(
+                "HONOR_RECEIPT_INVALID",
+                "The HONOR recovery receipt is invalid.",
+                ExitCode.LOCAL_STATE,
+            )
+        return int(operation_id), int(match.group(1)), match.group(2)
+
+    async def _validate_receipt_application(self, *, target: StoreTarget, app_id: int) -> None:
+        resolved_app_id = await self._client.get_app_id(package_name=target.package_name)
+        if resolved_app_id != app_id:
+            raise HonorVendorError(
+                "HONOR_RECEIPT_MISMATCH",
+                "The HONOR recovery receipt belongs to another application.",
+                ExitCode.LOCAL_STATE,
+            )
+
+    @staticmethod
+    def _release_id_if_reconciled(
+        current: HonorCurrentRelease | None, *, target_version: int
+    ) -> str | None:
+        if (
+            current is not None
+            and current.version_code == target_version
+            and current.audit_result in {0, 1, 2}
+            and current.release_id is not None
+        ):
+            return current.release_id
+        return None
 
     @staticmethod
     def _validate_release_state(
@@ -181,11 +237,69 @@ class HonorAdapter:
         operation_id: str | None = None,
         release_notes: str | None,
     ) -> None:
-        raise HonorVendorError(
-            "HONOR_PREPARATION_NOT_IMPLEMENTED",
-            "HONOR release preparation is not available in this implementation stage.",
-            ExitCode.LOCAL_STATE,
+        target_version = self._validate_target(target)
+        app_id, object_id, expected_sha256 = self._receipt_context(
+            artifact_id=artifact_id, operation_id=operation_id
         )
+        if release_notes is None or not release_notes.strip():
+            raise HonorVendorError(
+                "HONOR_RELEASE_NOTES_REQUIRED",
+                "HONOR publishing requires localized version notes.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        if len(release_notes) > 500:
+            raise HonorVendorError(
+                "HONOR_RELEASE_NOTES_INVALID",
+                "HONOR version notes must not exceed 500 characters.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        await self._validate_receipt_application(target=target, app_id=app_id)
+        detail = await self._client.get_app_detail(app_id=app_id)
+        if detail.package_name != target.package_name:
+            raise HonorVendorError(
+                "HONOR_RECEIPT_MISMATCH",
+                "The HONOR recovery receipt belongs to another application.",
+                ExitCode.LOCAL_STATE,
+            )
+        if target_version <= detail.published_version_code:
+            raise HonorVendorError(
+                "HONOR_VERSION_CONFLICT",
+                "The configured HONOR version must be greater than the published version.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        locale = self._selected_locale(detail, target.language)
+        bound = any(
+            file.file_type == 100 and file.sha256 == expected_sha256 for file in detail.files
+        )
+        if not bound:
+            await self._client.bind_file(app_id=app_id, object_id=object_id)
+            detail = await self._client.get_app_detail(app_id=app_id)
+            bound = any(
+                file.file_type == 100 and file.sha256 == expected_sha256 for file in detail.files
+            )
+            if not bound:
+                raise HonorVendorError(
+                    "HONOR_FILE_BIND_UNCONFIRMED",
+                    "HONOR did not confirm the uploaded APK binding.",
+                    ExitCode.VENDOR_REJECTION,
+                    resumable=True,
+                )
+            locale = self._selected_locale(detail, target.language)
+        if locale.new_feature != release_notes:
+            await self._client.update_language(
+                app_id=app_id,
+                locale=locale,
+                new_feature=release_notes,
+            )
+            detail = await self._client.get_app_detail(app_id=app_id)
+            locale = self._selected_locale(detail, target.language)
+            if locale.new_feature != release_notes:
+                raise HonorVendorError(
+                    "HONOR_LANGUAGE_UPDATE_UNCONFIRMED",
+                    "HONOR did not confirm the localized version notes.",
+                    ExitCode.VENDOR_REJECTION,
+                    resumable=True,
+                )
 
     async def submit(
         self,
@@ -194,11 +308,45 @@ class HonorAdapter:
         artifact_id: str,
         operation_id: str | None = None,
     ) -> str:
-        raise HonorVendorError(
-            "HONOR_SUBMISSION_NOT_IMPLEMENTED",
-            "HONOR submission is not available in this implementation stage.",
-            ExitCode.LOCAL_STATE,
-        )
+        target_version = self._validate_target(target)
+        app_id, _, _ = self._receipt_context(artifact_id=artifact_id, operation_id=operation_id)
+        await self._validate_receipt_application(target=target, app_id=app_id)
+        current = await self._client.get_current_release(app_id=app_id)
+        reconciled = self._release_id_if_reconciled(current, target_version=target_version)
+        if reconciled is not None:
+            return reconciled
+        if current is None or current.audit_result == 3:
+            raise HonorVendorError(
+                "HONOR_SUBMISSION_STATE_UNKNOWN",
+                "HONOR did not return a safe submission state.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        if current.audit_result != 4 or current.version_code != target_version:
+            raise HonorVendorError(
+                "HONOR_SUBMISSION_CONFLICT",
+                "The current HONOR release does not match the prepared update.",
+                ExitCode.VENDOR_REJECTION,
+            )
+        try:
+            return await self._client.submit_audit(app_id=app_id)
+        except HonorVendorError as error:
+            if error.code not in {
+                "HONOR_NETWORK_ERROR",
+                "HONOR_REDIRECT",
+                "HONOR_RESPONSE_INVALID",
+                "HONOR_SERVICE_UNAVAILABLE",
+            }:
+                raise
+            for attempt in range(1, 4):
+                await self._reconcile_sleeper(float(attempt))
+                try:
+                    current = await self._client.get_current_release(app_id=app_id)
+                except HonorVendorError:
+                    continue
+                reconciled = self._release_id_if_reconciled(current, target_version=target_version)
+                if reconciled is not None:
+                    return reconciled
+            raise error
 
     async def review_status(self, *, target: StoreTarget) -> ReviewStatus:
         self._validate_target(target)
