@@ -81,11 +81,11 @@ audit submission.
 
 ### Task 8: Documentation and v0.8.0
 
-- [ ] Update README, security/development plans, examples, troubleshooting, CI credentials, and
+- [x] Update README, security/development plans, examples, troubleshooting, CI credentials, and
   bilingual manual live-verification checklist.
-- [ ] Bump every active version source and lock metadata to `0.8.0`.
-- [ ] Run documentation/config/version tests, Ruff, mypy, and non-test secret scan.
-- [ ] Commit: `docs: document HONOR publishing`.
+- [x] Bump every active version source and lock metadata to `0.8.0`.
+- [x] Run documentation/config/version tests, Ruff, mypy, and non-test secret scan.
+- [x] Commit: `docs: document HONOR publishing`.
 
 ### Task 9: Full verification and milestone closure
 

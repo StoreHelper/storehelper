@@ -3,6 +3,18 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.8.0 HONOR task status
+
+- [x] Task 1: Official API research, supported-scope design, and implementation plan.
+- [x] Task 2: Strict existing-application configuration, version code, and APK preflight.
+- [x] Task 3: Independent credential sources, token exchange, and fixed-host authentication.
+- [x] Task 4: Exact application/detail/current-release reads and conservative status mapping.
+- [x] Task 5: Fixed-endpoint streamed APK allocation/upload with durable recovery context.
+- [x] Task 6: Reconciled APK binding, localized `newFeature`, and audit submission.
+- [x] Task 7: Registry, runtime, CLI, recovery, security suite, and eight-store compatibility.
+- [x] Task 8: HONOR documentation, live checklist, examples, and v0.8.0 versioning.
+- [ ] Task 9: Clean build, coverage, exact-wheel eight-store smoke tests, and final secret review.
+
 ## v0.7.0 vivo task status
 
 - [x] Task 1: Strict existing-application configuration, version code, and APK preflight.
@@ -190,6 +202,6 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Complete the Xiaomi v0.5.0 implementation and security milestone.
 - [x] Complete the OPPO v0.6.0 implementation and security milestone.
 - [x] Complete the vivo v0.7.0 implementation and security milestone.
-- [ ] Add the Honor Android store adapter.
+- [x] Complete the HONOR v0.8.0 implementation and security milestone.
 - [ ] `storehelper-mcp` using the stable Python API and JSON result schema.
 - [ ] GitHub Action, Flutter tooling, and IDE integrations.

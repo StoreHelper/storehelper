@@ -18,7 +18,7 @@ def test_help_and_version() -> None:
     assert help_result.exit_code == 0
     assert "publish" in help_result.stdout
     assert version_result.exit_code == 0
-    assert "0.7.0" in version_result.stdout
+    assert "0.8.0" in version_result.stdout
 
 
 def test_init_does_not_overwrite_and_config_validate(tmp_path: Path) -> None:

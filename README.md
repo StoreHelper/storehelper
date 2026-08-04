@@ -2,9 +2,9 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.7.0` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.8.0` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
-App Store Connect、Google Play、小米、OPPO 或 vivo 软件商店应用，并提供安全的状态查询、
+App Store Connect、Google Play、小米、OPPO、vivo 或荣耀应用市场应用，并提供安全的状态查询、
 断点恢复或原子/分阶段提交保护。
 
 > Status: alpha. Store records and release versions must already exist. StoreHelper does not
@@ -13,7 +13,7 @@ App Store Connect、Google Play、小米、OPPO 或 vivo 软件商店应用，�
 ## Why StoreHelper?
 
 - One command validates, uploads, prepares a release, and optionally submits it for review on
-  Huawei Android, HarmonyOS, Apple, Google Play, Xiaomi, OPPO, or vivo.
+  Huawei Android, HarmonyOS, Apple, Google Play, Xiaomi, OPPO, vivo, or HONOR.
 - Credentials live in the OS keyring or CI secret store—not in project YAML.
 - Every durable step has a redacted atomic receipt, so compilation timeouts can be resumed
   without uploading the package again.
@@ -34,6 +34,8 @@ App Store Connect、Google Play、小米、OPPO 或 vivo 软件商店应用，�
 - OPPO: an existing mainland-China application, its application-specific Open Platform
   `client_id`/`client_secret`, and one signed APK with a new version code
 - vivo: an existing mainland-China application, publishing API `access_key`/`secret_key`, and one
+  signed APK with a new version code
+- HONOR: an existing mainland-China application, account API `client_id`/`client_secret`, and one
   signed APK with a new version code
 
 Install the isolated CLI with [pipx](https://pipx.pypa.io/):
@@ -63,12 +65,12 @@ Create a secret-free project configuration:
 storehelper init
 ```
 
-Edit `storehelper.yaml`. One logical app may configure any subset of the seven stores. Android and
+Edit `storehelper.yaml`. One logical app may configure any subset of the eight stores. Android and
 Google Play use the application-level package name; HarmonyOS and Apple have their own
 package/bundle identifiers.
 
 编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple、Google
-Play、小米、OPPO 和 vivo 软件商店中的任意组合；示例中的 ID、包名和配置名都是假的。
+Play、小米、OPPO、vivo 和荣耀应用市场中的任意组合；示例中的 ID、包名和配置名都是假的。
 
 ```yaml
 version: 1
@@ -111,6 +113,10 @@ apps:
       vivo:
         credential_profile: vivo-release
         version_code: 124
+        language: zh-CN
+      honor:
+        credential_profile: honor-release
+        version_code: 125
         language: zh-CN
 ```
 
@@ -218,6 +224,26 @@ storehelper credentials verify --app my-android-app --store vivo
 Both values are secrets even though one is named `access_key`. See the
 [vivo live checklist](docs/VIVO_MANUAL_TEST.md) before any real submission.
 
+HONOR uses an account-level API client pair in a separate keyring namespace. Keep both values in
+a local JSON file outside the repository, then import and verify the existing package:
+
+```json
+{
+  "client_id": "replace-with-honor-client-id",
+  "client_secret": "replace-with-honor-client-secret"
+}
+```
+
+```bash
+storehelper credentials import \
+  --store honor --profile honor-release --file ~/Downloads/honor-api.json
+storehelper credentials list --store honor
+storehelper credentials verify --app my-android-app --store honor
+```
+
+Treat both fields as secrets. See the [HONOR live checklist](docs/HONOR_MANUAL_TEST.md) before any
+real upload or submission.
+
 Validate locally without credentials or network access:
 
 ```bash
@@ -228,6 +254,7 @@ storehelper publish --app my-android-app --store google_play --file build/app-re
 storehelper publish --app my-android-app --store xiaomi --file build/app-release.apk --dry-run
 storehelper publish --app my-android-app --store oppo --file build/app-release.apk --dry-run
 storehelper publish --app my-android-app --store vivo --file build/app-release.apk --dry-run
+storehelper publish --app my-android-app --store honor --file build/app-release.apk --dry-run
 ```
 
 Upload and wait for package readiness without changing metadata or submitting review:
@@ -239,9 +266,10 @@ storehelper publish --app my-android-app --store apple --file build/Wallet.ipa -
 storehelper publish --app my-android-app --store google_play --file build/app-release.aab --no-submit
 ```
 
-Xiaomi, OPPO, and vivo do not support `--no-submit`. Xiaomi uploads and submits in one request;
+Xiaomi, OPPO, vivo, and HONOR do not support `--no-submit`. Xiaomi uploads and submits in one request;
 OPPO and vivo keep their temporary upload values only in memory for the immediately following
-final submission. Use `--dry-run` for zero-network validation.
+final submission. HONOR allocations are temporary until binding and do not form a useful durable
+upload-only result. Use `--dry-run` for zero-network validation.
 
 Publish end to end:
 
@@ -341,6 +369,24 @@ streams one temporary upload, and sends one separately confirmed final update co
 package/version, upload reference, phone/immediate-online flags, and release notes. It never
 creates an app, uploads AAB/multiple APKs, changes listing metadata, or schedules publication.
 
+Publish an existing HONOR APK update. Configure a positive `version_code` greater than the
+published version and supply release notes containing 1–500 characters:
+
+```bash
+storehelper publish \
+  --app my-android-app \
+  --store honor \
+  --file build/app-release.apk \
+  --release-notes "修复已知问题"
+```
+
+The v0.8.0 HONOR scope is one signed APK strictly smaller than 4 GiB for an existing
+mainland-China phone application, with immediate full publication after approval. StoreHelper
+resolves the exact package, uploads through the fixed HONOR endpoint, binds only the uploaded APK,
+preserves existing listing fields, changes only `newFeature` for the configured locale, and submits
+one non-forced review request. It does not create apps, upload AAB/multiple APKs, alter other
+locales, schedule publication, or configure phased release.
+
 Interactive text mode shows a confirmation. CI and JSON mode must supply `--yes`:
 
 ```bash
@@ -367,6 +413,7 @@ storehelper status --app my-android-app --store apple
 storehelper status --app my-android-app --store google_play
 storehelper status --app my-android-app --store oppo
 storehelper status --app my-android-app --store vivo
+storehelper status --app my-android-app --store honor
 ```
 
 `resume` derives the store from the receipt, verifies the current local artifact digest, starts
@@ -391,6 +438,12 @@ vivo follows the same staged, non-resumable boundary. An upload failure before
 response or interruption becomes `submission_uncertain` and blocks the same app/artifact. Query
 `status --store vivo`, inspect the vivo console, and delete only the local receipt after the
 release owner determines whether a new submission is safe.
+
+HONOR uses the normal resumable state machine. Receipts retain only the public `APPID`,
+`objectId:sha256`, and review `releaseId`. On resume, StoreHelper reads current file bindings,
+localized `newFeature`, and current release state before any write. A lost bind or locale-update
+response is reconciled rather than replayed blindly. A lost audit-submission response triggers at
+most three read-only release checks and never a second automatic submission.
 
 ## CI credentials
 
@@ -493,8 +546,24 @@ export STOREHELPER_VIVO_SECRET_KEY="..."
 
 Do not mix the vivo file and individual variables or pass either value on the command line.
 
-Temporary upload URLs, signed headers, object IDs, JWTs, and raw vendor responses are never
-persisted. See [the security guide](docs/SECURITY_GUIDE.md).
+For HONOR, use either one secret JSON file:
+
+```bash
+export STOREHELPER_HONOR_CREDENTIALS_FILE="$RUNNER_TEMP/honor-api.json"
+```
+
+or the complete pair:
+
+```bash
+export STOREHELPER_HONOR_CLIENT_ID="..."
+export STOREHELPER_HONOR_CLIENT_SECRET="..."
+```
+
+Do not mix the HONOR file and individual variables or pass either value on the command line.
+
+Temporary upload URLs, signed headers, JWTs, and raw vendor responses are never persisted. HONOR's
+numeric `objectId` is an explicit durable recovery identifier and is stored only together with the
+local SHA-256. See [the security guide](docs/SECURITY_GUIDE.md).
 
 ## Exit codes
 
@@ -558,6 +627,14 @@ persisted. See [the security guide](docs/SECURITY_GUIDE.md).
   the vivo console before starting another publish.
 - vivo `submission_uncertain`: query vivo status and inspect the console before deleting the local
   receipt or authorizing another submission. StoreHelper never retries the final mutation.
+- `HONOR_VERSION_CONFLICT`: set `version_code` above the published/current HONOR version and verify
+  that the APK contains that exact intended version.
+- `HONOR_REVIEW_CONFLICT` or `HONOR_DRAFT_CONFLICT`: finish or reconcile the existing HONOR review
+  or editing draft before starting another upload.
+- `HONOR_RECEIPT_MISMATCH`: do not edit the run file. Verify the configured package/profile and
+  resume only with the original application's receipt.
+- HONOR exit code `6`: keep the receipt and run `storehelper resume RUN_ID`. StoreHelper reconciles
+  binding, locale notes, and submission state without automatically duplicating a write.
 
 For the deliberately opt-in production checklist, see
 [`docs/HARMONYOS_MANUAL_TEST.md`](docs/HARMONYOS_MANUAL_TEST.md) or
@@ -565,7 +642,8 @@ For the deliberately opt-in production checklist, see
 [`docs/GOOGLE_PLAY_MANUAL_TEST.md`](docs/GOOGLE_PLAY_MANUAL_TEST.md), or
 [`docs/XIAOMI_MANUAL_TEST.md`](docs/XIAOMI_MANUAL_TEST.md), or
 [`docs/OPPO_MANUAL_TEST.md`](docs/OPPO_MANUAL_TEST.md), or
-[`docs/VIVO_MANUAL_TEST.md`](docs/VIVO_MANUAL_TEST.md). Start with local-only `--dry-run` and
+[`docs/VIVO_MANUAL_TEST.md`](docs/VIVO_MANUAL_TEST.md), or
+[`docs/HONOR_MANUAL_TEST.md`](docs/HONOR_MANUAL_TEST.md). Start with local-only `--dry-run` and
 read-only credential verification. Use `--no-submit` only where supported; only a separately
 confirmed command should commit or submit a review.
 

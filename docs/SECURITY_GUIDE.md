@@ -57,6 +57,13 @@ vivo uses a sixth independent namespace:
 3. the vivo keyring namespace selected by `credentials ... --store vivo`;
 4. secure interactive prompts for both values.
 
+HONOR uses a seventh independent namespace:
+
+1. `STOREHELPER_HONOR_CREDENTIALS_FILE`;
+2. the complete pair `STOREHELPER_HONOR_CLIENT_ID` and `STOREHELPER_HONOR_CLIENT_SECRET`;
+3. the HONOR keyring namespace selected by `credentials ... --store honor`;
+4. secure interactive prompts for both values.
+
 Do not commit Service Account JSON, Apple credential JSON, or `.p8` files. StoreHelper refuses
 secret-looking fields in `storehelper.yaml`, has no private-key CLI option, and has no plaintext
 credential fallback. Team Apple keys require `issuer_id`; individual keys must omit it. Both
@@ -68,6 +75,8 @@ of project YAML and source control. OPPO's `client_id` and `client_secret` are b
 secrets, and a profile must be scoped to the application for which the OPPO API client was issued.
 vivo's `access_key` and `secret_key` are both treated as secrets; neither belongs in project YAML,
 logs, command-line arguments, receipts, or source control.
+HONOR's `client_id` and `client_secret` are both treated as secrets and are never persisted in a
+run receipt. The public YAML contains only the credential profile, version code, and locale.
 
 不要提交 Service Account JSON。StoreHelper 会拒绝 `storehelper.yaml` 中的密钥字段，也不会
 通过命令行参数或明文文件保存私钥。
@@ -86,17 +95,21 @@ Apply the rule independently to OPPO. Never mix the credential file with either 
 variable, and do not reuse one application's OPPO client pair for another package.
 Apply the rule independently to vivo. Never mix the credential file with either individual
 variable, and rotate both values according to the vivo account's credential-management policy.
+Apply the rule independently to HONOR. Never mix the credential file with either individual
+variable, and rotate both values together according to the HONOR account's credential policy.
 
 ## Persisted data
 
 Run receipts contain store names, app IDs, package paths and hashes, logical file names, durable
-artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs, Google `versionCode`),
-public operation IDs such as a Google App Edit ID, configured release/track/status values, review
+artifact IDs (`pkgVersion`, `packageId`, Apple Build Upload/Build IDs, Google `versionCode`, or
+HONOR `objectId:sha256`), public operation IDs such as a Google App Edit ID or HONOR `APPID`,
+configured release/track/status values, review
 submission IDs, release notes, and state timestamps. They never contain private keys,
 JWTs, authorization headers, upload `authCode`, signed delivery headers, upload operations,
 temporary object IDs, upload URLs, destination URLs, Xiaomi API secrets/certificates, `SIG`,
 review accounts, RequestData, OPPO client values/tokens/HMAC signatures/upload signs/file URLs,
 listing snapshots, vivo access/secret keys, HMAC signatures, upload serial numbers, file MD5,
+HONOR client values/tokens/upload URLs/app `secretKey`/listing snapshots/audit attachments,
 signed forms, or raw vendor bodies. Receipt files are written atomically with owner-only
 permissions where the platform supports it.
 
@@ -116,6 +129,11 @@ are safe for a newly confirmed run. A final request in `submission_started` or
 `submission_uncertain` is non-resumable and blocks the same app/artifact until an operator checks
 `status`, reconciles the vivo console, and deliberately deletes the local receipt. Deletion never
 changes vivo state.
+
+HONOR receipts are resumable and intentionally retain only `APPID`, `objectId:sha256`, and the
+review `releaseId`. Before replaying a completed boundary, StoreHelper re-reads the APK SHA-256
+binding, selected locale's `newFeature`, or current release. An ambiguous audit response triggers
+only bounded read reconciliation; the submission mutation is never sent twice automatically.
 
 ## Network boundary
 
@@ -156,8 +174,17 @@ changes vivo state.
 - vivo's vendor-required APK MD5, temporary `serialnumber`, signature, full forms, and responses
   exist only in memory. SHA-256 remains the durable local identity. `--no-submit` and `resume` are
   rejected because the staged upload context is intentionally not persisted.
+- HONOR token exchange uses only `https://iam.developer.honor.com/auth/token`; authenticated API
+  calls use only `https://appmarket-openapi-drcn.cloud.honor.com` and reject every redirect.
+- HONOR's returned dynamic `uploadUrl` is validated only as a present protocol field, then ignored.
+  APK bytes are streamed to the documented fixed `file-upload` endpoint, so no bearer token can be
+  forwarded to a response-controlled host.
+- HONOR reads may retry bounded transient failures. Allocation, upload, binding, locale update,
+  and audit submission have zero automatic retries, including on 401. Recovery relies on the
+  durable public identifiers and read-only reconciliation described above.
 - JWTs and temporary upload values remain inside their store client.
-- 401/403 causes one forced JWT renewal; 429/5xx receives a bounded retry.
+- Where an adapter can prove a read is idempotent, authentication renewal and 429/5xx retries are
+  bounded. Mutations follow each store's stricter zero-replay or reconciliation policy.
 
 Apple uploads use the native `buildUploads` and `buildUploadFiles` resources. StoreHelper does not
 invoke Xcode, Transporter, or `altool`, and never falls back to another uploader automatically.
