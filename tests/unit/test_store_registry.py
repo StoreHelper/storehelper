@@ -9,6 +9,7 @@ from storehelper.credentials.models import (
     AppleApiKey,
     CredentialError,
     GoogleServiceAccount,
+    HonorApiCredential,
     HuaweiServiceAccount,
     OppoApiCredential,
     VivoApiCredential,
@@ -17,6 +18,7 @@ from storehelper.credentials.models import (
 from storehelper.stores.apple.adapter import AppleAdapter
 from storehelper.stores.google_play.adapter import GooglePlayAdapter
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
+from storehelper.stores.honor.adapter import HonorAdapter
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.models import CredentialKind, StoreName
 from storehelper.stores.oppo.adapter import OppoAdapter
@@ -34,6 +36,7 @@ def test_registry_exposes_only_audited_builtin_stores() -> None:
         StoreName.XIAOMI,
         StoreName.OPPO,
         StoreName.VIVO,
+        StoreName.HONOR,
     )
 
 
@@ -127,7 +130,7 @@ def test_honor_registration_declares_resumable_update_capabilities() -> None:
     assert honor.capabilities.supports_review_status is True
     assert honor.capabilities.atomic_submission is False
     assert honor.capabilities.supports_no_submit is False
-    assert honor.factory is None
+    assert honor.factory is not None
 
 
 def test_registry_builds_the_selected_adapter(
@@ -166,6 +169,10 @@ def test_registry_builds_the_selected_adapter(
         access_key="vivo-access",
         secret_key="vivo-secret",
     )
+    honor_key = HonorApiCredential(
+        client_id="honor-client",
+        client_secret="honor-secret",
+    )
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
 
     try:
@@ -186,6 +193,9 @@ def test_registry_builds_the_selected_adapter(
         vivo_factory = get_registration(StoreName.VIVO).factory
         assert vivo_factory is not None
         vivo = vivo_factory(vivo_key, http)
+        honor_factory = get_registration(StoreName.HONOR).factory
+        assert honor_factory is not None
+        honor = honor_factory(honor_key, http)
     finally:
         asyncio.run(http.aclose())
 
@@ -196,6 +206,7 @@ def test_registry_builds_the_selected_adapter(
     assert isinstance(xiaomi, XiaomiAdapter)
     assert isinstance(oppo, OppoAdapter)
     assert isinstance(vivo, VivoAdapter)
+    assert isinstance(honor, HonorAdapter)
 
 
 def test_registry_rejects_wrong_credential_kind_for_apple(
@@ -289,6 +300,25 @@ def test_registry_rejects_wrong_credential_kind_for_vivo(
         factory = get_registration(StoreName.VIVO).factory
         assert factory is not None
         with pytest.raises(CredentialError, match="vivo API credential"):
+            factory(wrong, http)
+    finally:
+        asyncio.run(http.aclose())
+
+
+def test_registry_rejects_wrong_credential_kind_for_honor(
+    rsa_private_key: str,
+) -> None:
+    wrong = HuaweiServiceAccount(
+        key_id="key-1",
+        sub_account="sub-1",
+        private_key=rsa_private_key,
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
+
+    try:
+        factory = get_registration(StoreName.HONOR).factory
+        assert factory is not None
+        with pytest.raises(CredentialError, match="HONOR API credential"):
             factory(wrong, http)
     finally:
         asyncio.run(http.aclose())

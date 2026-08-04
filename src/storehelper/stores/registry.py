@@ -13,6 +13,7 @@ from storehelper.credentials.models import (
     AppleApiKey,
     CredentialError,
     GoogleServiceAccount,
+    HonorApiCredential,
     HuaweiServiceAccount,
     OppoApiCredential,
     StoreCredential,
@@ -31,6 +32,9 @@ from storehelper.stores.google_play.package import validate_google_play_artifact
 from storehelper.stores.harmonyos.adapter import HarmonyOSAdapter
 from storehelper.stores.harmonyos.client import HarmonyOSClient
 from storehelper.stores.harmonyos.package import validate_harmonyos_artifact
+from storehelper.stores.honor.adapter import HonorAdapter
+from storehelper.stores.honor.auth import HonorAuth
+from storehelper.stores.honor.client import HonorClient
 from storehelper.stores.honor.package import validate_honor_artifact
 from storehelper.stores.huawei.adapter import HuaweiAndroidAdapter
 from storehelper.stores.huawei.auth import HuaweiAuth
@@ -167,6 +171,18 @@ def _vivo_factory(
     return VivoAdapter(VivoClient(auth=VivoAuth(account), http=http))
 
 
+def _honor_factory(
+    account: StoreCredential,
+    http: httpx.AsyncClient,
+) -> StoreAdapter:
+    if not isinstance(account, HonorApiCredential):
+        raise CredentialError(
+            "CREDENTIAL_KIND_MISMATCH",
+            "HONOR publishing requires a HONOR API credential profile.",
+        )
+    return HonorAdapter(HonorClient(auth=HonorAuth(account, http), http=http))
+
+
 _REGISTRATIONS = {
     StoreName.HUAWEI: AdapterRegistration(
         store=StoreName.HUAWEI,
@@ -280,7 +296,7 @@ _REGISTRATIONS = {
             supports_no_submit=False,
         ),
         validator=validate_honor_artifact,
-        factory=None,
+        factory=_honor_factory,
     ),
 }
 

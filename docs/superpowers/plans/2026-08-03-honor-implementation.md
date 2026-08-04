@@ -73,11 +73,11 @@ audit submission.
 
 ### Task 7: Registry, runtime, CLI, and end-to-end safety
 
-- [ ] Register factory/credentials and expose publish/resume/status/credential commands.
-- [ ] Cover dry-run, confirmation, notes, unsupported no-submit, installed output, and wrong kind.
-- [ ] Prove receipt/log/JSON redaction and end-to-end recovery with stateful mock backend.
-- [ ] Run the full eight-store regression suite.
-- [ ] Commit: `feat: expose HONOR publishing through the CLI`.
+- [x] Register factory/credentials and expose publish/resume/status/credential commands.
+- [x] Cover dry-run, confirmation, notes, unsupported no-submit, installed output, and wrong kind.
+- [x] Prove receipt/log/JSON redaction and end-to-end recovery with stateful mock backend.
+- [x] Run the full eight-store regression suite.
+- [x] Commit: `feat: expose HONOR publishing through the CLI`.
 
 ### Task 8: Documentation and v0.8.0
 
