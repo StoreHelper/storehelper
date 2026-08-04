@@ -89,12 +89,12 @@ audit submission.
 
 ### Task 9: Full verification and milestone closure
 
-- [ ] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
-- [ ] Build fresh v0.8.0 sdist/wheel, run Twine, and inspect every archive path.
-- [ ] Install the exact wheel and run help/version, config validation, and eight offline dry-runs.
-- [ ] Run final non-test secret scan and prove tests use mocked HONOR transports only.
-- [ ] Mark the milestone complete only after every gate exits zero.
-- [ ] Commit: `chore: complete HONOR milestone verification`.
+- [x] Run Ruff format/check, strict mypy, and all tests with coverage at least 90%.
+- [x] Build fresh v0.8.0 sdist/wheel, run Twine, and inspect every archive path.
+- [x] Install the exact wheel and run help/version, config validation, and eight offline dry-runs.
+- [x] Run final non-test secret scan and prove tests use mocked HONOR transports only.
+- [x] Mark the milestone complete only after every gate exits zero.
+- [x] Commit: `chore: complete HONOR milestone verification`.
 
 ## Completion rule
 
