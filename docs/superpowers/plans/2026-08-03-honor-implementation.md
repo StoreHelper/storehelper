@@ -47,12 +47,12 @@ audit submission.
 
 ### Task 4: Application discovery, detail, release, and status
 
-- [ ] Implement exact package-to-APPID, detail, and current-release reads.
-- [ ] Validate package ownership, existing published version, selected locale, configured higher
+- [x] Implement exact package-to-APPID, detail, and current-release reads.
+- [x] Validate package ownership, existing published version, selected locale, configured higher
   version, and conservative conflict states.
-- [ ] Implement audit status mapping including unknown values.
-- [ ] Cover fixed queries, retries, malformed/oversized responses, safe errors, and redaction.
-- [ ] Commit: `feat: verify HONOR application access`.
+- [x] Implement audit status mapping including unknown values.
+- [x] Cover fixed queries, retries, malformed/oversized responses, safe errors, and redaction.
+- [x] Commit: `feat: verify HONOR application access`.
 
 ### Task 5: Allocation and streamed APK upload
 
