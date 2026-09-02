@@ -117,37 +117,46 @@ class Publisher:
         if self._target_validator is not None:
             self._target_validator(self._target)
         package = self._validator(request.file)
-        if not request.dry_run:
-            if self._capabilities.atomic_submission:
-                ambiguous = self.repository.find_ambiguous(
-                    self._target.store.value,
-                    self._target.app_id,
-                    package.sha256,
-                )
-                if ambiguous is not None:
-                    return OperationResult.failure(
-                        store=self._target.store,
-                        stage=PublishStage.INTERRUPTED,
-                        run_id=ambiguous.run_id,
-                        message=(
-                            "A previous atomic submission may have reached the store; inspect "
-                            "the store console before deleting the local run or publishing again."
-                        ),
-                        resumable=False,
-                    )
-            duplicate = self.repository.find_resumable(
+        if request.dry_run:
+            return OperationResult.success(
+                store=self._target.store,
+                stage=PublishStage.COMPLETED,
+                run_id=None,
+                message=(
+                    "Configuration and package validation succeeded; no network calls or local "
+                    "run records were created."
+                ),
+            )
+        if self._capabilities.atomic_submission:
+            ambiguous = self.repository.find_ambiguous(
                 self._target.store.value,
                 self._target.app_id,
                 package.sha256,
             )
-            if duplicate is not None:
+            if ambiguous is not None:
                 return OperationResult.failure(
                     store=self._target.store,
-                    stage=_STAGES[duplicate.state],
-                    run_id=duplicate.run_id,
-                    message="An unfinished run already exists for this application and package.",
-                    resumable=True,
+                    stage=PublishStage.INTERRUPTED,
+                    run_id=ambiguous.run_id,
+                    message=(
+                        "A previous atomic submission may have reached the store; inspect "
+                        "the store console before deleting the local run or publishing again."
+                    ),
+                    resumable=False,
                 )
+        duplicate = self.repository.find_resumable(
+            self._target.store.value,
+            self._target.app_id,
+            package.sha256,
+        )
+        if duplicate is not None:
+            return OperationResult.failure(
+                store=self._target.store,
+                stage=_STAGES[duplicate.state],
+                run_id=duplicate.run_id,
+                message="An unfinished run already exists for this application and package.",
+                resumable=True,
+            )
 
         receipt = self.repository.create(
             store=request.store,
@@ -165,16 +174,6 @@ class Publisher:
             submit=request.submit,
         )
         receipt = self._transition(receipt, RunState.VALIDATED)
-        if request.dry_run:
-            self._transition(receipt, RunState.COMPLETED)
-            return OperationResult.success(
-                store=self._target.store,
-                stage=PublishStage.COMPLETED,
-                run_id=receipt.run_id,
-                message=(
-                    "Configuration and package validation succeeded; no network calls were made."
-                ),
-            )
         return await self._continue(
             receipt,
             poll_interval=request.poll_interval_seconds,

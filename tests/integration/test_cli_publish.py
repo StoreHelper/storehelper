@@ -203,8 +203,7 @@ def test_harmonyos_dry_run_uses_selected_store_without_credentials(
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["store"] == "harmonyos"
-    receipt = RunRepository(tmp_path / "runs").list()[0]
-    assert receipt.store.value == "harmonyos"
+    assert RunRepository(tmp_path / "runs").list() == []
 
 
 def test_xiaomi_dry_run_validates_relative_icon_without_credentials_or_network(

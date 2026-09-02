@@ -305,7 +305,9 @@ async def test_dry_run_has_no_network_calls(tmp_path: Path) -> None:
 
     assert result.ok is True
     assert result.stage is PublishStage.COMPLETED
+    assert result.run_id is None
     assert adapter.calls == []
+    assert publisher.repository.list() == []
 
 
 @pytest.mark.asyncio
