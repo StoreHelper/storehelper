@@ -13,7 +13,7 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Task 6: Reconciled APK binding, localized `newFeature`, and audit submission.
 - [x] Task 7: Registry, runtime, CLI, recovery, security suite, and eight-store compatibility.
 - [x] Task 8: HONOR documentation, live checklist, examples, and v0.8.0 versioning.
-- [ ] Task 9: Clean build, coverage, exact-wheel eight-store smoke tests, and final secret review.
+- [x] Task 9: Clean build, coverage, exact-wheel eight-store smoke tests, and final secret review.
 
 ## v0.7.0 vivo task status
 
