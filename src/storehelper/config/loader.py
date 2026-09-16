@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from storehelper.config.models import ApplicationConfig, StoreHelperConfig
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
+from storehelper.project import project_path
 from storehelper.stores.models import StoreName, StoreTarget
 
 _SECRET_KEYS = {
@@ -106,6 +107,7 @@ def _find_secret_key(value: object, path: tuple[str, ...] = ()) -> tuple[str, ..
 def load_config(path: Path) -> StoreHelperConfig:
     """Load one explicitly selected schema version 1 YAML file."""
 
+    path = project_path(path, "configuration")
     if not path.is_file():
         raise ConfigError("CONFIG_NOT_FOUND", f"Configuration file not found: {path}")
     try:
@@ -123,7 +125,7 @@ def load_config(path: Path) -> StoreHelperConfig:
             f"Secrets are not allowed in storehelper.yaml (field: {dotted}).",
         )
     try:
-        return StoreHelperConfig.model_validate(
+        config = StoreHelperConfig.model_validate(
             raw,
             context={"config_dir": path.parent.resolve()},
         )
@@ -133,6 +135,10 @@ def load_config(path: Path) -> StoreHelperConfig:
             for item in error.errors(include_input=False)
         )
         raise ConfigError("CONFIG_INVALID", f"Invalid configuration: {details}") from None
+    for application in config.apps.values():
+        if application.stores.xiaomi is not None:
+            project_path(application.stores.xiaomi.icon, "Xiaomi icon")
+    return config
 
 
 def select_application(

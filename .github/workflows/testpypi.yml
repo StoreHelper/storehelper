@@ -1,0 +1,41 @@
+name: TestPyPI rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testpypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/quality.yml
+    with:
+      testpypi-rehearsal: true
+
+  publish-testpypi:
+    name: Publish a unique development version to TestPyPI only
+    needs: checks
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/storehelper/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: python-distributions
+          path: bundle
+      - name: Verify checksums and stage only distributions
+        run: |
+          (cd bundle && sha256sum --check SHA256SUMS)
+          mkdir dist
+          cp bundle/*.whl bundle/*.tar.gz dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true

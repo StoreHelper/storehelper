@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
+from storehelper.project import confine_path
 from storehelper.runs.models import RunReceipt, RunState, migrate_receipt_payload
 from storehelper.stores.models import StoreName
 
@@ -28,11 +29,42 @@ class StateError(StoreHelperError):
 
 
 class RunRepository:
-    def __init__(self, root: Path | None = None) -> None:
-        self.root = root or user_state_path("storehelper", appauthor=False) / "runs"
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with suppress(OSError):
-            self.root.chmod(0o700)
+    def __init__(self, root: Path | None = None, *, project_root: Path | None = None) -> None:
+        self.project_root = project_root
+        self.root = (
+            project_root / ".storehelper" / "runs"
+            if project_root is not None
+            else root or user_state_path("storehelper", appauthor=False) / "runs"
+        )
+        self._check_root()
+        # Read-only scoped operations must not create state directories.
+        if project_root is None:
+            self._ensure_root()
+
+    def _check_root(self) -> None:
+        if self.project_root is not None:
+            confine_path(self.root.parent, "run state directory", root=self.project_root)
+            confine_path(self.root, "run state directory", root=self.project_root)
+
+    def _ensure_root(self) -> None:
+        self._check_root()
+        try:
+            if self.project_root is not None:
+                self.root.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            with suppress(OSError):
+                self.root.chmod(0o700)
+        except OSError:
+            raise StateError("STATE_WRITE_FAILED", "Could not create the run directory.") from None
+
+    def _check_receipt(self, receipt: RunReceipt) -> None:
+        if self.project_root is not None:
+            artifact = Path(receipt.package_path)
+            if not artifact.is_absolute():
+                raise StateError(
+                    "STATE_CORRUPT", "Scoped receipts must use absolute artifact paths."
+                )
+            confine_path(artifact, "receipt artifact", root=self.project_root)
 
     @staticmethod
     def _new_run_id(now: datetime) -> str:
@@ -42,7 +74,11 @@ class RunRepository:
     def _path(self, run_id: str) -> Path:
         if not _RUN_ID.fullmatch(run_id):
             raise StateError("STATE_RUN_ID_INVALID", "Run ID contains invalid characters.")
-        return self.root / f"{run_id}.json"
+        self._check_root()
+        path = self.root / f"{run_id}.json"
+        if self.project_root is not None:
+            confine_path(path, "run receipt", root=self.project_root)
+        return path
 
     def create(
         self,
@@ -87,6 +123,8 @@ class RunRepository:
         return receipt
 
     def save(self, receipt: RunReceipt) -> None:
+        self._check_receipt(receipt)
+        self._ensure_root()
         path = self._path(receipt.run_id)
         payload = receipt.model_dump_json(indent=2) + "\n"
         descriptor, temporary_name = tempfile.mkstemp(
@@ -119,14 +157,19 @@ class RunRepository:
             raise StateError("STATE_NOT_FOUND", f"Publishing run not found: {run_id}")
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
-            return RunReceipt.model_validate(migrate_receipt_payload(raw))
+            receipt = RunReceipt.model_validate(migrate_receipt_payload(raw))
+            if receipt.run_id != run_id:
+                raise ValueError("receipt ID does not match filename")
         except (OSError, UnicodeError, json.JSONDecodeError, ValidationError, ValueError):
             raise StateError(
                 "STATE_CORRUPT",
                 f"Publishing run is unreadable or invalid: {run_id}",
             ) from None
+        self._check_receipt(receipt)
+        return receipt
 
     def list(self) -> list[RunReceipt]:
+        self._check_root()
         receipts = [self.get(path.stem) for path in self.root.glob("*.json")]
         return sorted(receipts, key=lambda item: (item.created_at, item.run_id), reverse=True)
 

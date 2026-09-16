@@ -722,16 +722,63 @@ async def test_real_cli_operation_factory_uses_harmonyos_adapter(
     assert ("PUT", "/api/publish/v3/app-package-info") in calls
 
 
-def test_publish_help_lists_registered_store_choices() -> None:
+def test_publish_help_renders_at_narrow_terminal_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COLUMNS", "60")
     result = runner.invoke(cli_module.app, ["publish", "--help"])
-    collapsed = "".join(result.stdout.split())
 
     assert result.exit_code == 0
-    assert "huawei" in collapsed
-    assert "harmonyos" in collapsed
-    # Rich wraps the final enum value as ``app`` / ``le`` in its fixed-width option column.
-    assert "harmonyos|app" in result.stdout
-    assert "le>" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("store_name", "expected_store"),
+    [
+        ("huawei", cli_module.StoreName.HUAWEI),
+        ("harmonyos", cli_module.StoreName.HARMONYOS),
+        ("apple", cli_module.StoreName.APPLE),
+        ("google_play", cli_module.StoreName.GOOGLE_PLAY),
+        ("xiaomi", cli_module.StoreName.XIAOMI),
+        ("oppo", cli_module.StoreName.OPPO),
+        ("vivo", cli_module.StoreName.VIVO),
+        ("honor", cli_module.StoreName.HONOR),
+    ],
+)
+def test_publish_accepts_every_registered_store_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    store_name: str,
+    expected_store: cli_module.StoreName,
+) -> None:
+    package = tmp_path / "application.apk"
+    package.write_bytes(b"test package")
+
+    async def fake_publish(**kwargs) -> OperationResult:
+        request = kwargs["request"]
+        assert request.store is expected_store
+        return OperationResult.success(
+            store=request.store,
+            stage=PublishStage.COMPLETED,
+            run_id="run-store-choice",
+        )
+
+    monkeypatch.setattr(cli_module, "_publish_operation", fake_publish)
+    result = runner.invoke(
+        cli_module.app,
+        [
+            "publish",
+            "--store",
+            store_name,
+            "--file",
+            str(package),
+            "--dry-run",
+            "--output",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["store"] == store_name
 
 
 @pytest.mark.asyncio

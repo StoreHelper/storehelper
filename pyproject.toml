@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
 name = "storehelper"
-version = "0.8.0"
+version = "0.8.1"
 description = "Local-first app store publishing for developers, CI/CD, and AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -57,7 +57,33 @@ Issues = "https://github.com/StoreHelper/storehelper/issues"
 Source = "https://github.com/StoreHelper/storehelper"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/storehelper"]
+sources = ["src"]
+include = ["/src/storehelper/**/*.py"]
+
+[tool.hatch.build]
+dev-mode-dirs = ["src"]
+# Do not rely on .gitignore; dirty working trees must be safe to package too.
+exclude = [
+  "**/.*",
+  "**/__pycache__/**",
+  "**/cache/**",
+  "**/secrets/**",
+  "**/local-artifacts/**",
+  "**/local_artifacts/**",
+  "**/build/**",
+  "**/dist/**",
+  "**/*.pyc",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/.gitignore",
+  "/src/storehelper/**/*.py",
+  "/LICENSE",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

@@ -23,6 +23,7 @@ from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
 from storehelper.output.renderers import OutputFormat, render_error, render_result
+from storehelper.project import project_path, project_root
 from storehelper.publishing.service import Publisher, PublishingError
 from storehelper.runs.repository import RunRepository
 from storehelper.runtime import StoreRuntime, build_runtime, resolve_runtime
@@ -144,12 +145,16 @@ def _publisher(
 ) -> Publisher:
     return Publisher(
         adapter=runtime.adapter,
-        repository=repository or RunRepository(RUNS_ROOT),
+        repository=repository or _repository(),
         target=runtime.target,
         validator=runtime.validator,
         capabilities=runtime.capabilities,
         target_validator=runtime.target_validator,
     )
+
+
+def _repository() -> RunRepository:
+    return RunRepository(RUNS_ROOT, project_root=project_root())
 
 
 async def _publish_operation(
@@ -159,6 +164,7 @@ async def _publish_operation(
     app_alias: str | None,
     interactive: bool,
 ) -> OperationResult:
+    request = request.model_copy(update={"file": project_path(request.file, "artifact")})
     config = load_config(config_path)
     selected_alias, application = select_application(config, app_alias)
     if not request.app_alias:
@@ -195,7 +201,7 @@ async def _resume_operation(
     poll_interval: float,
     wait_timeout: float,
 ) -> OperationResult:
-    repository = RunRepository(RUNS_ROOT)
+    repository = _repository()
     receipt = repository.get(run_id)
     config = load_config(config_path)
     _, application = select_application(config, app_alias or receipt.app_alias)
@@ -460,7 +466,10 @@ def publish(
         )
     if release_notes_file is not None:
         try:
+            release_notes_file = project_path(release_notes_file, "release notes")
             release_notes = release_notes_file.read_text(encoding="utf-8").strip()
+        except StoreHelperError as error:
+            _abort(error, output_format)
         except (OSError, UnicodeError):
             _abort(
                 PublishingError(
@@ -584,7 +593,7 @@ def runs_list(output: Annotated[str, typer.Option("--output")] = "text") -> None
 
     output_format = _output(output)
     try:
-        receipts = RunRepository(RUNS_ROOT).list()
+        receipts = _repository().list()
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
@@ -611,7 +620,7 @@ def runs_show(
 
     output_format = _output(output)
     try:
-        receipt = RunRepository(RUNS_ROOT).get(run_id)
+        receipt = _repository().get(run_id)
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
@@ -635,7 +644,7 @@ def runs_delete(
     if not yes and (output_format == "json" or not typer.confirm(f"Delete local run {run_id}?")):
         raise typer.Exit(code=int(ExitCode.USAGE))
     try:
-        deleted = RunRepository(RUNS_ROOT).delete(run_id)
+        deleted = _repository().delete(run_id)
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":

@@ -3,6 +3,18 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.8.1 / MCP 0.1.0 release hardening
+
+- [x] CLI project confinement and isolated run history; path/symlink/receipt regression tests.
+- [x] MCP streaming output limits, lifecycle cleanup and isolated Python child execution.
+- [x] Distribution allowlists, dirty-source packaging tests and archive validation.
+- [x] Build-once workflows, release version guards, TestPyPI rehearsals and checksums.
+- [x] Registry manifest, ownership validator and protected manual publication workflow.
+- [ ] Maintainer setup of Trusted Publishers, environments and repository protections.
+- [ ] External publication and live vendor/client acceptance.
+
+See [RELEASE_READINESS.md](RELEASE_READINESS.md) for verification and remaining gates.
+
 ## v0.8.0 HONOR task status
 
 - [x] Task 1: Official API research, supported-scope design, and implementation plan.
