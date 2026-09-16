@@ -722,16 +722,24 @@ async def test_real_cli_operation_factory_uses_harmonyos_adapter(
     assert ("PUT", "/api/publish/v3/app-package-info") in calls
 
 
-def test_publish_help_lists_registered_store_choices() -> None:
+def test_publish_help_displays_store_option_at_narrow_terminal_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("COLUMNS", "60")
     result = runner.invoke(cli_module.app, ["publish", "--help"])
-    collapsed = "".join(result.stdout.split())
 
     assert result.exit_code == 0
-    assert "huawei" in collapsed
-    assert "harmonyos" in collapsed
-    # Rich wraps the final enum value as ``app`` / ``le`` in its fixed-width option column.
-    assert "harmonyos|app" in result.stdout
-    assert "le>" in result.stdout
+    assert "--store" in result.stdout
+    assert "[default:" in result.stdout
+
+
+@pytest.mark.parametrize("store", cli_module.StoreName)
+def test_publish_accepts_every_registered_store_name(store: cli_module.StoreName) -> None:
+    result = runner.invoke(cli_module.app, ["publish", "--store", store.value])
+
+    assert result.exit_code == 2
+    assert "Missing option '--file'" in result.output
+    assert "Invalid value for '--store'" not in result.output
 
 
 @pytest.mark.asyncio
