@@ -7,33 +7,43 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  checks:
+    uses: ./.github/workflows/quality.yml
+    with:
+      release-tag: ${{ github.ref_name }}
+
+  publish-testpypi:
+    name: Stage verified artifacts on TestPyPI
+    needs: checks
     runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/storehelper/
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: python -m pip install --upgrade build twine
-      - run: python -m build
-      - run: python -m twine check dist/*
-      - run: sha256sum dist/* > SHA256SUMS
-      - uses: actions/upload-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: python-distributions
-          path: |
-            dist/*.whl
-            dist/*.tar.gz
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+          path: bundle
+      - name: Verify checksums and stage only distributions
+        run: |
+          (cd bundle && sha256sum --check SHA256SUMS)
+          mkdir dist
+          cp bundle/*.whl bundle/*.tar.gz dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
-          name: checksums
-          path: SHA256SUMS
-          if-no-files-found: error
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true
 
   publish-pypi:
-    needs: build
+    name: Promote the same artifacts to PyPI
+    needs: publish-testpypi
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -41,27 +51,39 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: python-distributions
-          path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+          path: bundle
+      - name: Verify checksums and stage only distributions
+        run: |
+          (cd bundle && sha256sum --check SHA256SUMS)
+          mkdir dist
+          cp bundle/*.whl bundle/*.tar.gz dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          attestations: true
 
   github-release:
-    needs: build
+    name: Publish GitHub Release only after PyPI succeeds
+    needs: publish-pypi
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: python-distributions
-          path: dist
-      - uses: actions/download-artifact@v4
-        with:
-          name: checksums
-          path: dist
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
+          path: bundle
+      - name: Verify and attach the same artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          (cd bundle && sha256sum --check SHA256SUMS)
+          flags=()
+          if [[ "$RELEASE_TAG" =~ (a|b|rc)[0-9]+$|\.dev[0-9]+$ ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" --verify-tag --generate-notes "${flags[@]}" bundle/*.whl bundle/*.tar.gz bundle/SHA256SUMS

@@ -207,6 +207,7 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # StoreHelper local development
+.storehelper/
 .mypy_cache/
 .pytest_cache/
 .coverage

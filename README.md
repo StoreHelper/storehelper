@@ -2,7 +2,7 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.8.0` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.8.1` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
 App Store Connect、Google Play、小米、OPPO、vivo 或荣耀应用市场应用，并提供安全的状态查询、
 断点恢复或原子/分阶段提交保护。
@@ -38,10 +38,10 @@ App Store Connect、Google Play、小米、OPPO、vivo 或荣耀应用市场应�
 - HONOR: an existing mainland-China application, account API `client_id`/`client_secret`, and one
   signed APK with a new version code
 
-Install the isolated CLI with [pipx](https://pipx.pypa.io/):
+After publication, install the isolated CLI with [pipx](https://pipx.pypa.io/):
 
 ```bash
-pipx install storehelper
+pipx install "storehelper==0.8.1"
 storehelper version
 ```
 
@@ -56,6 +56,27 @@ storehelper --help
 
 Homebrew is planned after the first tagged PyPI release. The future formula will live in a
 separate `StoreHelper/homebrew-tap` repository.
+
+Release preparation does not mean the package is already on PyPI. Use source installation until
+publication is verified. See [release instructions](docs/RELEASING.md) and the
+[readiness checklist](docs/RELEASE_READINESS.md).
+
+## MCP and project-scoped automation
+
+[StoreHelper MCP](https://github.com/StoreHelper/storehelper-mcp) exposes this CLI to local MCP
+hosts with vendor mutations disabled by default. Release CLI 0.8.1 before MCP 0.1.0.
+Ordinary CLI commands keep per-user history. To share an MCP project's isolated history:
+
+```bash
+export STOREHELPER_PROJECT_ROOT=/absolute/path/to/release-project
+storehelper runs list --output json
+```
+
+Scoped runs live in `<project>/.storehelper/runs`, without global fallback. Config, artifacts,
+notes, Xiaomi icons and recorded artifact paths must resolve inside the root. Add `.storehelper/`
+to the release project's ignore rules. Invalid roots fail closed; unset the variable to return to
+ordinary CLI behavior. This is an automation input boundary, not an OS sandbox. Credential files
+and keyring access are trusted operator-managed inputs outside this boundary.
 
 ## Quick start
 
