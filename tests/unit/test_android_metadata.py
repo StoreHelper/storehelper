@@ -184,6 +184,16 @@ def test_aab_rejects_missing_package_and_wrong_namespace(tmp_path: Path) -> None
     _assert_metadata_error(_aab(tmp_path / "app.aab", data))
 
 
+def test_aab_rejects_hyphenated_android_package_name(tmp_path: Path) -> None:
+    data = _aab_manifest(
+        [
+            _aab_attribute("package", "com.example.my-app"),
+            _aab_attribute("versionCode", "42", ANDROID_NS),
+        ]
+    )
+    _assert_metadata_error(_aab(tmp_path / "app.aab", data))
+
+
 def test_aab_rejects_duplicate_root_attribute(tmp_path: Path) -> None:
     data = _aab_manifest(
         [

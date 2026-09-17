@@ -77,9 +77,7 @@ def test_hap_uses_root_module_json(tmp_path: Path) -> None:
     ("suffix", "entry"),
     [("app", "pack.info"), ("hap", "module.json")],
 )
-def test_sparse_legacy_metadata_is_unavailable(
-    tmp_path: Path, suffix: str, entry: str
-) -> None:
+def test_sparse_legacy_metadata_is_unavailable(tmp_path: Path, suffix: str, entry: str) -> None:
     path = _archive(tmp_path / f"release.{suffix}", [(entry, b"{}")])
     assert inspect_harmony_metadata(path) is None
 

@@ -84,62 +84,58 @@ Create a secret-free project configuration:
 
 ```bash
 storehelper init
+# Or create a one-store template for another market:
+storehelper init --store apple --config apple-storehelper.yaml
 ```
 
-Edit `storehelper.yaml`. One logical app may configure any subset of the eight stores. Android and
-Google Play use the application-level package name; HarmonyOS and Apple have their own
-package/bundle identifiers.
+`init` now creates one Huawei store entry by default. `--store` selects exactly one market;
+`--file` optionally checks that the selected APK/AAB/APP/HAP/IPA is inspectable before writing
+the template. It never copies values from a package into YAML. Add other store entries under
+the same app alias as needed. Only market-side values that cannot reliably be read from the
+artifact remain in the file. `config validate` checks YAML syntax and fields, not credentials.
 
-编辑 `storehelper.yaml`。同一个应用别名可以配置华为 Android、HarmonyOS、Apple、Google
-Play、小米、OPPO、vivo 和荣耀应用市场中的任意组合；示例中的 ID、包名和配置名都是假的。
+`storehelper init` 默认只生成华为配置；可用 `--store` 选择其他市场。包名、Bundle ID 和安装包版本号
+在发布时从安装包读取，填写在 YAML 中则作为严格一致性校验。示例中的市场 ID 均为占位值。
 
 ```yaml
 version: 1
 
 apps:
-  my-android-app:
-    package_name: com.example.app
+  my-app:
     stores:
       huawei:
         app_id: "123456789"
         credential_profile: default
-        language: zh-CN
       harmonyos:
         app_id: "987654321"
-        package_name: com.example.app.harmony
         credential_profile: default
-        language: zh-CN
       apple:
         app_id: "1234567890"
-        bundle_id: com.example.app.ios
         app_store_version_id: 11111111-2222-3333-4444-555555555555
         credential_profile: apple-release
-        platform: IOS
-        language: en-US
       google_play:
         credential_profile: google-release
         track: internal
         release_status: draft
-        language: en-US
       xiaomi:
         credential_profile: xiaomi-release
         app_name: Example App
         icon: assets/xiaomi-icon.png
         privacy_url: https://example.com/privacy
-        language: zh-CN
       oppo:
         credential_profile: oppo-release
-        version_code: 123
-        language: zh-CN
       vivo:
         credential_profile: vivo-release
-        version_code: 124
-        language: zh-CN
       honor:
         credential_profile: honor-release
-        version_code: 125
-        language: zh-CN
 ```
+
+Most projects should keep only the market entries they use. Huawei/HarmonyOS/Apple app IDs and
+Apple's existing App Store version resource ID cannot be inferred from an artifact. Google Play
+track and release status, plus Xiaomi listing assets/URL, also remain explicit. Existing YAML
+with `package_name`, `bundle_id`, or `version_code` is still accepted; mismatches fail locally
+before any credential or network operation. Opaque test packages may still use those legacy
+fields, but minimal YAML needs a readable real artifact.
 
 Both adapters use the same Huawei Service Account credential format, so they may share one
 keyring profile when the account can access both apps. Import it once and verify each target:
@@ -147,8 +143,8 @@ keyring profile when the account can access both apps. Import it once and verify
 ```bash
 storehelper credentials import --profile default --file ~/Downloads/huawei-service-account.json
 storehelper credentials list
-storehelper credentials verify --app my-android-app --store huawei
-storehelper credentials verify --app my-android-app --store harmonyos
+storehelper credentials verify --app my-app --store huawei --file build/app-release.aab
+storehelper credentials verify --app my-app --store harmonyos --file build/wallet.app
 ```
 
 Apple credentials use a separate keyring namespace. Wrap the downloaded `.p8` value in a local
@@ -167,7 +163,7 @@ JSON file (never commit it), then import and verify it:
 storehelper credentials import \
   --store apple --profile apple-release --file ~/Downloads/apple-api-key.json
 storehelper credentials list --store apple
-storehelper credentials verify --app my-android-app --store apple
+storehelper credentials verify --app my-app --store apple --file build/Wallet.ipa
 ```
 
 For an individual API key, set `key_type` to `individual` and omit `issuer_id`.
@@ -179,7 +175,7 @@ for a dedicated account that has access to the existing Play Console app:
 storehelper credentials import \
   --store google_play --profile google-release --file ~/Downloads/google-service-account.json
 storehelper credentials list --store google_play
-storehelper credentials verify --app my-android-app --store google_play
+storehelper credentials verify --app my-app --store google_play --file build/app-release.aab
 ```
 
 Xiaomi also uses an independent keyring namespace. Obtain the automatic-publishing API secret
@@ -201,7 +197,7 @@ Optional reviewer accounts belong in the same credential file under `test_accoun
 storehelper credentials import \
   --store xiaomi --profile xiaomi-release --file ~/Downloads/xiaomi-api.json
 storehelper credentials list --store xiaomi
-storehelper credentials verify --app my-android-app --store xiaomi
+storehelper credentials verify --app my-app --store xiaomi --file build/app-release.apk
 ```
 
 OPPO uses an application-specific credential pair. Create an API client for the existing app in
@@ -219,7 +215,7 @@ into the independent OPPO keyring namespace:
 storehelper credentials import \
   --store oppo --profile oppo-release --file ~/Downloads/oppo-api.json
 storehelper credentials list --store oppo
-storehelper credentials verify --app my-android-app --store oppo
+storehelper credentials verify --app my-app --store oppo --file build/app-release.apk
 ```
 
 The profile is application-specific. Do not reuse it for a different OPPO package. See the
@@ -239,7 +235,7 @@ a local JSON file outside the repository, import it, and verify the configured e
 storehelper credentials import \
   --store vivo --profile vivo-release --file ~/Downloads/vivo-api.json
 storehelper credentials list --store vivo
-storehelper credentials verify --app my-android-app --store vivo
+storehelper credentials verify --app my-app --store vivo --file build/app-release.apk
 ```
 
 Both values are secrets even though one is named `access_key`. See the
@@ -259,7 +255,7 @@ a local JSON file outside the repository, then import and verify the existing pa
 storehelper credentials import \
   --store honor --profile honor-release --file ~/Downloads/honor-api.json
 storehelper credentials list --store honor
-storehelper credentials verify --app my-android-app --store honor
+storehelper credentials verify --app my-app --store honor --file build/app-release.apk
 ```
 
 Treat both fields as secrets. See the [HONOR live checklist](docs/HONOR_MANUAL_TEST.md) before any
@@ -268,23 +264,23 @@ real upload or submission.
 Validate locally without credentials or network access:
 
 ```bash
-storehelper publish --app my-android-app --file build/app-release.aab --dry-run
-storehelper publish --app my-android-app --store harmonyos --file build/wallet.app --dry-run
-storehelper publish --app my-android-app --store apple --file build/Wallet.ipa --dry-run
-storehelper publish --app my-android-app --store google_play --file build/app-release.aab --dry-run
-storehelper publish --app my-android-app --store xiaomi --file build/app-release.apk --dry-run
-storehelper publish --app my-android-app --store oppo --file build/app-release.apk --dry-run
-storehelper publish --app my-android-app --store vivo --file build/app-release.apk --dry-run
-storehelper publish --app my-android-app --store honor --file build/app-release.apk --dry-run
+storehelper publish --app my-app --file build/app-release.aab --dry-run
+storehelper publish --app my-app --store harmonyos --file build/wallet.app --dry-run
+storehelper publish --app my-app --store apple --file build/Wallet.ipa --dry-run
+storehelper publish --app my-app --store google_play --file build/app-release.aab --dry-run
+storehelper publish --app my-app --store xiaomi --file build/app-release.apk --dry-run
+storehelper publish --app my-app --store oppo --file build/app-release.apk --dry-run
+storehelper publish --app my-app --store vivo --file build/app-release.apk --dry-run
+storehelper publish --app my-app --store honor --file build/app-release.apk --dry-run
 ```
 
 Upload and wait for package readiness without changing metadata or submitting review:
 
 ```bash
-storehelper publish --app my-android-app --file build/app-release.aab --no-submit
-storehelper publish --app my-android-app --store harmonyos --file build/wallet.hap --no-submit
-storehelper publish --app my-android-app --store apple --file build/Wallet.ipa --no-submit
-storehelper publish --app my-android-app --store google_play --file build/app-release.aab --no-submit
+storehelper publish --app my-app --file build/app-release.aab --no-submit
+storehelper publish --app my-app --store harmonyos --file build/wallet.hap --no-submit
+storehelper publish --app my-app --store apple --file build/Wallet.ipa --no-submit
+storehelper publish --app my-app --store google_play --file build/app-release.aab --no-submit
 ```
 
 Xiaomi, OPPO, vivo, and HONOR do not support `--no-submit`. Xiaomi uploads and submits in one request;
@@ -296,7 +292,7 @@ Publish end to end:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store huawei \
   --file build/app-release.aab \
   --release-notes-file RELEASE_NOTES.md
@@ -306,7 +302,7 @@ Publish a HarmonyOS APP or HAP through the same state machine:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store harmonyos \
   --file build/wallet.app \
   --release-notes "修复已知问题"
@@ -317,7 +313,7 @@ when supplied, StoreHelper updates only `whatsNew` for the configured locale:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store apple \
   --file build/Wallet.ipa \
   --release-notes-file RELEASE_NOTES.md
@@ -329,7 +325,7 @@ or make it available according to Play Console policy:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store google_play \
   --file build/app-release.aab \
   --release-notes "Improved stability"
@@ -344,7 +340,7 @@ configured icon is resolved relative to `storehelper.yaml` and uploaded with the
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store xiaomi \
   --file build/app-release.apk \
   --release-notes "修复已知问题"
@@ -354,14 +350,15 @@ Xiaomi has no sandbox, upload-only operation, or automatic review-status API. St
 uses the read-only query API to verify package ownership/update permission, then sends exactly one
 confirmed upload-and-submit request. It supports existing-app, single-APK phone updates only.
 
-Publish an existing OPPO APK update. `version_code` is configured in public YAML and must be
-greater than the current OPPO version. Release notes are required (1–500 characters). StoreHelper
+Publish an existing OPPO APK update. The APK `versionCode` must be greater than the current OPPO
+version; it is read from the APK, so YAML need not repeat it. Release notes are required
+(1–500 characters). StoreHelper
 reuses the app name, categories, descriptions, privacy URL, icon, screenshots, age/copyright, and
 business contact fields returned by OPPO; it does not silently replace missing listing data.
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store oppo \
   --file build/app-release.apk \
   --release-notes "修复已知问题"
@@ -373,12 +370,12 @@ allocates and streams one temporary upload, then performs one separately confirm
 submission. It never creates or claims an app, changes listing metadata, uploads AAB/multiple APKs,
 or schedules a release.
 
-Publish an existing vivo APK update. Configure a positive `version_code` greater than the current
-vivo version and supply release notes containing 5–200 characters:
+Publish an existing vivo APK update. The APK must contain a positive `versionCode` greater than
+the current vivo version; supply release notes containing 5–200 characters:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store vivo \
   --file build/app-release.apk \
   --release-notes "修复已知问题并提升稳定性"
@@ -390,12 +387,12 @@ streams one temporary upload, and sends one separately confirmed final update co
 package/version, upload reference, phone/immediate-online flags, and release notes. It never
 creates an app, uploads AAB/multiple APKs, changes listing metadata, or schedules publication.
 
-Publish an existing HONOR APK update. Configure a positive `version_code` greater than the
-published version and supply release notes containing 1–500 characters:
+Publish an existing HONOR APK update. The APK `versionCode` must be greater than the published
+version; supply release notes containing 1–500 characters:
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --store honor \
   --file build/app-release.apk \
   --release-notes "修复已知问题"
@@ -412,7 +409,7 @@ Interactive text mode shows a confirmation. CI and JSON mode must supply `--yes`
 
 ```bash
 storehelper publish \
-  --app my-android-app \
+  --app my-app \
   --file build/app-release.aab \
   --release-notes "Improved stability" \
   --yes --output json
@@ -426,19 +423,22 @@ A timeout exits with code `6`, preserves only durable public identifiers (`pkgVe
 safe resume command:
 
 ```bash
-storehelper resume 20260730T100000Z-a1b2c3d4 --app my-android-app
+storehelper resume 20260730T100000Z-a1b2c3d4 --app my-app
 storehelper runs list
 storehelper runs show 20260730T100000Z-a1b2c3d4 --output json
-storehelper status --app my-android-app --store harmonyos
-storehelper status --app my-android-app --store apple
-storehelper status --app my-android-app --store google_play
-storehelper status --app my-android-app --store oppo
-storehelper status --app my-android-app --store vivo
-storehelper status --app my-android-app --store honor
+storehelper status --app my-app --store harmonyos
+storehelper status --app my-app --store apple
+storehelper status --app my-app --store google_play
+storehelper status --app my-app --store oppo
+storehelper status --app my-app --store vivo
+storehelper status --app my-app --store honor
 ```
 
 `resume` derives the store from the receipt, verifies the current local artifact digest, starts
 from the earliest safe durable step, and does not re-upload a package that was already bound.
+For a first `status` or `credentials verify` using minimal YAML, pass `--file` to identify the
+application. Later, a unique matching local run can supply the identity. Conflicting runs require
+an explicit `--file`; StoreHelper never guesses the newest package.
 
 Xiaomi is deliberately different. If cancellation, process failure, or network loss occurs after
 `submission_started`, the receipt remains `submission_started` or `submission_uncertain`; it is
@@ -636,20 +636,20 @@ local SHA-256. See [the security guide](docs/SECURITY_GUIDE.md).
 - `OPPO_APPLICATION_INCOMPLETE`: complete the existing OPPO listing in the developer console;
   StoreHelper will not invent required categories, descriptions, media, privacy, copyright, or
   business contact values.
-- `OPPO_VERSION_CONFLICT` or `OPPO_VERSION_EXISTS`: set a new positive `version_code` greater than
-  the current OPPO version and confirm the signed APK uses that version.
+- `OPPO_VERSION_CONFLICT` or `OPPO_VERSION_EXISTS`: build a signed APK with a new positive
+  `versionCode` greater than the current OPPO version.
 - `OPPO_UPLOAD_HOST_UNSAFE`: stop and re-check the official OPPO service. StoreHelper accepts only
   HTTPS upload URLs under its explicit OPPO/HeyTap allowlist and never follows redirects.
 - OPPO `submission_uncertain`: query OPPO status and inspect the console before deleting the local
   receipt or authorizing another submission.
-- `VIVO_VERSION_CONFLICT`: set a positive `version_code` greater than the current vivo version and
-  confirm that the signed APK contains the same package and intended version.
+- `VIVO_VERSION_CONFLICT`: build a signed APK with a `versionCode` greater than the current vivo
+  version.
 - `VIVO_UPDATE_CONFLICT` (vendor `B0302`): vivo already has an update in progress; reconcile it in
   the vivo console before starting another publish.
 - vivo `submission_uncertain`: query vivo status and inspect the console before deleting the local
   receipt or authorizing another submission. StoreHelper never retries the final mutation.
-- `HONOR_VERSION_CONFLICT`: set `version_code` above the published/current HONOR version and verify
-  that the APK contains that exact intended version.
+- `HONOR_VERSION_CONFLICT`: build an APK whose `versionCode` exceeds the published/current HONOR
+  version.
 - `HONOR_REVIEW_CONFLICT` or `HONOR_DRAFT_CONFLICT`: finish or reconcile the existing HONOR review
   or editing draft before starting another upload.
 - `HONOR_RECEIPT_MISMATCH`: do not edit the run file. Verify the configured package/profile and
@@ -676,7 +676,7 @@ ruff check .
 mypy src
 pytest --cov=storehelper --cov-report=term-missing --cov-fail-under=90
 python -m build
-python -m twine check dist/*
+python -m twine check --strict dist/*.whl dist/*.tar.gz
 ```
 
 Architecture and implementation progress are tracked in

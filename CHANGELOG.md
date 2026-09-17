@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Generate a one-store, secret-free `storehelper init` configuration by default; select a market
+  with `--store` and optionally validate an artifact with `--file`.
+- Derive Android, HarmonyOS and Apple package identity, plus Android/HarmonyOS version codes,
+  from bounded local artifact metadata. Explicit YAML values remain supported as equality checks.
+- Accept minimal YAML for publishing while rejecting identity mismatches before credential or
+  network access. Read-only verification/status accept `--file` or a unique saved run; resume
+  binds the saved artifact SHA-256 and target identity before credentials.
+
 ## 0.8.1 — release preparation
 
 - Opt-in `STOREHELPER_PROJECT_ROOT` confines release inputs and run records to one project.

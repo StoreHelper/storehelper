@@ -14,17 +14,25 @@ import httpx
 import typer
 
 from storehelper import __version__
+from storehelper.artifacts.identity import ArtifactIdentity
+from storehelper.artifacts.inspect import inspect_artifact_identity
 from storehelper.artifacts.models import ArtifactInfo
 from storehelper.commands.config import initialize, validate
 from storehelper.commands.credentials import delete_profile, import_profile, list_profiles
-from storehelper.config.loader import load_config, resolve_store_target, select_application
+from storehelper.config.loader import (
+    ConfigError,
+    load_config,
+    resolve_store_target,
+    select_application,
+)
+from storehelper.config.models import ApplicationConfig
 from storehelper.credentials.providers import CredentialProvider, KeyringStore, SystemKeyring
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
 from storehelper.domain.models import OperationResult, PublishRequest, PublishStage
 from storehelper.output.renderers import OutputFormat, render_error, render_result
 from storehelper.project import project_path, project_root
-from storehelper.publishing.service import Publisher, PublishingError
+from storehelper.publishing.service import Publisher, PublishingError, validate_resume_target
 from storehelper.runs.repository import RunRepository
 from storehelper.runtime import StoreRuntime, build_runtime, resolve_runtime
 from storehelper.stores.models import (
@@ -53,6 +61,7 @@ app.add_typer(runs_app, name="runs")
 KEYRING: KeyringStore = SystemKeyring()
 RUNS_ROOT: Path | None = None
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)(s|m|h)?$")
+_TargetKey = tuple[str, str, int | None, str | None, str | None, str | None]
 
 
 def _output(value: str) -> OutputFormat:
@@ -157,6 +166,70 @@ def _repository() -> RunRepository:
     return RunRepository(RUNS_ROOT, project_root=project_root())
 
 
+def _validated_identity(
+    path: Path, store: StoreName
+) -> tuple[ArtifactInfo, ArtifactIdentity | None]:
+    selected = project_path(path, "artifact")
+    package = get_registration(store).validator(selected)
+    return package, inspect_artifact_identity(selected, store, package)
+
+
+def _resolve_readonly_target(
+    application: ApplicationConfig,
+    store: StoreName,
+    app_alias: str,
+    *,
+    file: Path | None = None,
+    repository: RunRepository | None = None,
+) -> StoreTarget:
+    if file is not None:
+        _, identity = _validated_identity(file, store)
+        return resolve_store_target(application, store, identity)
+    try:
+        return resolve_store_target(application, store)
+    except ConfigError as error:
+        if error.code != "CONFIG_IDENTITY_REQUIRED":
+            raise
+    matching = [
+        receipt
+        for receipt in (repository or _repository()).list()
+        if receipt.app_alias == app_alias and receipt.store is store
+    ]
+    if not matching:
+        raise ConfigError(
+            "CONFIG_IDENTITY_REQUIRED",
+            f"{store.value} has no unique saved package identity; pass --file or configure it.",
+        )
+    candidates: dict[_TargetKey, StoreTarget] = {}
+    for receipt in matching:
+        try:
+            identity = ArtifactIdentity(
+                package_name=receipt.package_name, version_code=receipt.version_code
+            )
+            target = resolve_store_target(application, store, identity)
+            validate_resume_target(receipt, target)
+        except (ValueError, StoreHelperError):
+            raise ConfigError(
+                "CONFIG_IDENTITY_AMBIGUOUS",
+                f"Saved {store.value} runs conflict with the current app; pass --file.",
+            ) from None
+        key = (
+            target.app_id,
+            target.package_name,
+            target.version_code,
+            target.release_id,
+            target.track,
+            target.release_status,
+        )
+        candidates[key] = target
+    if len(candidates) != 1:
+        raise ConfigError(
+            "CONFIG_IDENTITY_AMBIGUOUS",
+            f"Saved {store.value} runs identify different packages; pass --file.",
+        )
+    return next(iter(candidates.values()))
+
+
 async def _publish_operation(
     *,
     request: PublishRequest,
@@ -169,7 +242,8 @@ async def _publish_operation(
     selected_alias, application = select_application(config, app_alias)
     if not request.app_alias:
         request = request.model_copy(update={"app_alias": selected_alias})
-    target = resolve_store_target(application, request.store)
+    package, identity = _validated_identity(request.file, request.store)
+    target = resolve_store_target(application, request.store, identity)
     capabilities = get_registration(request.store).capabilities
     if not request.submit and not request.dry_run and not capabilities.supports_no_submit:
         raise PublishingError(
@@ -179,8 +253,8 @@ async def _publish_operation(
             ExitCode.USAGE,
         )
     if request.dry_run:
-        runtime = resolve_runtime(application, request.store, _NoNetworkAdapter())
-        return await _publisher(runtime=runtime).publish(request)
+        runtime = resolve_runtime(application, request.store, _NoNetworkAdapter(), target=target)
+        return await _publisher(runtime=runtime).publish(request, artifact=package)
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
         _credential_kind(request.store),
@@ -188,8 +262,8 @@ async def _publish_operation(
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout) as http:
-        runtime = build_runtime(application, request.store, account, http)
-        return await _publisher(runtime=runtime).publish(request)
+        runtime = build_runtime(application, request.store, account, http, target=target)
+        return await _publisher(runtime=runtime).publish(request, artifact=package)
 
 
 async def _resume_operation(
@@ -205,13 +279,33 @@ async def _resume_operation(
     receipt = repository.get(run_id)
     config = load_config(config_path)
     _, application = select_application(config, app_alias or receipt.app_alias)
-    target = resolve_store_target(application, receipt.store)
     if get_registration(receipt.store).capabilities.atomic_submission:
         raise PublishingError(
             "ATOMIC_RUN_NOT_RESUMABLE",
             "Atomic store submissions cannot be resumed safely; inspect the store console.",
             ExitCode.LOCAL_STATE,
         )
+    package, identity = _validated_identity(Path(receipt.package_path), receipt.store)
+    if package.sha256 != receipt.package_sha256:
+        raise PublishingError(
+            "PACKAGE_CHANGED",
+            "The package changed after this publishing run was created.",
+            ExitCode.PACKAGE_VALIDATION,
+        )
+    if identity is not None and (
+        identity.package_name != receipt.package_name
+        or (receipt.version_code is not None and identity.version_code != receipt.version_code)
+    ):
+        raise PublishingError(
+            "RUN_APP_MISMATCH",
+            "The saved package metadata does not match the publishing run.",
+            ExitCode.LOCAL_STATE,
+        )
+    bound_identity = identity or ArtifactIdentity(
+        package_name=receipt.package_name, version_code=receipt.version_code
+    )
+    target = resolve_store_target(application, receipt.store, bound_identity)
+    validate_resume_target(receipt, target)
     account = CredentialProvider(KEYRING).resolve(
         target.credential_profile,
         _credential_kind(receipt.store),
@@ -219,7 +313,7 @@ async def _resume_operation(
     )
     timeout = httpx.Timeout(connect=10.0, read=60.0, write=600.0, pool=10.0)
     async with httpx.AsyncClient(timeout=timeout) as http:
-        runtime = build_runtime(application, receipt.store, account, http)
+        runtime = build_runtime(application, receipt.store, account, http, target=target)
         publisher = _publisher(runtime=runtime, repository=repository)
         return await publisher.resume(
             run_id,
@@ -234,10 +328,11 @@ async def _status_operation(
     app_alias: str | None,
     store: StoreName,
     interactive: bool,
+    file: Path | None = None,
 ) -> OperationResult:
     config = load_config(config_path)
-    _, application = select_application(config, app_alias)
-    target = resolve_store_target(application, store)
+    selected_alias, application = select_application(config, app_alias)
+    target = _resolve_readonly_target(application, store, selected_alias, file=file)
     if not get_registration(store).capabilities.supports_review_status:
         raise PublishingError(
             "STORE_STATUS_UNSUPPORTED",
@@ -250,7 +345,7 @@ async def _status_operation(
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
-        runtime = build_runtime(application, store, account, http)
+        runtime = build_runtime(application, store, account, http, target=target)
         return await _publisher(runtime=runtime).status()
 
 
@@ -261,17 +356,18 @@ async def _verify_credentials_operation(
     profile: str | None,
     store: StoreName,
     interactive: bool,
+    file: Path | None = None,
 ) -> OperationResult:
     config = load_config(config_path)
-    _, application = select_application(config, app_alias)
-    target = resolve_store_target(application, store)
+    selected_alias, application = select_application(config, app_alias)
+    target = _resolve_readonly_target(application, store, selected_alias, file=file)
     account = CredentialProvider(KEYRING).resolve(
         profile or target.credential_profile,
         _credential_kind(store),
         interactive=interactive,
     )
     async with httpx.AsyncClient(timeout=30.0) as http:
-        runtime = build_runtime(application, store, account, http)
+        runtime = build_runtime(application, store, account, http, target=target)
         await runtime.adapter.verify(target=target)
     return OperationResult.success(
         store=store,
@@ -307,13 +403,15 @@ def version() -> None:
 @app.command("init")
 def init_command(
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
+    store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
+    file: Annotated[Path | None, typer.Option("--file", exists=True, dir_okay=False)] = None,
     output: Annotated[str, typer.Option("--output")] = "text",
 ) -> None:
-    """Create a secret-free example configuration."""
+    """Create a minimal, secret-free configuration for one app store."""
 
     output_format = _output(output)
     try:
-        initialize(config)
+        initialize(config, store=store, file=file)
     except StoreHelperError as error:
         _abort(error, output_format)
     if output_format == "json":
@@ -416,6 +514,7 @@ def credentials_verify(
     app_alias: Annotated[str | None, typer.Option("--app")] = None,
     profile: Annotated[str | None, typer.Option("--profile")] = None,
     store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
+    file: Annotated[Path | None, typer.Option("--file", exists=True, dir_okay=False)] = None,
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
@@ -429,6 +528,7 @@ def credentials_verify(
             profile=profile,
             store=store,
             interactive=_interactive(output_format),
+            file=file,
         ),
         output_format,
     )
@@ -570,6 +670,7 @@ def resume(
 def status(
     app_alias: Annotated[str | None, typer.Option("--app")] = None,
     store: Annotated[StoreName, typer.Option("--store")] = StoreName.HUAWEI,
+    file: Annotated[Path | None, typer.Option("--file", exists=True, dir_okay=False)] = None,
     output: Annotated[str, typer.Option("--output")] = "text",
     config: Annotated[Path, typer.Option("--config")] = Path("storehelper.yaml"),
 ) -> None:
@@ -582,6 +683,7 @@ def status(
             app_alias=app_alias,
             store=store,
             interactive=_interactive(output_format),
+            file=file,
         ),
         output_format,
     )

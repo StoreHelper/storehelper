@@ -13,7 +13,7 @@ from apkInspector.axml import get_manifest  # type: ignore[import-untyped]
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 from google.protobuf.message import DecodeError, Message
 
-from storehelper.artifacts.identity import ArtifactIdentity
+from storehelper.artifacts.identity import ANDROID_PACKAGE_NAME, ArtifactIdentity
 from storehelper.stores.huawei.package import PackageError
 
 _ANDROID_NS = "http://schemas.android.com/apk/res/android"
@@ -128,6 +128,8 @@ def _read_manifest(path: Path) -> bytes:
 def _identity(package: str | None, code: str | None, name: str | None) -> ArtifactIdentity:
     if package is None:
         raise _invalid("is missing the root package attribute")
+    if not ANDROID_PACKAGE_NAME.fullmatch(package):
+        raise _invalid("has an invalid Android package name")
     if code is None:
         raise _invalid("is missing android:versionCode")
     if not _VERSION_CODE.fullmatch(code):

@@ -141,9 +141,9 @@ def test_explicit_version_code_mismatch_is_rejected(tmp_path: Path) -> None:
 
 
 def test_explicit_config_is_legacy_fallback_when_metadata_unavailable(tmp_path: Path) -> None:
-    application = load_config(
-        _config(tmp_path, stores=HUAWEI, package="com.example.demo")
-    ).apps["demo"]
+    application = load_config(_config(tmp_path, stores=HUAWEI, package="com.example.demo")).apps[
+        "demo"
+    ]
     assert resolve_store_target(application, StoreName.HUAWEI).package_name == "com.example.demo"
 
 
@@ -152,9 +152,7 @@ def test_supplied_version_code_remains_strict(tmp_path: Path, value: object) -> 
     data = {
         "version": 1,
         "apps": {
-            "demo": {
-                "stores": {"oppo": {"credential_profile": "release", "version_code": value}}
-            }
+            "demo": {"stores": {"oppo": {"credential_profile": "release", "version_code": value}}}
         },
     }
     from pydantic import ValidationError
@@ -179,4 +177,29 @@ def test_dispatcher_reuses_validated_ipa_info(tmp_path: Path) -> None:
     )
     assert inspect_artifact_identity(package, StoreName.APPLE, artifact) == ArtifactIdentity(
         package_name="com.example.ios", version_name="1.2"
+    )
+
+
+def test_apple_hyphenated_bundle_id_can_be_derived_and_asserted(tmp_path: Path) -> None:
+    path = tmp_path / "release.ipa"
+    artifact = AppleArtifactInfo(
+        path=path,
+        kind="ipa",
+        size=10,
+        sha256="a" * 64,
+        logical_name="release.ipa",
+        bundle_id="com.example.my-app",
+        marketing_version="1.2",
+        build_version="42",
+    )
+    identity = inspect_artifact_identity(path, StoreName.APPLE, artifact)
+    application = load_config(_config(tmp_path, stores=APPLE)).apps["demo"]
+    assert resolve_store_target(application, StoreName.APPLE, identity).package_name == (
+        "com.example.my-app"
+    )
+    asserted = load_config(
+        _config(tmp_path, stores=APPLE + "        bundle_id: com.example.my-app\n")
+    ).apps["demo"]
+    assert resolve_store_target(asserted, StoreName.APPLE, identity).package_name == (
+        "com.example.my-app"
     )

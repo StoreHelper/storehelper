@@ -28,52 +28,41 @@ _SECRET_KEYS = {
     "token",
 }
 
-_EXAMPLE = """version: 1
-
-apps:
-  my-app:
-    package_name: com.example.app
-    stores:
-      huawei:
+_STORE_EXAMPLES = {
+    StoreName.HUAWEI: """      huawei:
         app_id: "123456789"
         credential_profile: default
-        language: zh-CN
-      harmonyos:
+""",
+    StoreName.HARMONYOS: """      harmonyos:
         app_id: "987654321"
-        package_name: com.example.app.harmony
         credential_profile: default
-        language: zh-CN
-      apple:
+""",
+    StoreName.APPLE: """      apple:
         app_id: "1234567890"
-        bundle_id: com.example.app.ios
         app_store_version_id: 11111111-2222-3333-4444-555555555555
         credential_profile: apple-release
-        platform: IOS
-        language: en-US
-      google_play:
+""",
+    StoreName.GOOGLE_PLAY: """      google_play:
         credential_profile: google-release
         track: internal
         release_status: draft
-        language: en-US
-      xiaomi:
+""",
+    StoreName.XIAOMI: """      xiaomi:
         credential_profile: xiaomi-release
         app_name: Example App
         icon: assets/xiaomi-icon.png
         privacy_url: https://example.com/privacy
-        language: zh-CN
-      oppo:
+""",
+    StoreName.OPPO: """      oppo:
         credential_profile: oppo-release
-        version_code: 123
-        language: zh-CN
-      vivo:
+""",
+    StoreName.VIVO: """      vivo:
         credential_profile: vivo-release
-        version_code: 124
-        language: zh-CN
-      honor:
+""",
+    StoreName.HONOR: """      honor:
         credential_profile: honor-release
-        version_code: 125
-        language: zh-CN
-"""
+""",
+}
 
 
 class ConfigError(StoreHelperError):
@@ -370,14 +359,15 @@ def resolve_store_target(
     )
 
 
-def write_example_config(path: Path) -> None:
+def write_example_config(path: Path, *, store: StoreName = StoreName.HUAWEI) -> None:
     """Create a secret-free example without overwriting user data."""
 
     if path.exists():
         raise ConfigError("CONFIG_EXISTS", f"Configuration file already exists: {path}")
+    example = f"version: 1\n\napps:\n  my-app:\n    stores:\n{_STORE_EXAMPLES[store]}"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(_EXAMPLE, encoding="utf-8")
+        path.write_text(example, encoding="utf-8")
     except OSError as error:
         raise ConfigError(
             "CONFIG_WRITE_FAILED", f"Unable to write configuration: {error}"

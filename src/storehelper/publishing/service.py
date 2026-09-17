@@ -51,6 +51,24 @@ class PublishingError(StoreHelperError):
     pass
 
 
+def validate_resume_target(receipt: RunReceipt, target: StoreTarget) -> None:
+    """Check all saved market identity and release policy before retrying a run."""
+    if (
+        receipt.store is not target.store
+        or receipt.app_id != target.app_id
+        or receipt.package_name != target.package_name
+        or (receipt.version_code is not None and receipt.version_code != target.version_code)
+        or receipt.release_id != target.release_id
+        or receipt.track != target.track
+        or receipt.release_status != target.release_status
+    ):
+        raise PublishingError(
+            "RUN_APP_MISMATCH",
+            "The selected run does not belong to the configured application.",
+            ExitCode.LOCAL_STATE,
+        )
+
+
 class Publisher:
     def __init__(
         self,
@@ -206,23 +224,7 @@ class Publisher:
                 "Atomic store submissions cannot be resumed safely; inspect the store console.",
                 ExitCode.LOCAL_STATE,
             )
-        if (
-            receipt.store is not self._target.store
-            or receipt.app_id != self._target.app_id
-            or receipt.package_name != self._target.package_name
-            or (
-                receipt.version_code is not None
-                and receipt.version_code != self._target.version_code
-            )
-            or receipt.release_id != self._target.release_id
-            or receipt.track != self._target.track
-            or receipt.release_status != self._target.release_status
-        ):
-            raise PublishingError(
-                "RUN_APP_MISMATCH",
-                "The selected run does not belong to the configured application.",
-                ExitCode.LOCAL_STATE,
-            )
+        validate_resume_target(receipt, self._target)
         if not receipt.resumable:
             raise PublishingError(
                 "RUN_NOT_RESUMABLE",

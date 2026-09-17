@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from storehelper.artifacts.identity import ArtifactIdentity
+from storehelper.artifacts.identity import ANDROID_PACKAGE_NAME, ArtifactIdentity
 from storehelper.stores.harmonyos.package import HarmonyOSPackageError
 
 _MAX_METADATA_SIZE = 1024 * 1024
@@ -58,7 +58,7 @@ def _read_metadata(path: Path) -> object | None:
 
 
 def _identity(package: object, code: object, name: object) -> ArtifactIdentity:
-    if not isinstance(package, str) or not package:
+    if not isinstance(package, str) or not ANDROID_PACKAGE_NAME.fullmatch(package):
         raise _invalid("is missing a valid bundleName")
     if type(code) is not int or code <= 0:
         raise _invalid("is missing a positive integer version code")

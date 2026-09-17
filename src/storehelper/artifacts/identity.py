@@ -6,7 +6,9 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-_PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
+ANDROID_PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
+APPLE_BUNDLE_ID = re.compile(r"^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
+_DOTTED_IDENTIFIER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)+$")
 
 
 class ArtifactIdentity(BaseModel):
@@ -21,6 +23,6 @@ class ArtifactIdentity(BaseModel):
     @field_validator("package_name")
     @classmethod
     def validate_package_name(cls, value: str) -> str:
-        if not _PACKAGE_NAME.fullmatch(value):
-            raise ValueError("must be a dotted Android package name")
+        if not _DOTTED_IDENTIFIER.fullmatch(value):
+            raise ValueError("must be a dotted package or bundle identifier")
         return value

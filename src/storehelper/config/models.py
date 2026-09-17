@@ -13,6 +13,7 @@ NonEmptyString = Annotated[str, Field(min_length=1)]
 StrictPositiveInt = Annotated[int, Field(strict=True, gt=0)]
 _APP_ALIAS = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
+_APPLE_BUNDLE_ID = re.compile(r"^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
 _GOOGLE_TRACK = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _BCP47_LANGUAGE = re.compile(r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$")
 
@@ -54,7 +55,7 @@ class AppleStoreConfig(BaseModel):
     @field_validator("bundle_id")
     @classmethod
     def validate_bundle_id(cls, value: str | None) -> str | None:
-        if value is not None and not _PACKAGE_NAME.fullmatch(value):
+        if value is not None and not _APPLE_BUNDLE_ID.fullmatch(value):
             raise ValueError("must be a dotted Apple bundle ID")
         return value
 

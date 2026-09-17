@@ -6,9 +6,9 @@ from pathlib import Path
 
 from storehelper.artifacts.android_metadata import inspect_android_metadata
 from storehelper.artifacts.harmony_metadata import inspect_harmony_metadata
-from storehelper.artifacts.identity import ArtifactIdentity
+from storehelper.artifacts.identity import APPLE_BUNDLE_ID, ArtifactIdentity
 from storehelper.artifacts.models import AppleArtifactInfo, ArtifactInfo
-from storehelper.stores.apple.package import validate_ipa
+from storehelper.stores.apple.package import ApplePackageError, validate_ipa
 from storehelper.stores.models import StoreName
 
 _ANDROID_STORES = frozenset(
@@ -35,5 +35,9 @@ def inspect_artifact_identity(
         return inspect_harmony_metadata(path)
     if store is StoreName.APPLE:
         ipa = artifact if isinstance(artifact, AppleArtifactInfo) else validate_ipa(path)
+        if not APPLE_BUNDLE_ID.fullmatch(ipa.bundle_id):
+            raise ApplePackageError(
+                "APPLE_BUNDLE_ID_INVALID", "IPA contains an invalid bundle identifier."
+            )
         return ArtifactIdentity(package_name=ipa.bundle_id, version_name=ipa.marketing_version)
     raise ValueError(f"Unsupported store for artifact inspection: {store}")

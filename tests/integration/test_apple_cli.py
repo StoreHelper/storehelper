@@ -16,6 +16,7 @@ from storehelper.credentials.providers import MemoryKeyring
 from storehelper.domain.models import OperationResult, PublishStage
 from storehelper.runs.models import RunReceipt, RunState
 from storehelper.runs.repository import RunRepository
+from storehelper.stores.apple.package import validate_ipa
 from storehelper.stores.models import CredentialKind, StoreName
 
 runner = CliRunner()
@@ -553,7 +554,7 @@ async def test_resume_derives_apple_credential_kind_from_receipt(
             app_id="app-123",
             package_name="com.example.wallet.ios",
             package_path=str(ipa),
-            package_sha256="not-used-by-fake-publisher",
+            package_sha256=validate_ipa(ipa).sha256,
             logical_name="Wallet.ipa",
             artifact_id="upload-123",
             release_id="version-456",
@@ -581,7 +582,7 @@ async def test_resume_derives_apple_credential_kind_from_receipt(
             )
 
     monkeypatch.setattr(cli_module, "CredentialProvider", RecordingProvider)
-    monkeypatch.setattr(cli_module, "build_runtime", lambda *args: object())
+    monkeypatch.setattr(cli_module, "build_runtime", lambda *args, **kwargs: object())
     monkeypatch.setattr(cli_module, "_publisher", lambda **kwargs: FakePublisher())
 
     result = await cli_module._resume_operation(

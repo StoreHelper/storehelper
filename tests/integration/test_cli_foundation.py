@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 import storehelper.cli as cli_module
+from storehelper.config.loader import load_config
 from storehelper.credentials.providers import MemoryKeyring
 
 runner = CliRunner()
@@ -52,6 +54,60 @@ def test_init_and_config_validate_json_output(tmp_path: Path) -> None:
 
     assert json.loads(initialized.stdout)["ok"] is True
     assert json.loads(validated.stdout) == {"ok": True, "valid": True}
+
+
+def test_init_selected_store_checks_artifact_without_persisting_identity(tmp_path: Path) -> None:
+    package = tmp_path / "release.app"
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr(
+            "pack.info",
+            json.dumps(
+                {
+                    "summary": {
+                        "app": {
+                            "bundleName": "com.example.harmony",
+                            "version": {"code": 42, "name": "1.2"},
+                        }
+                    }
+                }
+            ),
+        )
+        archive.writestr("entry-default.hap", b"opaque")
+    config = tmp_path / "storehelper.yaml"
+    result = runner.invoke(
+        cli_module.app,
+        ["init", "--store", "harmonyos", "--file", str(package), "--config", str(config)],
+    )
+    assert result.exit_code == 0, result.stderr
+    loaded = load_config(config).apps["my-app"]
+    assert loaded.stores.harmonyos is not None
+    assert loaded.stores.harmonyos.package_name is None
+    assert "com.example.harmony" not in config.read_text(encoding="utf-8")
+
+
+def test_init_wrong_store_artifact_is_rejected_without_creating_config(tmp_path: Path) -> None:
+    artifact = tmp_path / "release.ipa"
+    artifact.write_bytes(b"not an Android package")
+    config = tmp_path / "storehelper.yaml"
+    result = runner.invoke(
+        cli_module.app,
+        ["init", "--store", "huawei", "--file", str(artifact), "--config", str(config)],
+    )
+    assert result.exit_code != 0
+    assert not config.exists()
+
+
+def test_init_rejects_opaque_package_when_identity_is_missing(tmp_path: Path) -> None:
+    artifact = tmp_path / "release.apk"
+    with zipfile.ZipFile(artifact, "w") as archive:
+        archive.writestr("AndroidManifest.xml", b"manifest")
+    config = tmp_path / "storehelper.yaml"
+    result = runner.invoke(
+        cli_module.app,
+        ["init", "--file", str(artifact), "--config", str(config)],
+    )
+    assert result.exit_code == 2
+    assert not config.exists()
 
 
 def test_invalid_config_json_error_is_one_document(tmp_path: Path) -> None:
