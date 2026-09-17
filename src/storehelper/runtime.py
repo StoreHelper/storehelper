@@ -30,11 +30,19 @@ def resolve_runtime(
     application: ApplicationConfig,
     store: StoreName,
     adapter: StoreAdapter,
+    *,
+    target: StoreTarget | None = None,
 ) -> StoreRuntime:
+    if target is not None and target.store is not store:
+        raise StoreHelperError(
+            "STORE_TARGET_MISMATCH",
+            "The bound target does not match the selected store.",
+            ExitCode.USAGE,
+        )
     registration = get_registration(store)
     return StoreRuntime(
         adapter=adapter,
-        target=resolve_store_target(application, store),
+        target=target or resolve_store_target(application, store),
         validator=registration.validator,
         capabilities=registration.capabilities,
         target_validator=registration.target_validator,
@@ -46,6 +54,8 @@ def build_runtime(
     store: StoreName,
     account: StoreCredential,
     http: httpx.AsyncClient,
+    *,
+    target: StoreTarget | None = None,
 ) -> StoreRuntime:
     registration = get_registration(store)
     if registration.factory is None:
@@ -54,4 +64,4 @@ def build_runtime(
             f"The {registration.label} adapter is not available.",
             ExitCode.USAGE,
         )
-    return resolve_runtime(application, store, registration.factory(account, http))
+    return resolve_runtime(application, store, registration.factory(account, http), target=target)

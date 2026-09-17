@@ -173,6 +173,7 @@ def _target(
     *,
     track: str | None = None,
     release_status: str | None = None,
+    version_code: int | None = None,
 ) -> StoreTarget:
     return StoreTarget(
         store=StoreName.HUAWEI,
@@ -183,6 +184,7 @@ def _target(
         language="zh-CN",
         track=track,
         release_status=release_status,
+        version_code=version_code,
     )
 
 
@@ -216,12 +218,15 @@ def _publisher(
     supports_no_submit: bool = True,
     track: str | None = None,
     release_status: str | None = None,
+    version_code: int | None = None,
     **kwargs: object,
 ) -> Publisher:
     return Publisher(
         adapter=adapter,
         repository=repository,
-        target=_target(app_id, track=track, release_status=release_status),
+        target=_target(
+            app_id, track=track, release_status=release_status, version_code=version_code
+        ),
         validator=validate_package,
         capabilities=_capabilities(
             processing=processing,
@@ -308,6 +313,40 @@ async def test_dry_run_has_no_network_calls(tmp_path: Path) -> None:
     assert result.run_id is None
     assert adapter.calls == []
     assert publisher.repository.list() == []
+
+
+@pytest.mark.asyncio
+async def test_publish_accepts_prevalidated_same_path_artifact(tmp_path: Path) -> None:
+    package = _package(tmp_path)
+    info = validate_package(package)
+    publisher = Publisher(
+        adapter=FakeAdapter(),
+        repository=RunRepository(tmp_path / "runs"),
+        target=_target(),
+        validator=lambda _: pytest.fail("artifact was validated twice"),
+        capabilities=_capabilities(),
+    )
+    result = await publisher.publish(_request(package, dry_run=True), artifact=info)
+    assert result.ok
+
+
+@pytest.mark.asyncio
+async def test_publish_rejects_prevalidated_artifact_for_other_path(tmp_path: Path) -> None:
+    package = _package(tmp_path)
+    other = tmp_path / "other.apk"
+    other.write_bytes(package.read_bytes())
+    publisher = _publisher(adapter=FakeAdapter(), repository=RunRepository(tmp_path / "runs"))
+    with pytest.raises(StoreHelperError, match="artifact"):
+        await publisher.publish(_request(other, dry_run=True), artifact=validate_package(package))
+
+
+@pytest.mark.asyncio
+async def test_publish_persists_resolved_version_code(tmp_path: Path) -> None:
+    publisher = _publisher(
+        adapter=FakeAdapter(), repository=RunRepository(tmp_path / "runs"), version_code=42
+    )
+    result = await publisher.publish(_request(_package(tmp_path)))
+    assert publisher.repository.get(result.run_id or "").version_code == 42
 
 
 @pytest.mark.asyncio
@@ -464,6 +503,30 @@ async def test_resume_rejects_receipt_for_different_configured_app(tmp_path: Pat
         await publisher.resume(receipt.run_id)
 
     assert raised.value.code == "RUN_APP_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_resume_rejects_changed_version_code_before_network(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path / "runs")
+    receipt = repo.create(
+        store=StoreName.HUAWEI,
+        app_alias="demo",
+        app_id="123",
+        package_name="com.example.app",
+        package_path=str(_package(tmp_path)),
+        package_sha256="abc",
+        logical_name="release.apk",
+        version_code=41,
+        language="zh-CN",
+        release_notes="Fixes",
+        submit=True,
+    )
+    adapter = FakeAdapter()
+    publisher = _publisher(adapter=adapter, repository=repo, version_code=42)
+    with pytest.raises(StoreHelperError) as raised:
+        await publisher.resume(receipt.run_id)
+    assert raised.value.code == "RUN_APP_MISMATCH"
+    assert adapter.calls == []
 
 
 @pytest.mark.asyncio

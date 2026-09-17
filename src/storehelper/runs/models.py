@@ -58,6 +58,7 @@ class RunReceipt(BaseModel):
     app_alias: str = Field(min_length=1)
     app_id: str = Field(min_length=1)
     package_name: str = Field(min_length=1)
+    version_code: int | None = Field(default=None, gt=0)
     package_path: str = Field(min_length=1)
     package_sha256: str = Field(min_length=1)
     logical_name: str = Field(min_length=1)

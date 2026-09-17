@@ -57,6 +57,24 @@ def test_receipt_round_trip_and_duplicate_lookup(tmp_path: Path) -> None:
     assert mode & 0o077 == 0
 
 
+def test_receipt_round_trip_keeps_optional_artifact_version_code(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path)
+    receipt = sample_receipt().model_copy(update={"version_code": 42})
+    repo.save(receipt)
+    assert repo.get(receipt.run_id).version_code == 42
+
+
+def test_existing_v5_receipt_without_version_code_remains_readable(tmp_path: Path) -> None:
+    repo = RunRepository(tmp_path)
+    receipt = sample_receipt()
+    repo.save(receipt)
+    path = tmp_path / f"{receipt.run_id}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload.pop("version_code", None)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert repo.get(receipt.run_id).version_code is None
+
+
 @pytest.mark.parametrize(
     "field",
     [
