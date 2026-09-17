@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
+from storehelper.artifacts.identity import ArtifactIdentity
 from storehelper.config.models import ApplicationConfig, StoreHelperConfig
 from storehelper.domain.errors import StoreHelperError
 from storehelper.domain.exit_codes import ExitCode
@@ -160,9 +161,53 @@ def select_application(
     return selected_alias, config.apps[selected_alias]
 
 
+def _package_identity(
+    configured: str | None,
+    identity: ArtifactIdentity | None,
+    *,
+    store: StoreName,
+    field: str,
+) -> str:
+    derived = identity.package_name if identity is not None else None
+    if configured is not None and derived is not None and configured != derived:
+        raise ConfigError(
+            "CONFIG_ARTIFACT_MISMATCH",
+            f"{store.value} {field} does not match the selected package metadata.",
+        )
+    selected = configured or derived
+    if selected is None:
+        raise ConfigError(
+            "CONFIG_IDENTITY_REQUIRED",
+            f"{store.value} {field} is unavailable; provide --file or configure {field}.",
+        )
+    return selected
+
+
+def _version_identity(
+    configured: int | None,
+    identity: ArtifactIdentity | None,
+    *,
+    store: StoreName,
+) -> int:
+    derived = identity.version_code if identity is not None else None
+    if configured is not None and derived is not None and configured != derived:
+        raise ConfigError(
+            "CONFIG_ARTIFACT_MISMATCH",
+            f"{store.value} version_code does not match the selected package metadata.",
+        )
+    selected = configured if configured is not None else derived
+    if selected is None:
+        raise ConfigError(
+            "CONFIG_IDENTITY_REQUIRED",
+            f"{store.value} version_code is unavailable; provide --file or configure version_code.",
+        )
+    return selected
+
+
 def resolve_store_target(
     application: ApplicationConfig,
     store: StoreName,
+    identity: ArtifactIdentity | None = None,
 ) -> StoreTarget:
     """Resolve one configured store into the publisher's neutral target."""
 
@@ -177,7 +222,9 @@ def resolve_store_target(
             store=store,
             label="Huawei AppGallery (Android)",
             app_id=huawei_config.app_id,
-            package_name=application.package_name,
+            package_name=_package_identity(
+                application.package_name, identity, store=store, field="package_name"
+            ),
             credential_profile=huawei_config.credential_profile,
             language=huawei_config.language,
         )
@@ -193,7 +240,9 @@ def resolve_store_target(
             store=store,
             label="Huawei AppGallery (HarmonyOS)",
             app_id=harmony_config.app_id,
-            package_name=harmony_config.package_name,
+            package_name=_package_identity(
+                harmony_config.package_name, identity, store=store, field="package_name"
+            ),
             credential_profile=harmony_config.credential_profile,
             language=harmony_config.language,
         )
@@ -209,7 +258,9 @@ def resolve_store_target(
             store=store,
             label="Apple App Store",
             app_id=apple_config.app_id,
-            package_name=apple_config.bundle_id,
+            package_name=_package_identity(
+                apple_config.bundle_id, identity, store=store, field="bundle_id"
+            ),
             credential_profile=apple_config.credential_profile,
             language=apple_config.language,
             release_id=apple_config.app_store_version_id,
@@ -223,11 +274,14 @@ def resolve_store_target(
                 "STORE_NOT_CONFIGURED",
                 f"Store is not configured for the selected application: {store.value}",
             )
+        package_name = _package_identity(
+            application.package_name, identity, store=store, field="package_name"
+        )
         return StoreTarget(
             store=store,
             label=(f"Google Play ({google_config.track}, {google_config.release_status})"),
-            app_id=application.package_name,
-            package_name=application.package_name,
+            app_id=package_name,
+            package_name=package_name,
             credential_profile=google_config.credential_profile,
             language=google_config.language,
             track=google_config.track,
@@ -241,11 +295,14 @@ def resolve_store_target(
                 "STORE_NOT_CONFIGURED",
                 f"Store is not configured for the selected application: {store.value}",
             )
+        package_name = _package_identity(
+            application.package_name, identity, store=store, field="package_name"
+        )
         return StoreTarget(
             store=store,
             label="Xiaomi App Store",
-            app_id=application.package_name,
-            package_name=application.package_name,
+            app_id=package_name,
+            package_name=package_name,
             credential_profile=xiaomi_config.credential_profile,
             language=xiaomi_config.language,
             app_name=xiaomi_config.app_name,
@@ -260,14 +317,17 @@ def resolve_store_target(
                 "STORE_NOT_CONFIGURED",
                 f"Store is not configured for the selected application: {store.value}",
             )
+        package_name = _package_identity(
+            application.package_name, identity, store=store, field="package_name"
+        )
         return StoreTarget(
             store=store,
             label="OPPO Software Store",
-            app_id=application.package_name,
-            package_name=application.package_name,
+            app_id=package_name,
+            package_name=package_name,
             credential_profile=oppo_config.credential_profile,
             language=oppo_config.language,
-            version_code=oppo_config.version_code,
+            version_code=_version_identity(oppo_config.version_code, identity, store=store),
         )
 
     if store is StoreName.VIVO:
@@ -277,14 +337,17 @@ def resolve_store_target(
                 "STORE_NOT_CONFIGURED",
                 f"Store is not configured for the selected application: {store.value}",
             )
+        package_name = _package_identity(
+            application.package_name, identity, store=store, field="package_name"
+        )
         return StoreTarget(
             store=store,
             label="vivo App Store",
-            app_id=application.package_name,
-            package_name=application.package_name,
+            app_id=package_name,
+            package_name=package_name,
             credential_profile=vivo_config.credential_profile,
             language=vivo_config.language,
-            version_code=vivo_config.version_code,
+            version_code=_version_identity(vivo_config.version_code, identity, store=store),
         )
 
     honor_config = application.stores.honor
@@ -293,14 +356,17 @@ def resolve_store_target(
             "STORE_NOT_CONFIGURED",
             f"Store is not configured for the selected application: {store.value}",
         )
+    package_name = _package_identity(
+        application.package_name, identity, store=store, field="package_name"
+    )
     return StoreTarget(
         store=store,
         label="HONOR App Market",
-        app_id=application.package_name,
-        package_name=application.package_name,
+        app_id=package_name,
+        package_name=package_name,
         credential_profile=honor_config.credential_profile,
         language=honor_config.language,
-        version_code=honor_config.version_code,
+        version_code=_version_identity(honor_config.version_code, identity, store=store),
     )
 
 

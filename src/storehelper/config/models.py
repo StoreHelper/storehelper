@@ -29,14 +29,14 @@ class HarmonyOSStoreConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     app_id: NonEmptyString
-    package_name: NonEmptyString
+    package_name: NonEmptyString | None = None
     credential_profile: NonEmptyString
     language: NonEmptyString = "zh-CN"
 
     @field_validator("package_name")
     @classmethod
-    def validate_package_name(cls, value: str) -> str:
-        if not _PACKAGE_NAME.fullmatch(value):
+    def validate_package_name(cls, value: str | None) -> str | None:
+        if value is not None and not _PACKAGE_NAME.fullmatch(value):
             raise ValueError("must be a dotted HarmonyOS package name")
         return value
 
@@ -45,7 +45,7 @@ class AppleStoreConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     app_id: NonEmptyString
-    bundle_id: NonEmptyString
+    bundle_id: NonEmptyString | None = None
     app_store_version_id: NonEmptyString
     credential_profile: NonEmptyString
     platform: Literal["IOS"] = "IOS"
@@ -53,8 +53,8 @@ class AppleStoreConfig(BaseModel):
 
     @field_validator("bundle_id")
     @classmethod
-    def validate_bundle_id(cls, value: str) -> str:
-        if not _PACKAGE_NAME.fullmatch(value):
+    def validate_bundle_id(cls, value: str | None) -> str | None:
+        if value is not None and not _PACKAGE_NAME.fullmatch(value):
             raise ValueError("must be a dotted Apple bundle ID")
         return value
 
@@ -127,7 +127,7 @@ class OppoStoreConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     credential_profile: NonEmptyString
-    version_code: StrictPositiveInt
+    version_code: StrictPositiveInt | None = None
     language: NonEmptyString = "zh-CN"
 
     @field_validator("language")
@@ -142,7 +142,7 @@ class VivoStoreConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     credential_profile: NonEmptyString
-    version_code: StrictPositiveInt
+    version_code: StrictPositiveInt | None = None
     language: NonEmptyString = "zh-CN"
 
     @field_validator("language")
@@ -157,7 +157,7 @@ class HonorStoreConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
     credential_profile: NonEmptyString
-    version_code: StrictPositiveInt
+    version_code: StrictPositiveInt | None = None
     language: NonEmptyString = "zh-CN"
 
     @field_validator("language")
@@ -201,13 +201,13 @@ class StoreConfigs(BaseModel):
 class ApplicationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
-    package_name: NonEmptyString
+    package_name: NonEmptyString | None = None
     stores: StoreConfigs
 
     @field_validator("package_name")
     @classmethod
-    def validate_package_name(cls, value: str) -> str:
-        if not _PACKAGE_NAME.fullmatch(value):
+    def validate_package_name(cls, value: str | None) -> str | None:
+        if value is not None and not _PACKAGE_NAME.fullmatch(value):
             raise ValueError("must be a dotted Android package name")
         return value
 
