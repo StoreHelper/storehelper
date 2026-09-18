@@ -2,7 +2,7 @@
 
 Local-first app store publishing for developers, CI/CD, and AI agents.
 
-StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.8.1` 支持将 Android
+StoreHelper 是一个本地优先的应用市场发布 CLI 和 Python SDK。`v0.9.0` 支持将 Android
 APK/AAB、HarmonyOS APP/HAP 和 iOS IPA 发布到已有的华为 AppGallery Connect、Apple
 App Store Connect、Google Play、小米、OPPO、vivo 或荣耀应用市场应用，并提供安全的状态查询、
 断点恢复或原子/分阶段提交保护。
@@ -41,7 +41,7 @@ App Store Connect、Google Play、小米、OPPO、vivo 或荣耀应用市场应�
 After publication, install the isolated CLI with [pipx](https://pipx.pypa.io/):
 
 ```bash
-pipx install "storehelper==0.8.1"
+pipx install "storehelper==0.9.0"
 storehelper version
 ```
 
@@ -54,8 +54,8 @@ python -m pip install -e '.[dev]'
 storehelper --help
 ```
 
-Homebrew is planned after the first tagged PyPI release. The future formula will live in a
-separate `StoreHelper/homebrew-tap` repository.
+Homebrew is planned as a separate `StoreHelper/homebrew-tap` repository after the formula is
+tested and reviewed.
 
 Release preparation does not mean the package is already on PyPI. Use source installation until
 publication is verified. See [release instructions](docs/RELEASING.md) and the
@@ -64,7 +64,8 @@ publication is verified. See [release instructions](docs/RELEASING.md) and the
 ## MCP and project-scoped automation
 
 [StoreHelper MCP](https://github.com/StoreHelper/storehelper-mcp) exposes this CLI to local MCP
-hosts with vendor mutations disabled by default. Release CLI 0.8.1 before MCP 0.1.0.
+hosts with vendor mutations disabled by default. MCP requires a published CLI version of at least
+0.8.1.
 Ordinary CLI commands keep per-user history. To share an MCP project's isolated history:
 
 ```bash
