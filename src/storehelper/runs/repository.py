@@ -97,6 +97,7 @@ class RunRepository:
         language: str,
         release_notes: str | None,
         submit: bool,
+        version_code: int | None = None,
     ) -> RunReceipt:
         now = datetime.now(UTC)
         receipt = RunReceipt(
@@ -108,6 +109,7 @@ class RunRepository:
             app_alias=app_alias,
             app_id=app_id,
             package_name=package_name,
+            version_code=version_code,
             package_path=package_path,
             package_sha256=package_sha256,
             logical_name=logical_name,

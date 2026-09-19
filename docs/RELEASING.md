@@ -27,7 +27,7 @@ python -m ruff format --check .
 python -m ruff check .
 python -m mypy src
 python -m pytest --cov=storehelper --cov-fail-under=90
-python scripts/check_release.py --tag v0.8.1
+python scripts/check_release.py --tag v0.9.0
 python -m build
 python -m twine check --strict dist/*.whl dist/*.tar.gz
 python scripts/validate_dist.py --checksums
@@ -39,7 +39,7 @@ checking version/import location and offline CLI behavior. Do not upload `SHA256
 
 ## TestPyPI rehearsal
 
-On a reviewed temporary branch, choose a unique development version, for example `0.8.1.dev1`.
+On a reviewed temporary branch, choose a unique development version, for example `0.9.0.dev1`.
 Update `pyproject.toml`, the source fallback version, version assertions and `uv.lock`. Run the
 **TestPyPI rehearsal** workflow (`testpypi.yml`) and approve `testpypi`. Non-development versions
 are rejected so a rehearsal cannot consume the intended release version. This does not publish
@@ -50,15 +50,15 @@ PyPI. Avoid unconstrained `--extra-index-url`: the same package name can exist o
 
 ## Production release
 
-1. Review/merge the `0.8.1` candidate to `main` and wait for green CI.
-2. When authorized, create/push immutable tag `v0.8.1` for that reviewed commit.
+1. Review/merge the `0.9.0` candidate to `main` and wait for green CI.
+2. When authorized, create/push immutable tag `v0.9.0` for that reviewed commit.
 3. The workflow checks tag/version; tests Python 3.11–3.14; runs formatting, lint, typing and 90%
    coverage gates; builds once (wheel from sdist); validates archives and installed-wheel smoke.
 4. Approve TestPyPI staging, review the result, then approve PyPI promotion. Both receive identical
    checksummed artifacts, not separately rebuilt packages.
 5. Only after PyPI succeeds, GitHub Release receives the wheel, sdist and `SHA256SUMS`.
-6. Verify an independent `pipx install "storehelper==0.8.1"`, version/help/config and vendor dry-runs.
-7. Publish MCP **after** CLI 0.8.1 is installable on public PyPI.
+6. Verify an independent `pipx install "storehelper==0.9.0"`, version/help/config and vendor dry-runs.
+7. Check MCP compatibility against the published CLI before changing MCP's dependency floor.
 
 After an upload, rerun only failed downstream jobs. Never move tags or overwrite published versions;
 code fixes require a new version. Package upload success is not live vendor acceptance.

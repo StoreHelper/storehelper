@@ -8,6 +8,7 @@ from storehelper.config.loader import (
     select_application,
     write_example_config,
 )
+from storehelper.stores.models import StoreName
 
 
 def write_config(tmp_path: Path, body: str) -> Path:
@@ -117,7 +118,17 @@ def test_example_config_is_valid_and_secret_free(tmp_path: Path) -> None:
     contents = path.read_text(encoding="utf-8")
     assert "private_key" not in contents
     assert "client_secret" not in contents
-    assert config.apps["my-app"].stores.google_play.release_status == "draft"
-    assert config.apps["my-app"].stores.oppo.version_code == 123
-    assert config.apps["my-app"].stores.vivo.version_code == 124
-    assert config.apps["my-app"].stores.honor.version_code == 125
+    assert config.apps["my-app"].package_name is None
+    assert config.apps["my-app"].stores.huawei is not None
+    assert config.apps["my-app"].stores.apple is None
+    assert "package_name" not in contents
+
+
+@pytest.mark.parametrize("store", list(StoreName))
+def test_example_config_selects_exactly_one_store(tmp_path: Path, store: StoreName) -> None:
+    path = tmp_path / "storehelper.yaml"
+    write_example_config(path, store=store)
+    config = load_config(path)
+    selected = config.apps["my-app"].stores
+    assert getattr(selected, store.value) is not None
+    assert sum(getattr(selected, name.value) is not None for name in StoreName) == 1

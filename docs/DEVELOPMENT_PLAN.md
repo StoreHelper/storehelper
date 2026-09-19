@@ -3,6 +3,17 @@
 This document tracks the public implementation progress for the StoreHelper CLI.
 Checkboxes are updated only after the related implementation and verification succeed.
 
+## v0.9.0 artifact-derived release configuration
+
+- [x] Inspect Android APK/AAB, HarmonyOS APP/HAP and Apple IPA package identity locally.
+- [x] Keep market-side IDs and release policy in a minimal, secret-free YAML configuration.
+- [x] Reject configured package identities or version codes that disagree with the artifact.
+- [x] Bind saved runs to the artifact digest and resolved target before resuming.
+- [x] Cover all eight adapters with local unit and integration tests.
+- [ ] Merge the reviewed candidate to `main` after Python 3.11–3.14 CI succeeds.
+- [ ] Publish immutable `v0.9.0` through TestPyPI, PyPI and GitHub Release gates.
+- [ ] Confirm an independent `pipx` install and real-vendor acceptance separately.
+
 ## v0.8.1 / MCP 0.1.0 release hardening
 
 - [x] CLI project confinement and isolated run history; path/symlink/receipt regression tests.
@@ -10,8 +21,8 @@ Checkboxes are updated only after the related implementation and verification su
 - [x] Distribution allowlists, dirty-source packaging tests and archive validation.
 - [x] Build-once workflows, release version guards, TestPyPI rehearsals and checksums.
 - [x] Registry manifest, ownership validator and protected manual publication workflow.
-- [ ] Maintainer setup of Trusted Publishers, environments and repository protections.
-- [ ] External publication and live vendor/client acceptance.
+- [x] CLI Trusted Publishers, release environments, repository protections and public `v0.8.1`.
+- [ ] MCP publication and live vendor/client acceptance.
 
 See [RELEASE_READINESS.md](RELEASE_READINESS.md) for verification and remaining gates.
 
